@@ -51,6 +51,22 @@ elseif(UNIX)
     target_link_libraries(imgui_glfw_opengl3 PUBLIC GL)
 endif()
 
+# ── ImPlot ───────────────────────────────────────────────────────────────────
+FetchContent_Declare(implot
+    GIT_REPOSITORY https://github.com/epezent/implot.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(implot)
+
+add_library(implot_lib STATIC
+    ${implot_SOURCE_DIR}/implot.cpp
+    ${implot_SOURCE_DIR}/implot_items.cpp
+)
+
+target_include_directories(implot_lib PUBLIC ${implot_SOURCE_DIR})
+target_link_libraries(implot_lib PUBLIC imgui_glfw_opengl3)
+
 # ── Google Test ──────────────────────────────────────────────────────────────
 FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git

@@ -226,6 +226,14 @@ void MainWindow::render_menu_bar(AppState& state) {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("View")) {
+            bool chart_visible = chart_panel_.is_visible();
+            if (ImGui::MenuItem("Chart Panel", nullptr, chart_visible)) {
+                chart_panel_.set_visible(!chart_visible);
+            }
+            ImGui::EndMenu();
+        }
+
         ImGui::EndMenuBar();
     }
 
@@ -538,6 +546,9 @@ void MainWindow::render(AppState& state) {
     }
 
     ImGui::End();
+
+    // Render chart panel as a separate dockable window
+    chart_panel_.render(sheet);
 
     // Render plugin panels as dockable windows
     state.plugin_manager.render_panels();

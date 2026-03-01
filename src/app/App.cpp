@@ -14,6 +14,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <implot.h>
 
 #include <iostream>
 #include <stdexcept>
@@ -80,6 +81,8 @@ void App::init_imgui() {
 
     ImGui_ImplGlfw_InitForOpenGL(window_, true);
     ImGui_ImplOpenGL3_Init("#version 150");
+
+    ImPlot::CreateContext();
 }
 
 void App::init_builtins() {
@@ -114,6 +117,7 @@ void App::main_loop() {
 void App::shutdown() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
     glfwDestroyWindow(window_);
     glfwTerminate();

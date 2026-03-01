@@ -32,6 +32,7 @@ target_include_directories(magic_dashboard PRIVATE
 target_link_libraries(magic_dashboard PRIVATE
     plugin_arch
     imgui_glfw_opengl3
+    implot_lib
     glfw
 )
 

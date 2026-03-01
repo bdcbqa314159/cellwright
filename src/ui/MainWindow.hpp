@@ -1,6 +1,7 @@
 #pragma once
 #include "ui/SpreadsheetGrid.hpp"
 #include "ui/FormulaBar.hpp"
+#include "ui/ChartPanel.hpp"
 
 namespace magic {
 
@@ -19,6 +20,7 @@ private:
     SpreadsheetGrid grid_;
     FormulaBar formula_bar_;
     GridState grid_state_;
+    ChartPanel chart_panel_;
 };
 
 }  // namespace magic
