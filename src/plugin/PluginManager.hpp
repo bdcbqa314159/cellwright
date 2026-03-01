@@ -1,6 +1,7 @@
 #pragma once
 #include "plugin/IFunction.hpp"
 #include "plugin/IPanel.hpp"
+#include "plugin/PluginAllowlist.hpp"
 #include "formula/FunctionRegistry.hpp"
 #include <PluginLoader.hpp>
 #include <DynamicLibrary.hpp>
@@ -14,11 +15,15 @@ namespace magic {
 // Count args from a C ABI signature like "double(double, double)" → 2.
 int count_args_from_signature(const char* sig);
 
+enum class PluginKind { IFunction, IPanel, CABI, Unknown };
+
 class PluginManager {
 public:
     explicit PluginManager(FunctionRegistry& registry);
+    PluginManager(FunctionRegistry& registry, std::filesystem::path allowlist_path);
 
     bool load(const std::string& path);
+    bool trust_and_load(const std::string& path);
 
     int loaded_count() const { return static_cast<int>(loaded_.size()); }
 
@@ -34,12 +39,18 @@ public:
     // Render all loaded IPanel plugins
     void render_panels();
 
+    const PluginAllowlist& allowlist() const { return allowlist_; }
+
 private:
-    bool try_load_ifunction(const std::string& path);
-    bool try_load_ipanel(const std::string& path);
-    bool try_load_cabi(const std::string& path);
+    bool check_trust(const std::string& path);
+    static PluginKind probe_kind(plugin_arch::DynamicLibrary& lib);
+
+    bool load_ifunction(const std::string& path);
+    bool load_ipanel(const std::string& path);
+    bool load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib);
 
     FunctionRegistry& registry_;
+    PluginAllowlist allowlist_;
     std::vector<LoadedPlugin> loaded_;
 
     std::vector<std::shared_ptr<plugin_arch::PluginLoader<IFunction>>> cpp_loaders_;

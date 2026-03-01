@@ -9,6 +9,7 @@
 #include "core/DateSerial.hpp"
 #include "io/CsvIO.hpp"
 #include "io/WorkbookIO.hpp"
+#include "plugin/PluginAllowlist.hpp"
 #include <imgui.h>
 #include <cstring>
 #include <algorithm>
@@ -571,6 +572,36 @@ void MainWindow::render(AppState& state) {
     }
 
     ImGui::End();
+
+    // ── Plugin trust confirmation modal ─────────────────────────────────────
+    if (!state.pending_plugin_path.empty()) {
+        ImGui::OpenPopup("Trust Plugin?");
+    }
+    if (ImGui::BeginPopupModal("Trust Plugin?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("An untrusted plugin was dropped:");
+        ImGui::Spacing();
+        ImGui::TextWrapped("%s", state.pending_plugin_path.c_str());
+        ImGui::Spacing();
+        std::string hash = PluginAllowlist::sha256_of_file(state.pending_plugin_path);
+        ImGui::Text("SHA-256:");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.85f, 1.0f, 1.0f));
+        ImGui::TextWrapped("%s", hash.c_str());
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        if (ImGui::Button("Trust & Load", ImVec2(140, 0))) {
+            state.plugin_manager.trust_and_load(state.pending_plugin_path);
+            state.pending_plugin_path.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(140, 0))) {
+            state.pending_plugin_path.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 
     // Render chart panel as a separate dockable window
     chart_panel_.render(sheet);

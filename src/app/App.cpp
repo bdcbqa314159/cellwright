@@ -63,9 +63,13 @@ void App::init_window() {
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);  // vsync
 
-    // Install drop handler
+    // Install drop handler — trusted plugins load immediately, untrusted go to modal
     DropHandler::install(window_, [this](const std::string& path) {
-        state_.plugin_manager.load(path);
+        if (state_.plugin_manager.allowlist().is_trusted(path)) {
+            state_.plugin_manager.load(path);
+        } else {
+            state_.pending_plugin_path = path;
+        }
     });
 }
 

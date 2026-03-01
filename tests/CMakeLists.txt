@@ -5,6 +5,7 @@ file(GLOB_RECURSE LIB_SOURCES
     ${CMAKE_SOURCE_DIR}/src/builtin/*.cpp
     ${CMAKE_SOURCE_DIR}/src/io/*.cpp
     ${CMAKE_SOURCE_DIR}/src/plugin/PluginManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/plugin/PluginAllowlist.cpp
 )
 
 # Test sources

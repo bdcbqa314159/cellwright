@@ -22,6 +22,7 @@ struct AppState {
     DependencyGraph dep_graph;
     AsyncRecalcEngine async_recalc;
     std::string current_file;  // path to current .magic file (empty = untitled)
+    std::string pending_plugin_path;  // set by DropHandler when untrusted; cleared by modal
 };
 
 }  // namespace magic

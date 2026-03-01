@@ -19,42 +19,80 @@ int count_args_from_signature(const char* sig) {
     return count;
 }
 
-PluginManager::PluginManager(FunctionRegistry& registry) : registry_(registry) {}
+// ── Constructors ────────────────────────────────────────────────────────────
 
-bool PluginManager::load(const std::string& path) {
-    if (try_load_ifunction(path)) return true;
-    if (try_load_ipanel(path)) return true;
-    if (try_load_cabi(path)) return true;
-    std::cerr << "[PluginManager] Failed to load: " << path << "\n";
+PluginManager::PluginManager(FunctionRegistry& registry)
+    : registry_(registry) {}
+
+PluginManager::PluginManager(FunctionRegistry& registry, std::filesystem::path allowlist_path)
+    : registry_(registry), allowlist_(std::move(allowlist_path)) {}
+
+// ── Security gate ───────────────────────────────────────────────────────────
+
+bool PluginManager::check_trust(const std::string& path) {
+    if (allowlist_.is_trusted(path)) return true;
+
+    std::string hash = PluginAllowlist::sha256_of_file(path);
+    std::cerr << "[PluginManager] UNTRUSTED plugin blocked: " << path << "\n"
+              << "  SHA-256: " << hash << "\n"
+              << "  To trust: call trust_and_load(\"" << path << "\")\n";
     return false;
 }
 
-bool PluginManager::try_load_ipanel(const std::string& path) {
+// ── Probe ───────────────────────────────────────────────────────────────────
+
+PluginKind PluginManager::probe_kind(plugin_arch::DynamicLibrary& lib) {
+    if (lib.has("plugin_describe")) return PluginKind::CABI;
+    if (lib.has("allocator"))       return PluginKind::IFunction;  // tentative
+    return PluginKind::Unknown;
+}
+
+// ── Main load pipeline ──────────────────────────────────────────────────────
+
+bool PluginManager::load(const std::string& path) {
+    // Phase 1: security gate (0 dlopen if untrusted)
+    if (!check_trust(path)) return false;
+
+    // Phase 2: single dlopen to probe plugin kind
+    std::shared_ptr<plugin_arch::DynamicLibrary> probe;
     try {
-        auto loader = std::make_shared<plugin_arch::PluginLoader<IPanel>>(path);
-        auto instance = loader->get_instance();
-
-        LoadedPlugin lp;
-        lp.path = path;
-        lp.name = instance->name();
-        lp.is_panel = true;
-
-        panels_.push_back({instance, loader});
-        loaded_.push_back(std::move(lp));
-        std::cout << "[PluginManager] Loaded panel plugin: " << loaded_.back().name << "\n";
-        return true;
-    } catch (const std::exception&) {
+        probe = std::make_shared<plugin_arch::DynamicLibrary>(path);
+    } catch (const std::exception& e) {
+        std::cerr << "[PluginManager] Failed to open: " << path << " — " << e.what() << "\n";
         return false;
     }
-}
 
-void PluginManager::render_panels() {
-    for (auto& pi : panels_) {
-        pi.panel->render();
+    // Phase 3: dispatch based on probe
+    PluginKind kind = probe_kind(*probe);
+
+    switch (kind) {
+    case PluginKind::CABI:
+        // Reuse the probe handle directly — total: 1 dlopen
+        return load_cabi(std::move(probe));
+
+    case PluginKind::IFunction:
+        // PluginLoader<T> needs its own dlopen, so release probe first
+        probe.reset();
+        if (load_ifunction(path)) return true;
+        // Fallback: maybe it's an IPanel with an allocator symbol
+        return load_ipanel(path);
+
+    case PluginKind::IPanel:
+    case PluginKind::Unknown:
+        std::cerr << "[PluginManager] Unknown plugin type: " << path << "\n";
+        return false;
     }
+    return false;
 }
 
-bool PluginManager::try_load_ifunction(const std::string& path) {
+bool PluginManager::trust_and_load(const std::string& path) {
+    allowlist_.trust(path);
+    return load(path);
+}
+
+// ── IFunction loader ────────────────────────────────────────────────────────
+
+bool PluginManager::load_ifunction(const std::string& path) {
     try {
         auto loader = std::make_shared<plugin_arch::PluginLoader<IFunction>>(path);
         auto instance = loader->get_instance();
@@ -83,24 +121,48 @@ bool PluginManager::try_load_ifunction(const std::string& path) {
         loaded_.push_back(std::move(lp));
         std::cout << "[PluginManager] Loaded C++ plugin: " << loaded_.back().name << "\n";
         return true;
-    } catch (const std::exception& e) {
-        // Not a valid IFunction plugin, that's fine
+    } catch (const std::exception&) {
         return false;
     }
 }
 
-bool PluginManager::try_load_cabi(const std::string& path) {
+// ── IPanel loader ───────────────────────────────────────────────────────────
+
+bool PluginManager::load_ipanel(const std::string& path) {
     try {
-        auto lib = std::make_shared<plugin_arch::DynamicLibrary>(path);
+        auto loader = std::make_shared<plugin_arch::PluginLoader<IPanel>>(path);
+        auto instance = loader->get_instance();
 
-        if (!lib->has("plugin_describe")) return false;
+        LoadedPlugin lp;
+        lp.path = path;
+        lp.name = instance->name();
+        lp.is_panel = true;
 
+        panels_.push_back({instance, loader});
+        loaded_.push_back(std::move(lp));
+        std::cout << "[PluginManager] Loaded panel plugin: " << loaded_.back().name << "\n";
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+void PluginManager::render_panels() {
+    for (auto& pi : panels_) {
+        pi.panel->render();
+    }
+}
+
+// ── C ABI loader (reuses probe handle) ──────────────────────────────────────
+
+bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) {
+    try {
         auto describe_fn = lib->resolve<const plugin_arch::PluginDescriptor* (*)()>("plugin_describe");
         const auto* desc = describe_fn();
         if (!desc) return false;
 
         LoadedPlugin lp;
-        lp.path = path;
+        lp.path = lib->path();
         lp.name = desc->name;
 
         for (int i = 0; i < desc->function_count; ++i) {
@@ -147,7 +209,7 @@ bool PluginManager::try_load_cabi(const std::string& path) {
         loaded_.push_back(std::move(lp));
         std::cout << "[PluginManager] Loaded C ABI plugin: " << loaded_.back().name << "\n";
         return true;
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         return false;
     }
 }
