@@ -247,8 +247,20 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                         }
                     }
 
-                    // Track hovered cell for drag operations
-                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+                    // Track hovered cell for drag operations.
+                    // In formula mode, the active InputText sets
+                    // ActiveIdUsingAllKeyboardKeys which blocks
+                    // IsItemHovered via IsWindowContentHoverable.
+                    // Use raw rect test to bypass that.
+                    bool cell_hovered;
+                    if (state.editor.is_formula_mode()) {
+                        cell_hovered = ImGui::IsMouseHoveringRect(
+                            ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+                    } else {
+                        cell_hovered = ImGui::IsItemHovered(
+                            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+                    }
+                    if (cell_hovered) {
                         drag_hover = addr;
 
                         // Formula-mode drag start
