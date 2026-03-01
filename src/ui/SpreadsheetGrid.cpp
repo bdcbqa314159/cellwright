@@ -151,6 +151,29 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     }
     const auto& ref_colors = state.cached_ref_colors;
 
+    // Precompute selection bounds once (avoid per-cell min/max)
+    auto sel_min = state.sel_min();
+    auto sel_max = state.sel_max();
+
+    // Precompute drag highlight bounds once (avoid per-cell min/max)
+    bool has_formula_drag_highlight = state.formula_dragging && state.formula_drag_target.col >= 0;
+    int fd_c1 = 0, fd_c2 = -1, fd_r1 = 0, fd_r2 = -1;
+    if (has_formula_drag_highlight) {
+        fd_c1 = std::min(state.formula_drag_origin.col, state.formula_drag_target.col);
+        fd_c2 = std::max(state.formula_drag_origin.col, state.formula_drag_target.col);
+        fd_r1 = std::min(state.formula_drag_origin.row, state.formula_drag_target.row);
+        fd_r2 = std::max(state.formula_drag_origin.row, state.formula_drag_target.row);
+    }
+
+    bool has_fill_drag_highlight = state.drag_mode == CellDragMode::Fill && state.drag_target.col >= 0;
+    int fl_c1 = 0, fl_c2 = -1, fl_r1 = 0, fl_r2 = -1;
+    if (has_fill_drag_highlight) {
+        fl_c1 = std::min(state.drag_source.col, state.drag_target.col);
+        fl_c2 = std::max(state.drag_source.col, state.drag_target.col);
+        fl_r1 = std::min(state.drag_source.row, state.drag_target.row);
+        fl_r2 = std::max(state.drag_source.row, state.drag_target.row);
+    }
+
     ImGuiListClipper clipper;
     clipper.Begin(num_rows);
 
@@ -175,34 +198,22 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                                            ref_palette[ref_it->second]);
 
                 // Live highlight of the range being dragged in formula mode
-                if (state.formula_dragging && state.formula_drag_target.col >= 0) {
-                    int fc1 = std::min(state.formula_drag_origin.col, state.formula_drag_target.col);
-                    int fc2 = std::max(state.formula_drag_origin.col, state.formula_drag_target.col);
-                    int fr1 = std::min(state.formula_drag_origin.row, state.formula_drag_target.row);
-                    int fr2 = std::max(state.formula_drag_origin.row, state.formula_drag_target.row);
-                    if (col >= fc1 && col <= fc2 && row >= fr1 && row <= fr2)
-                        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
-                                               IM_COL32(66, 133, 244, 100));
-                }
+                if (has_formula_drag_highlight &&
+                    col >= fd_c1 && col <= fd_c2 && row >= fd_r1 && row <= fd_r2)
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                           IM_COL32(66, 133, 244, 100));
 
                 // Live highlight of the fill-drag target range
-                if (state.drag_mode == CellDragMode::Fill && state.drag_target.col >= 0) {
-                    int fc1 = std::min(state.drag_source.col, state.drag_target.col);
-                    int fc2 = std::max(state.drag_source.col, state.drag_target.col);
-                    int fr1 = std::min(state.drag_source.row, state.drag_target.row);
-                    int fr2 = std::max(state.drag_source.row, state.drag_target.row);
-                    if (col >= fc1 && col <= fc2 && row >= fr1 && row <= fr2)
-                        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
-                                               IM_COL32(52, 168, 83, 80));
-                }
+                if (has_fill_drag_highlight &&
+                    col >= fl_c1 && col <= fl_c2 && row >= fl_r1 && row <= fl_r2)
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                           IM_COL32(52, 168, 83, 80));
 
                 bool is_selected = (state.selected == addr);
                 // Highlight cells in selection range
                 if (!is_selected && state.has_range_selection) {
-                    auto smin = state.sel_min();
-                    auto smax = state.sel_max();
-                    is_selected = (col >= smin.col && col <= smax.col &&
-                                   row >= smin.row && row <= smax.row);
+                    is_selected = (col >= sel_min.col && col <= sel_max.col &&
+                                   row >= sel_min.row && row <= sel_max.row);
                 }
                 bool is_editing = state.editor.is_editing() && (state.editor.editing_cell() == addr);
 
