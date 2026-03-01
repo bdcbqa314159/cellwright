@@ -13,6 +13,10 @@ void DropHandler::install(GLFWwindow* window, LoadCallback callback) {
     glfwSetDropCallback(window, glfw_drop_callback);
 }
 
+void DropHandler::uninstall() {
+    callback_ = nullptr;
+}
+
 void DropHandler::glfw_drop_callback(GLFWwindow*, int count, const char** paths) {
     for (int i = 0; i < count; ++i) {
         std::string path = paths[i];

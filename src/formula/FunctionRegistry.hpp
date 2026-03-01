@@ -15,6 +15,7 @@ public:
     void register_function(const std::string& name, SpreadsheetFunc fn);
     bool has(const std::string& name) const;
     CellValue call(const std::string& name, const std::vector<CellValue>& args) const;
+    void clear();
 
     const std::unordered_map<std::string, SpreadsheetFunc>& all() const { return funcs_; }
 

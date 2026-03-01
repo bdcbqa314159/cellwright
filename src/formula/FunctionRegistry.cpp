@@ -25,4 +25,8 @@ CellValue FunctionRegistry::call(const std::string& name, const std::vector<Cell
     return it->second(args);
 }
 
+void FunctionRegistry::clear() {
+    funcs_.clear();
+}
+
 }  // namespace magic

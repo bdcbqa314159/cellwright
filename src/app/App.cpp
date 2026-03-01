@@ -119,6 +119,9 @@ void App::main_loop() {
 }
 
 void App::shutdown() {
+    DropHandler::uninstall();
+    state_.function_registry.clear();
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();

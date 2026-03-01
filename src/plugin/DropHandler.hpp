@@ -12,6 +12,7 @@ public:
     using LoadCallback = std::function<void(const std::string& path)>;
 
     static void install(GLFWwindow* window, LoadCallback callback);
+    static void uninstall();
     static void glfw_drop_callback(GLFWwindow* window, int count, const char** paths);
 
 private:

@@ -175,7 +175,7 @@ bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) 
             auto captured_lib = lib;
 
             registry_.register_function(sym_name,
-                [raw, nargs](const std::vector<CellValue>& args) -> CellValue {
+                [raw, nargs, captured_lib](const std::vector<CellValue>& args) -> CellValue {
                     int n = static_cast<int>(args.size());
                     if (n != nargs) return CellValue{CellError::VALUE};
                     switch (nargs) {
