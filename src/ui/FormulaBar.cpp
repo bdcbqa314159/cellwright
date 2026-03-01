@@ -37,6 +37,7 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
     if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags)) {
         committed = true;
     }
+    editing_ = !cell_editing && ImGui::IsItemActive();
 
     return committed;
 }

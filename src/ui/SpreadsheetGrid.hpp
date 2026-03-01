@@ -24,6 +24,9 @@ struct GridState {
     CellAddress formula_drag_origin{0, 0};
     bool formula_dragging = false;
 
+    // Formula bar buffer pointer (set by MainWindow each frame when formula bar is active)
+    const char* formula_bar_buf = nullptr;
+
     // Cached reference highlight map (recomputed only when formula buffer changes)
     std::string cached_ref_buffer;
     std::unordered_map<CellAddress, int> cached_ref_colors;

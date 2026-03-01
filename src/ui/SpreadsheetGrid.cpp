@@ -141,7 +141,9 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
         state.formula_dragging = false;
 
     // Build reference highlight map for formula mode (cached)
-    const char* ref_buf = state.editor.is_formula_mode() ? state.editor.buffer() : nullptr;
+    // Use cell editor buffer if editing in-cell, otherwise formula bar buffer
+    const char* ref_buf = state.editor.is_formula_mode() ? state.editor.buffer()
+                        : state.formula_bar_buf;
     std::string ref_buf_str = ref_buf ? ref_buf : "";
     if (ref_buf_str != state.cached_ref_buffer) {
         state.cached_ref_buffer = ref_buf_str;
@@ -214,7 +216,9 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                             state.sel_anchor = addr;
                             state.has_range_selection = false;
 
-                            if (ImGui::IsMouseDoubleClicked(0)) {
+                            // Single click on formula cell → enter edit mode
+                            // Double click on any cell → enter edit mode
+                            if (sheet.has_formula(addr) || ImGui::IsMouseDoubleClicked(0)) {
                                 std::string initial;
                                 if (sheet.has_formula(addr))
                                     initial = "=" + sheet.get_formula(addr);

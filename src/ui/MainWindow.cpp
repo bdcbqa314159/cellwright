@@ -534,6 +534,10 @@ void MainWindow::render(AppState& state) {
 
     ImGui::Separator();
 
+    // Pass formula bar buffer to grid for reference highlighting
+    grid_state_.formula_bar_buf = formula_bar_.is_formula_mode()
+        ? formula_bar_.buffer() : nullptr;
+
     // Spreadsheet grid
     if (grid_.render(sheet, grid_state_, state.format_map)) {
         process_cell_input(grid_state_.editor.buffer(), sheet,
