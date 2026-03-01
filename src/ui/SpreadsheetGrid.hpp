@@ -9,7 +9,20 @@ class FormatMap;
 
 struct GridState {
     CellAddress selected{0, 0};
+    // Selection range (anchor + selected define the range)
+    CellAddress sel_anchor{0, 0};
+    bool has_range_selection = false;
     CellEditor editor;
+
+    // Get the rectangular selection bounds
+    CellAddress sel_min() const {
+        if (!has_range_selection) return selected;
+        return {std::min(sel_anchor.col, selected.col), std::min(sel_anchor.row, selected.row)};
+    }
+    CellAddress sel_max() const {
+        if (!has_range_selection) return selected;
+        return {std::max(sel_anchor.col, selected.col), std::max(sel_anchor.row, selected.row)};
+    }
 };
 
 class SpreadsheetGrid {

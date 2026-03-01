@@ -19,6 +19,7 @@ public:
 
 private:
     bool editing_ = false;
+    bool focus_needed_ = false;
     CellAddress cell_;
     char buf_[1024] = {};
 };

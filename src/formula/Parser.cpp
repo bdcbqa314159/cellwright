@@ -126,6 +126,32 @@ ASTNodePtr Parser::parse_atom() {
         return make_node(StringNode{std::move(val)});
     }
 
+    // Sheet reference: Sheet2!A1 or Sheet2!A1:B10
+    if (current().type == TokenType::SHEETREF) {
+        std::string sheet_name = current().text;
+        advance();
+
+        if (current().type != TokenType::CELLREF)
+            throw std::runtime_error("Expected cell reference after '" + sheet_name + "!'");
+        std::string ref_text = current().text;
+        advance();
+        auto addr = CellAddress::from_a1(ref_text);
+        if (!addr) throw std::runtime_error("Invalid cell reference: " + ref_text);
+
+        if (current().type == TokenType::COLON) {
+            advance();
+            if (current().type != TokenType::CELLREF)
+                throw std::runtime_error("Expected cell reference after ':'");
+            std::string ref2_text = current().text;
+            advance();
+            auto addr2 = CellAddress::from_a1(ref2_text);
+            if (!addr2) throw std::runtime_error("Invalid cell reference: " + ref2_text);
+            return make_node(SheetRangeNode{sheet_name, *addr, *addr2});
+        }
+
+        return make_node(SheetRefNode{sheet_name, *addr});
+    }
+
     // Cell reference (possibly range)
     if (current().type == TokenType::CELLREF) {
         std::string ref_text = current().text;

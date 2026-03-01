@@ -45,6 +45,13 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 ImGui::PushID(row * VISIBLE_COLS + col);
 
                 bool is_selected = (state.selected == addr);
+                // Highlight cells in selection range
+                if (!is_selected && state.has_range_selection) {
+                    auto smin = state.sel_min();
+                    auto smax = state.sel_max();
+                    is_selected = (col >= smin.col && col <= smax.col &&
+                                   row >= smin.row && row <= smax.row);
+                }
                 bool is_editing = state.editor.is_editing() && (state.editor.editing_cell() == addr);
 
                 if (is_editing) {
@@ -71,6 +78,8 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                                           is_selected,
                                           ImGuiSelectableFlags_AllowDoubleClick)) {
                         state.selected = addr;
+                        state.sel_anchor = addr;
+                        state.has_range_selection = false;
 
                         if (ImGui::IsMouseDoubleClicked(0)) {
                             std::string initial;

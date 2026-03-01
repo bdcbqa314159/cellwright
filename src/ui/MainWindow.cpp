@@ -1,8 +1,10 @@
 #include "ui/MainWindow.hpp"
 #include "app/AppState.hpp"
+#include "core/Workbook.hpp"
 #include "formula/Tokenizer.hpp"
 #include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
 #include "io/CsvIO.hpp"
 #include "io/WorkbookIO.hpp"
 #include <imgui.h>
@@ -46,10 +48,11 @@ static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs) {
 
 static void recalc_dependents(Sheet& sheet, const CellAddress& addr,
                                DependencyGraph& dep_graph,
-                               const FunctionRegistry& registry) {
+                               const FunctionRegistry& registry,
+                               Workbook* workbook = nullptr) {
     std::unordered_set<CellAddress> changed = {addr};
     auto order = dep_graph.recalc_order(changed);
-    Evaluator eval(sheet, registry);
+    Evaluator eval(sheet, registry, workbook);
     for (const auto& dep_cell : order) {
         if (dep_cell == addr) continue;
         if (!sheet.has_formula(dep_cell)) continue;
@@ -86,13 +89,13 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
             collect_refs(*ast, refs);
             state.dep_graph.set_dependencies(addr, refs);
 
-            Evaluator eval(sheet, state.function_registry);
+            Evaluator eval(sheet, state.function_registry, &state.workbook);
             CellValue result = eval.evaluate(*ast);
 
             auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
             state.undo_manager.execute(std::move(cmd), sheet);
 
-            recalc_dependents(sheet, addr, state.dep_graph, state.function_registry);
+            recalc_dependents(sheet, addr, state.dep_graph, state.function_registry, &state.workbook);
         } catch (const std::exception&) {
             auto cmd = std::make_unique<SetFormulaCommand>(
                 addr, formula, CellValue{CellError::VALUE}, old_val, old_formula);
@@ -109,7 +112,7 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
         }
         auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
         state.undo_manager.execute(std::move(cmd), sheet);
-        recalc_dependents(sheet, addr, state.dep_graph, state.function_registry);
+        recalc_dependents(sheet, addr, state.dep_graph, state.function_registry, &state.workbook);
     }
 }
 
@@ -303,23 +306,63 @@ void MainWindow::handle_keyboard(AppState& state) {
         s_show_open = true;
     }
 
-    // Arrow key navigation (when not editing)
+    // When not editing a cell
     if (!grid_state_.editor.is_editing()) {
-        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && grid_state_.selected.row > 0)
-            grid_state_.selected.row--;
-        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
-            grid_state_.selected.row++;
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow) && grid_state_.selected.col > 0)
-            grid_state_.selected.col--;
-        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
+        bool shift = io.KeyShift;
+
+        // Arrow key navigation (Shift extends selection)
+        auto move = [&](int dc, int dr) {
+            if (!shift) {
+                grid_state_.has_range_selection = false;
+                grid_state_.sel_anchor = grid_state_.selected;
+            } else if (!grid_state_.has_range_selection) {
+                grid_state_.has_range_selection = true;
+                grid_state_.sel_anchor = grid_state_.selected;
+            }
+            grid_state_.selected.col = std::max(0, grid_state_.selected.col + dc);
+            grid_state_.selected.row = std::max(0, grid_state_.selected.row + dr);
+        };
+
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))    move(0, -1);
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))   move(0, 1);
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))   move(-1, 0);
+        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))  move(1, 0);
+        if (ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+            grid_state_.has_range_selection = false;
             grid_state_.selected.col++;
-        if (ImGui::IsKeyPressed(ImGuiKey_Tab))
-            grid_state_.selected.col++;
-        if (ImGui::IsKeyPressed(ImGuiKey_Enter))
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            grid_state_.has_range_selection = false;
             grid_state_.selected.row++;
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
             auto& sheet = state.workbook.active_sheet();
             process_cell_input("", sheet, grid_state_.selected, state);
+        }
+
+        // F2 to edit current cell
+        if (ImGui::IsKeyPressed(ImGuiKey_F2)) {
+            auto& sheet = state.workbook.active_sheet();
+            std::string initial;
+            if (sheet.has_formula(grid_state_.selected))
+                initial = "=" + sheet.get_formula(grid_state_.selected);
+            else
+                initial = to_display_string(sheet.get_value(grid_state_.selected));
+            grid_state_.editor.begin_edit(grid_state_.selected, initial);
+        }
+
+        // Start typing on selected cell → begin editing with that character
+        if (!ctrl && !io.KeyAlt) {
+            ImGuiIO& input_io = ImGui::GetIO();
+            if (input_io.InputQueueCharacters.Size > 0) {
+                char ch = static_cast<char>(input_io.InputQueueCharacters[0]);
+                if (ch >= 32 && ch < 127) {
+                    std::string initial(1, ch);
+                    grid_state_.editor.begin_edit(grid_state_.selected, initial);
+                    // Clear the character queue so it doesn't double-input
+                    input_io.InputQueueCharacters.clear();
+                }
+            }
         }
     }
 }
@@ -342,6 +385,12 @@ void MainWindow::render(AppState& state) {
 
     render_menu_bar(state);
     handle_keyboard(state);
+
+    // Apply any async recalc results
+    auto async_results = state.async_recalc.poll_results();
+    for (const auto& r : async_results) {
+        state.workbook.active_sheet().set_value(r.addr, r.value);
+    }
 
     Sheet& sheet = state.workbook.active_sheet();
 
@@ -387,11 +436,37 @@ void MainWindow::render(AppState& state) {
         case FormatType::SCIENTIFIC: fmt_name = "Sci"; break;
         default: break;
     }
-    ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d",
-                grid_state_.selected.to_a1().c_str(),
-                fmt_name,
-                state.workbook.sheet_count(),
-                sheet.row_count());
+
+    // Selection stats (SUM, AVG, COUNT) when range selected
+    if (grid_state_.has_range_selection) {
+        auto smin = grid_state_.sel_min();
+        auto smax = grid_state_.sel_max();
+        double sum = 0.0;
+        int count = 0;
+        for (int32_t c = smin.col; c <= smax.col; ++c) {
+            for (int32_t r = smin.row; r <= smax.row; ++r) {
+                auto v = sheet.get_value({c, r});
+                if (is_number(v)) {
+                    sum += as_number(v);
+                    ++count;
+                }
+            }
+        }
+        if (count > 0) {
+            ImGui::Text("Cell: %s:%s  |  SUM: %.4g  AVG: %.4g  COUNT: %d  |  Format: %s",
+                        smin.to_a1().c_str(), smax.to_a1().c_str(),
+                        sum, sum / count, count, fmt_name);
+        } else {
+            ImGui::Text("Cell: %s:%s  |  COUNT: 0  |  Format: %s",
+                        smin.to_a1().c_str(), smax.to_a1().c_str(), fmt_name);
+        }
+    } else {
+        ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d",
+                    grid_state_.selected.to_a1().c_str(),
+                    fmt_name,
+                    state.workbook.sheet_count(),
+                    sheet.row_count());
+    }
 
     ImGui::End();
 

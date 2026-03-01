@@ -49,6 +49,13 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
             while (i < n && (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '_')) ++i;
             std::string text = formula.substr(start, i - start);
 
+            // Check if it's a sheet reference (identifier followed by '!')
+            if (i < n && formula[i] == '!') {
+                tokens.push_back({TokenType::SHEETREF, text});
+                ++i;  // consume '!'
+                continue;
+            }
+
             // Check if it's a function call (followed by '(')
             size_t j = i;
             while (j < n && std::isspace(static_cast<unsigned char>(formula[j]))) ++j;

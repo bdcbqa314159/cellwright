@@ -12,6 +12,8 @@ struct StringNode   { std::string value; };
 struct BoolNode     { bool value; };
 struct CellRefNode  { CellAddress addr; };
 struct RangeNode    { CellAddress from; CellAddress to; };
+struct SheetRefNode { std::string sheet_name; CellAddress addr; };
+struct SheetRangeNode { std::string sheet_name; CellAddress from; CellAddress to; };
 
 struct ASTNode;
 using ASTNodePtr = std::unique_ptr<ASTNode>;
@@ -26,7 +28,7 @@ struct CompareNode  { std::string op; ASTNodePtr left; ASTNodePtr right; };
 struct ASTNode {
     using Value = std::variant<
         NumberNode, StringNode, BoolNode,
-        CellRefNode, RangeNode,
+        CellRefNode, RangeNode, SheetRefNode, SheetRangeNode,
         UnaryOpNode, BinOpNode, FuncCallNode, CompareNode
     >;
     Value value;

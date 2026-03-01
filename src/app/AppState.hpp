@@ -5,6 +5,7 @@
 #include "core/CellFormat.hpp"
 #include "formula/FunctionRegistry.hpp"
 #include "formula/DependencyGraph.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
 #include "plugin/PluginManager.hpp"
 #include "ui/MainWindow.hpp"
 
@@ -19,6 +20,7 @@ struct AppState {
     Clipboard clipboard;
     FormatMap format_map;
     DependencyGraph dep_graph;
+    AsyncRecalcEngine async_recalc;
     std::string current_file;  // path to current .magic file (empty = untitled)
 };
 

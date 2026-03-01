@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "core/Sheet.hpp"
+#include "core/Workbook.hpp"
 #include "formula/Tokenizer.hpp"
 #include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
@@ -24,6 +25,27 @@ protected:
     }
 
     Sheet sheet{"Test"};
+    FunctionRegistry registry;
+};
+
+// ── Multi-sheet reference tests ─────────────────────────────────────────────
+
+class MultiSheetEvalTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        register_math_functions(registry);
+        // Workbook starts with "Sheet1"; add "Sheet2"
+        workbook.add_sheet("Sheet2");
+    }
+
+    CellValue evaluate_on_sheet(int sheet_idx, const std::string& formula) {
+        auto tokens = Tokenizer::tokenize(formula);
+        auto ast = Parser::parse(tokens);
+        Evaluator eval(workbook.sheet(sheet_idx), registry, &workbook);
+        return eval.evaluate(*ast);
+    }
+
+    Workbook workbook;
     FunctionRegistry registry;
 };
 
@@ -103,4 +125,37 @@ TEST_F(EvaluatorTest, UnaryMinus) {
     auto result = evaluate("-A1");
     ASSERT_TRUE(is_number(result));
     EXPECT_DOUBLE_EQ(as_number(result), -5.0);
+}
+
+// ── Multi-sheet tests ───────────────────────────────────────────────────────
+
+TEST_F(MultiSheetEvalTest, SheetRefSingleCell) {
+    // Put 42 in Sheet2!A1 and reference it from Sheet1
+    workbook.sheet(1).set_value({0, 0}, CellValue{42.0});
+    auto result = evaluate_on_sheet(0, "Sheet2!A1");
+    ASSERT_TRUE(is_number(result));
+    EXPECT_DOUBLE_EQ(as_number(result), 42.0);
+}
+
+TEST_F(MultiSheetEvalTest, SheetRefInExpression) {
+    workbook.sheet(0).set_value({0, 0}, CellValue{10.0});  // Sheet1!A1
+    workbook.sheet(1).set_value({0, 0}, CellValue{20.0});  // Sheet2!A1
+    auto result = evaluate_on_sheet(0, "A1 + Sheet2!A1");
+    ASSERT_TRUE(is_number(result));
+    EXPECT_DOUBLE_EQ(as_number(result), 30.0);
+}
+
+TEST_F(MultiSheetEvalTest, SheetRangeSum) {
+    // Fill Sheet2 A1:A5 with 1..5
+    for (int i = 0; i < 5; ++i)
+        workbook.sheet(1).set_value({0, i}, CellValue{static_cast<double>(i + 1)});
+    auto result = evaluate_on_sheet(0, "SUM(Sheet2!A1:A5)");
+    ASSERT_TRUE(is_number(result));
+    EXPECT_DOUBLE_EQ(as_number(result), 15.0);
+}
+
+TEST_F(MultiSheetEvalTest, BadSheetNameGivesRefError) {
+    auto result = evaluate_on_sheet(0, "NoSuchSheet!A1");
+    ASSERT_TRUE(is_error(result));
+    EXPECT_EQ(std::get<CellError>(result), CellError::REF);
 }
