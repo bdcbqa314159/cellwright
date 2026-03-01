@@ -5,7 +5,7 @@
 
 namespace magic {
 
-bool FormulaBar::render(Sheet& sheet, const CellAddress& selected) {
+bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_editing) {
     bool committed = false;
 
     std::string cell_label = selected.to_a1();
@@ -14,25 +14,27 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected) {
                      ImGuiInputTextFlags_ReadOnly);
     ImGui::SameLine();
 
-    // Show formula if exists, otherwise show value
-    static char buf[1024] = {};
-    static CellAddress last_selected{-1, -1};
-
-    if (!(selected == last_selected)) {
-        last_selected = selected;
+    // Refresh buffer when selection changes (and not currently editing in cell)
+    if (!(selected == last_selected_) && !cell_editing) {
+        last_selected_ = selected;
         std::string content;
         if (sheet.has_formula(selected)) {
             content = "=" + sheet.get_formula(selected);
         } else {
             content = to_display_string(sheet.get_value(selected));
         }
-        std::strncpy(buf, content.c_str(), sizeof(buf) - 1);
-        buf[sizeof(buf) - 1] = '\0';
+        std::strncpy(buf_, content.c_str(), sizeof(buf_) - 1);
+        buf_[sizeof(buf_) - 1] = '\0';
     }
 
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::InputText("##formula", buf, sizeof(buf),
-                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+
+    // Read-only when cell editor is active to prevent focus stealing
+    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
+    if (cell_editing)
+        flags |= ImGuiInputTextFlags_ReadOnly;
+
+    if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags)) {
         committed = true;
     }
 

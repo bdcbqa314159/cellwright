@@ -45,8 +45,7 @@ TEST(Column, Clear) {
     Column col;
     col.set(0, CellValue{42.0});
     col.clear(0);
-    // After clear, doubles_[0] is 0.0, no override
+    // After clear, cell should be empty
     auto v = col.get(0);
-    ASSERT_TRUE(is_number(v));
-    EXPECT_DOUBLE_EQ(as_number(v), 0.0);
+    ASSERT_TRUE(is_empty(v));
 }

@@ -14,6 +14,10 @@ struct GridState {
     bool has_range_selection = false;
     CellEditor editor;
 
+    // Formula-mode drag state (for click-drag range insertion)
+    CellAddress formula_drag_origin{0, 0};
+    bool formula_dragging = false;
+
     // Get the rectangular selection bounds
     CellAddress sel_min() const {
         if (!has_range_selection) return selected;

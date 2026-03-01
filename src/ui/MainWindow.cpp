@@ -75,7 +75,8 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
     if (input.empty()) {
         auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
         state.undo_manager.execute(std::move(cmd), sheet);
-        state.dep_graph.remove(addr);
+        state.dep_graph.set_dependencies(addr, {});
+        recalc_dependents(sheet, addr, state.dep_graph, state.function_registry, &state.workbook);
         return;
     }
 
@@ -102,7 +103,7 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
             state.undo_manager.execute(std::move(cmd), sheet);
         }
     } else {
-        state.dep_graph.remove(addr);
+        state.dep_graph.set_dependencies(addr, {});
         CellValue new_val;
         try {
             double d = std::stod(input);
@@ -351,16 +352,16 @@ void MainWindow::handle_keyboard(AppState& state) {
             grid_state_.editor.begin_edit(grid_state_.selected, initial);
         }
 
-        // Start typing on selected cell → begin editing with that character
+        // Start typing on selected cell → begin editing
+        // Seed buffer with first char (InputText won't process queue on activation frame)
         if (!ctrl && !io.KeyAlt) {
             ImGuiIO& input_io = ImGui::GetIO();
             if (input_io.InputQueueCharacters.Size > 0) {
                 char ch = static_cast<char>(input_io.InputQueueCharacters[0]);
                 if (ch >= 32 && ch < 127) {
-                    std::string initial(1, ch);
-                    grid_state_.editor.begin_edit(grid_state_.selected, initial);
-                    // Clear the character queue so it doesn't double-input
-                    input_io.InputQueueCharacters.clear();
+                    std::string seed(1, ch);
+                    input_io.InputQueueCharacters.erase(input_io.InputQueueCharacters.Data);
+                    grid_state_.editor.begin_edit(grid_state_.selected, seed, false);
                 }
             }
         }
@@ -395,8 +396,9 @@ void MainWindow::render(AppState& state) {
     Sheet& sheet = state.workbook.active_sheet();
 
     // Formula bar
-    if (formula_bar_.render(sheet, grid_state_.selected)) {
-        // Committed from formula bar — handled via buffer
+    bool cell_editing = grid_state_.editor.is_editing();
+    if (formula_bar_.render(sheet, grid_state_.selected, cell_editing)) {
+        process_cell_input(formula_bar_.buffer(), sheet, grid_state_.selected, state);
     }
 
     ImGui::Separator();
