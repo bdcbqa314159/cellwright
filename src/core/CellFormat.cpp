@@ -1,8 +1,7 @@
 #include "core/CellFormat.hpp"
 #include "core/DateSerial.hpp"
 #include <cmath>
-#include <iomanip>
-#include <sstream>
+#include <cstdio>
 
 namespace magic {
 
@@ -21,28 +20,28 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
             return to_display_string(val);
 
         case FormatType::NUMBER: {
-            std::ostringstream oss;
-            oss << std::fixed << std::setprecision(fmt.decimals) << d;
-            return oss.str();
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%.*f", fmt.decimals, d);
+            return buf;
         }
 
         case FormatType::PERCENTAGE: {
-            std::ostringstream oss;
-            oss << std::fixed << std::setprecision(fmt.decimals) << (d * 100.0) << "%";
-            return oss.str();
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%.*f%%", fmt.decimals, d * 100.0);
+            return buf;
         }
 
         case FormatType::CURRENCY: {
-            std::ostringstream oss;
-            oss << fmt.currency_symbol << std::fixed << std::setprecision(fmt.decimals) << std::abs(d);
-            if (d < 0) return "-" + oss.str();
-            return oss.str();
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%s%.*f", fmt.currency_symbol.c_str(), fmt.decimals, std::abs(d));
+            if (d < 0) return std::string("-") + buf;
+            return buf;
         }
 
         case FormatType::SCIENTIFIC: {
-            std::ostringstream oss;
-            oss << std::scientific << std::setprecision(fmt.decimals) << d;
-            return oss.str();
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%.*e", fmt.decimals, d);
+            return buf;
         }
 
         case FormatType::DATE: {

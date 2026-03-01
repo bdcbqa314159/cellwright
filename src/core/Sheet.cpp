@@ -17,6 +17,7 @@ void Sheet::set_value(const CellAddress& addr, const CellValue& val) {
     while (addr.col >= col_count()) columns_.emplace_back();
     columns_[addr.col].set(addr.row, val);
     if (addr.row >= row_count_) row_count_ = addr.row + 1;
+    ++value_generation_;
 }
 
 bool Sheet::has_formula(const CellAddress& addr) const {

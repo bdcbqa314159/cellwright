@@ -2,6 +2,7 @@
 #include "core/CellAddress.hpp"
 #include "core/CellValue.hpp"
 #include "core/Column.hpp"
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -36,12 +37,15 @@ public:
     Column& column(int32_t col);
     const Column& column(int32_t col) const;
 
+    uint64_t value_generation() const { return value_generation_; }
+
 private:
     std::string name_;
     int32_t row_count_;
     std::vector<Column> columns_;
     std::unordered_map<CellAddress, std::string> formulas_;
     std::unordered_set<CellAddress> dirty_;
+    uint64_t value_generation_ = 0;
     static const std::string empty_formula_;
 };
 

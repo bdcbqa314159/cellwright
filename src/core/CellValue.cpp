@@ -1,6 +1,6 @@
 #include "core/CellValue.hpp"
 #include <cmath>
-#include <sstream>
+#include <cstdio>
 
 namespace magic {
 
@@ -10,9 +10,9 @@ std::string to_display_string(const CellValue& v) {
         double d = as_number(v);
         if (d == static_cast<int64_t>(d))
             return std::to_string(static_cast<int64_t>(d));
-        std::ostringstream oss;
-        oss << d;
-        return oss.str();
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%g", d);
+        return buf;
     }
     if (is_string(v)) return as_string(v);
     if (is_bool(v)) return std::get<bool>(v) ? "true" : "false";

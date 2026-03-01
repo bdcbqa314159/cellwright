@@ -2,6 +2,7 @@
 #include "ui/SpreadsheetGrid.hpp"
 #include "ui/FormulaBar.hpp"
 #include "ui/ChartPanel.hpp"
+#include <cstdint>
 
 namespace magic {
 
@@ -21,6 +22,14 @@ private:
     FormulaBar formula_bar_;
     GridState grid_state_;
     ChartPanel chart_panel_;
+
+    // Cached selection stats (recomputed only when selection or data changes)
+    CellAddress cached_sel_min_{-1, -1};
+    CellAddress cached_sel_max_{-1, -1};
+    uint64_t cached_sel_gen_ = 0;
+    double cached_sum_ = 0;
+    int cached_count_ = 0;
+    bool cached_has_range_ = false;
 };
 
 }  // namespace magic

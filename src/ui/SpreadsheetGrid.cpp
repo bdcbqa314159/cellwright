@@ -140,13 +140,19 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     if (state.formula_dragging && !state.editor.is_formula_mode())
         state.formula_dragging = false;
 
-    // Build reference highlight map for formula mode
-    auto ref_colors = build_ref_colors(
-        state.editor.is_formula_mode() ? state.editor.buffer() : nullptr);
+    // Build reference highlight map for formula mode (cached)
+    const char* ref_buf = state.editor.is_formula_mode() ? state.editor.buffer() : nullptr;
+    std::string ref_buf_str = ref_buf ? ref_buf : "";
+    if (ref_buf_str != state.cached_ref_buffer) {
+        state.cached_ref_buffer = ref_buf_str;
+        state.cached_ref_colors = build_ref_colors(ref_buf);
+    }
+    const auto& ref_colors = state.cached_ref_colors;
 
     ImGuiListClipper clipper;
     clipper.Begin(num_rows);
 
+    std::string display;
     while (clipper.Step()) {
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
             ImGui::TableNextRow();
@@ -184,7 +190,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 } else {
                     CellValue val = sheet.get_value(addr);
                     CellFormat fmt = formats.get(addr);
-                    std::string display = format_value(val, fmt);
+                    display = format_value(val, fmt);
 
                     // Capture cell top-left before any cursor adjustments
                     ImVec2 cell_min = ImGui::GetCursorScreenPos();

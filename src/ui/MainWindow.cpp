@@ -140,6 +140,91 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
     }
 }
 
+// Like process_cell_input but without recalc_dependents calls (for batch use).
+static void set_cell_no_recalc(const char* buf, Sheet& sheet, const CellAddress& addr,
+                                AppState& state) {
+    std::string input(buf);
+    CellValue old_val = sheet.get_value(addr);
+    std::string old_formula = sheet.get_formula(addr);
+
+    if (input.empty()) {
+        auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
+        state.undo_manager.execute(std::move(cmd), sheet);
+        state.dep_graph.set_dependencies(addr, {});
+        return;
+    }
+
+    if (input[0] == '=') {
+        std::string formula = input.substr(1);
+        try {
+            auto tokens = Tokenizer::tokenize(formula);
+            auto ast = Parser::parse(tokens);
+
+            std::vector<CellAddress> refs;
+            collect_refs(*ast, refs);
+            state.dep_graph.set_dependencies(addr, refs);
+
+            Evaluator eval(sheet, state.function_registry, &state.workbook);
+            CellValue result = eval.evaluate(*ast);
+
+            auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
+            state.undo_manager.execute(std::move(cmd), sheet);
+        } catch (const std::exception&) {
+            auto cmd = std::make_unique<SetFormulaCommand>(
+                addr, formula, CellValue{CellError::VALUE}, old_val, old_formula);
+            state.undo_manager.execute(std::move(cmd), sheet);
+        }
+    } else {
+        state.dep_graph.set_dependencies(addr, {});
+        CellValue new_val;
+
+        auto date_result = parse_date(input);
+        if (date_result) {
+            new_val = CellValue{date_result->serial};
+            CellFormat cur = state.format_map.get(addr);
+            if (cur.type == FormatType::GENERAL) {
+                CellFormat date_fmt;
+                date_fmt.type = FormatType::DATE;
+                date_fmt.date_input_hint = date_result->input_hint;
+                state.format_map.set(addr, date_fmt);
+            }
+        } else {
+            try {
+                size_t pos = 0;
+                double d = std::stod(input, &pos);
+                if (pos == input.size())
+                    new_val = CellValue{d};
+                else
+                    new_val = CellValue{input};
+            } catch (...) {
+                new_val = CellValue{input};
+            }
+        }
+
+        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
+        state.undo_manager.execute(std::move(cmd), sheet);
+    }
+}
+
+// Batch recalc: given a set of changed cells, do one topological sort and
+// re-evaluate all dependents that have formulas.
+static void batch_recalc(Sheet& sheet, const std::unordered_set<CellAddress>& changed,
+                          DependencyGraph& dep_graph, const FunctionRegistry& registry,
+                          Workbook* workbook = nullptr) {
+    auto order = dep_graph.recalc_order(changed);
+    Evaluator eval(sheet, registry, workbook);
+    for (const auto& cell : order) {
+        if (!sheet.has_formula(cell)) continue;
+        try {
+            auto tokens = Tokenizer::tokenize(sheet.get_formula(cell));
+            auto ast = Parser::parse(tokens);
+            sheet.set_value(cell, eval.evaluate(*ast));
+        } catch (...) {
+            sheet.set_value(cell, CellValue{CellError::VALUE});
+        }
+    }
+}
+
 // ── File dialog helpers (simple path input via ImGui popup) ──────────────────
 
 static char s_file_path_buf[512] = {};
@@ -482,7 +567,7 @@ void MainWindow::render(AppState& state) {
             grid_state_.sel_anchor = tgt;
             grid_state_.has_range_selection = false;
         } else if (grid_state_.drag_mode == CellDragMode::Fill && !(src == tgt)) {
-            // Fill: 2D rectangular fill from source to target
+            // Fill: 2D rectangular fill from source to target (batch recalc)
             CellValue src_val = sheet.get_value(src);
             std::string src_formula = sheet.get_formula(src);
 
@@ -491,6 +576,8 @@ void MainWindow::render(AppState& state) {
             int32_t r1 = std::min(src.row, tgt.row);
             int32_t r2 = std::max(src.row, tgt.row);
 
+            // Phase 1: set all cells without recalc
+            std::unordered_set<CellAddress> changed_cells;
             for (int32_t c = c1; c <= c2; ++c) {
                 for (int32_t r = r1; r <= r2; ++r) {
                     if (c == src.col && r == src.row) continue;
@@ -498,13 +585,17 @@ void MainWindow::render(AppState& state) {
                     if (!src_formula.empty()) {
                         std::string adjusted = Clipboard::adjust_references(
                             src_formula, c - src.col, r - src.row);
-                        process_cell_input(("=" + adjusted).c_str(), sheet, fill_addr, state);
+                        set_cell_no_recalc(("=" + adjusted).c_str(), sheet, fill_addr, state);
                     } else {
                         std::string display = to_display_string(src_val);
-                        process_cell_input(display.c_str(), sheet, fill_addr, state);
+                        set_cell_no_recalc(display.c_str(), sheet, fill_addr, state);
                     }
+                    changed_cells.insert(fill_addr);
                 }
             }
+
+            // Phase 2: one batch recalc for all changed cells
+            batch_recalc(sheet, changed_cells, state.dep_graph, state.function_registry, &state.workbook);
         }
         grid_state_.drag_mode = CellDragMode::None;
     }
@@ -540,30 +631,38 @@ void MainWindow::render(AppState& state) {
         default: break;
     }
 
-    // Selection stats (SUM, AVG, COUNT) when range selected
+    // Selection stats (SUM, AVG, COUNT) when range selected (cached)
     if (grid_state_.has_range_selection) {
         auto smin = grid_state_.sel_min();
         auto smax = grid_state_.sel_max();
-        double sum = 0.0;
-        int count = 0;
-        for (int32_t c = smin.col; c <= smax.col; ++c) {
-            for (int32_t r = smin.row; r <= smax.row; ++r) {
-                auto v = sheet.get_value({c, r});
-                if (is_number(v)) {
-                    sum += as_number(v);
-                    ++count;
+        uint64_t gen = sheet.value_generation();
+        if (!(smin == cached_sel_min_) || !(smax == cached_sel_max_) || gen != cached_sel_gen_) {
+            cached_sel_min_ = smin;
+            cached_sel_max_ = smax;
+            cached_sel_gen_ = gen;
+            cached_sum_ = 0.0;
+            cached_count_ = 0;
+            for (int32_t c = smin.col; c <= smax.col; ++c) {
+                for (int32_t r = smin.row; r <= smax.row; ++r) {
+                    auto v = sheet.get_value({c, r});
+                    if (is_number(v)) {
+                        cached_sum_ += as_number(v);
+                        ++cached_count_;
+                    }
                 }
             }
         }
-        if (count > 0) {
+        cached_has_range_ = true;
+        if (cached_count_ > 0) {
             ImGui::Text("Cell: %s:%s  |  SUM: %.4g  AVG: %.4g  COUNT: %d  |  Format: %s",
                         smin.to_a1().c_str(), smax.to_a1().c_str(),
-                        sum, sum / count, count, fmt_name);
+                        cached_sum_, cached_sum_ / cached_count_, cached_count_, fmt_name);
         } else {
             ImGui::Text("Cell: %s:%s  |  COUNT: 0  |  Format: %s",
                         smin.to_a1().c_str(), smax.to_a1().c_str(), fmt_name);
         }
     } else {
+        cached_has_range_ = false;
         ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d",
                     grid_state_.selected.to_a1().c_str(),
                     fmt_name,

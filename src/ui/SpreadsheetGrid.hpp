@@ -2,6 +2,8 @@
 #include "core/CellAddress.hpp"
 #include "ui/CellEditor.hpp"
 #include <imgui.h>
+#include <string>
+#include <unordered_map>
 
 namespace magic {
 
@@ -21,6 +23,10 @@ struct GridState {
     // Formula-mode drag state (for click-drag range insertion)
     CellAddress formula_drag_origin{0, 0};
     bool formula_dragging = false;
+
+    // Cached reference highlight map (recomputed only when formula buffer changes)
+    std::string cached_ref_buffer;
+    std::unordered_map<CellAddress, int> cached_ref_colors;
 
     // Screen rect of the selected cell (updated each frame)
     ImVec2 selected_rect_min{0, 0};
