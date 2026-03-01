@@ -47,8 +47,9 @@ elseif(UNIX)
     target_link_libraries(magic_dashboard PRIVATE GL dl)
 endif()
 
-# ── Example plugin ───────────────────────────────────────────────────────────
+# ── Plugins ──────────────────────────────────────────────────────────────────
 add_subdirectory(plugins/example_stats)
+add_subdirectory(plugins/scientific)
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 enable_testing()

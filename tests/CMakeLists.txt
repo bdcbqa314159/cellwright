@@ -11,7 +11,12 @@ file(GLOB_RECURSE LIB_SOURCES
 # Test sources
 file(GLOB TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 
-add_executable(magic_tests ${TEST_SOURCES} ${LIB_SOURCES})
+# Plugin sources needed for direct-instantiation tests
+set(PLUGIN_TEST_SOURCES
+    ${CMAKE_SOURCE_DIR}/plugins/scientific/scientific.cpp
+)
+
+add_executable(magic_tests ${TEST_SOURCES} ${LIB_SOURCES} ${PLUGIN_TEST_SOURCES})
 
 target_include_directories(magic_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
