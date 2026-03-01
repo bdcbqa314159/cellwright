@@ -1,6 +1,7 @@
 #include "ui/MainWindow.hpp"
 #include "app/AppState.hpp"
 #include "core/Workbook.hpp"
+#include "core/Clipboard.hpp"
 #include "formula/Tokenizer.hpp"
 #include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
@@ -171,11 +172,17 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Copy", "Ctrl+C")) {
-                state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+                if (grid_state_.has_range_selection)
+                    state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
+                else
+                    state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
                 state.clipboard.set_cut(false);
             }
             if (ImGui::MenuItem("Cut", "Ctrl+X")) {
-                state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+                if (grid_state_.has_range_selection)
+                    state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
+                else
+                    state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
                 state.clipboard.set_cut(true);
             }
             if (ImGui::MenuItem("Paste", "Ctrl+V", false, state.clipboard.has_data())) {
@@ -280,11 +287,17 @@ void MainWindow::handle_keyboard(AppState& state) {
         state.undo_manager.redo(state.workbook.active_sheet());
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C)) {
-        state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+        if (grid_state_.has_range_selection)
+            state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
+        else
+            state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
         state.clipboard.set_cut(false);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_X)) {
-        state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+        if (grid_state_.has_range_selection)
+            state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
+        else
+            state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
         state.clipboard.set_cut(true);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
@@ -407,6 +420,60 @@ void MainWindow::render(AppState& state) {
     if (grid_.render(sheet, grid_state_, state.format_map)) {
         process_cell_input(grid_state_.editor.buffer(), sheet,
                           grid_state_.editor.editing_cell(), state);
+    }
+
+    // Handle cell drag completions (move / fill)
+    if (grid_state_.drag_completed) {
+        grid_state_.drag_completed = false;
+        CellAddress src = grid_state_.drag_source;
+        CellAddress tgt = grid_state_.drag_target;
+
+        if (grid_state_.drag_mode == CellDragMode::Move && !(src == tgt)) {
+            // Move: transfer source cell to target, clear source
+            CellValue src_val = sheet.get_value(src);
+            std::string src_formula = sheet.get_formula(src);
+
+            // Set target cell
+            if (!src_formula.empty()) {
+                int32_t dcol = tgt.col - src.col;
+                int32_t drow = tgt.row - src.row;
+                std::string adjusted = Clipboard::adjust_references(src_formula, dcol, drow);
+                process_cell_input(("=" + adjusted).c_str(), sheet, tgt, state);
+            } else {
+                std::string display = to_display_string(src_val);
+                process_cell_input(display.c_str(), sheet, tgt, state);
+            }
+            // Clear source cell
+            process_cell_input("", sheet, src, state);
+            grid_state_.selected = tgt;
+            grid_state_.sel_anchor = tgt;
+            grid_state_.has_range_selection = false;
+        } else if (grid_state_.drag_mode == CellDragMode::Fill && !(src == tgt)) {
+            // Fill: 2D rectangular fill from source to target
+            CellValue src_val = sheet.get_value(src);
+            std::string src_formula = sheet.get_formula(src);
+
+            int32_t c1 = std::min(src.col, tgt.col);
+            int32_t c2 = std::max(src.col, tgt.col);
+            int32_t r1 = std::min(src.row, tgt.row);
+            int32_t r2 = std::max(src.row, tgt.row);
+
+            for (int32_t c = c1; c <= c2; ++c) {
+                for (int32_t r = r1; r <= r2; ++r) {
+                    if (c == src.col && r == src.row) continue;
+                    CellAddress fill_addr{c, r};
+                    if (!src_formula.empty()) {
+                        std::string adjusted = Clipboard::adjust_references(
+                            src_formula, c - src.col, r - src.row);
+                        process_cell_input(("=" + adjusted).c_str(), sheet, fill_addr, state);
+                    } else {
+                        std::string display = to_display_string(src_val);
+                        process_cell_input(display.c_str(), sheet, fill_addr, state);
+                    }
+                }
+            }
+        }
+        grid_state_.drag_mode = CellDragMode::None;
     }
 
     // Sheet tabs

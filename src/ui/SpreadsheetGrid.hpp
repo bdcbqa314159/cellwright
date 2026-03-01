@@ -1,11 +1,15 @@
 #pragma once
 #include "core/CellAddress.hpp"
 #include "ui/CellEditor.hpp"
+#include <imgui.h>
 
 namespace magic {
 
 class Sheet;
 class FormatMap;
+
+enum class CellZone { None, Interior, Edge, FillHandle };
+enum class CellDragMode { None, Move, Select, Fill };
 
 struct GridState {
     CellAddress selected{0, 0};
@@ -17,6 +21,16 @@ struct GridState {
     // Formula-mode drag state (for click-drag range insertion)
     CellAddress formula_drag_origin{0, 0};
     bool formula_dragging = false;
+
+    // Screen rect of the selected cell (updated each frame)
+    ImVec2 selected_rect_min{0, 0};
+    ImVec2 selected_rect_max{0, 0};
+
+    // Cell interaction drag state
+    CellDragMode drag_mode = CellDragMode::None;
+    CellAddress drag_source{0, 0};
+    CellAddress drag_target{0, 0};
+    bool drag_completed = false;  // set true on mouse release after drag
 
     // Get the rectangular selection bounds
     CellAddress sel_min() const {
