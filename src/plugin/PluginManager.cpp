@@ -1,7 +1,23 @@
 #include "plugin/PluginManager.hpp"
+#include <cstring>
 #include <iostream>
 
 namespace magic {
+
+int count_args_from_signature(const char* sig) {
+    const char* open = std::strchr(sig, '(');
+    if (!open) return 0;
+    const char* close = std::strchr(open, ')');
+    if (!close) return 0;
+    // Check for empty parens or "void()"
+    if (close == open + 1) return 0;
+    // Count commas + 1
+    int count = 1;
+    for (const char* p = open + 1; p < close; ++p) {
+        if (*p == ',') ++count;
+    }
+    return count;
+}
 
 PluginManager::PluginManager(FunctionRegistry& registry) : registry_(registry) {}
 
@@ -50,15 +66,16 @@ bool PluginManager::try_load_ifunction(const std::string& path) {
         for (const auto& fd : instance->describe_functions()) {
             lp.function_names.push_back(fd.name);
 
-            // Capture shared_ptr to keep plugin alive
             auto inst = instance;
             std::string fn_name = fd.name;
+            int min_args = fd.min_args;
+            int max_args = fd.max_args;
             registry_.register_function(fd.name,
-                [inst, fn_name](const std::vector<CellValue>& args) -> CellValue {
-                    std::vector<double> dargs;
-                    dargs.reserve(args.size());
-                    for (const auto& a : args) dargs.push_back(to_double(a));
-                    return CellValue{inst->call(fn_name, dargs)};
+                [inst, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
+                    int n = static_cast<int>(args.size());
+                    if (n < min_args) return CellValue{CellError::VALUE};
+                    if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+                    return inst->call(fn_name, args);
                 });
         }
 
@@ -91,23 +108,38 @@ bool PluginManager::try_load_cabi(const std::string& path) {
             std::string sym_name = entry.name;
             lp.function_names.push_back(sym_name);
 
-            // Resolve the function symbol
-            auto fn_ptr = lib->resolve<double (*)(double, double)>(sym_name);
-
-            // Register as a spreadsheet function (assumes double(double, double) for now)
+            int nargs = count_args_from_signature(entry.signature);
+            void* raw = lib->resolve<void*>(sym_name);
             auto captured_lib = lib;
+
             registry_.register_function(sym_name,
-                [fn_ptr](const std::vector<CellValue>& args) -> CellValue {
-                    if (args.size() < 2) {
-                        // Try as single-arg
-                        if (args.size() == 1) {
-                            // Cast to single-arg variant
-                            auto single_fn = reinterpret_cast<double (*)(double)>(reinterpret_cast<void*>(fn_ptr));
-                            return CellValue{single_fn(to_double(args[0]))};
-                        }
+                [raw, nargs](const std::vector<CellValue>& args) -> CellValue {
+                    int n = static_cast<int>(args.size());
+                    if (n != nargs) return CellValue{CellError::VALUE};
+                    switch (nargs) {
+                    case 0: {
+                        auto fn = reinterpret_cast<double(*)()>(raw);
+                        return CellValue{fn()};
+                    }
+                    case 1: {
+                        auto fn = reinterpret_cast<double(*)(double)>(raw);
+                        return CellValue{fn(to_double(args[0]))};
+                    }
+                    case 2: {
+                        auto fn = reinterpret_cast<double(*)(double, double)>(raw);
+                        return CellValue{fn(to_double(args[0]), to_double(args[1]))};
+                    }
+                    case 3: {
+                        auto fn = reinterpret_cast<double(*)(double, double, double)>(raw);
+                        return CellValue{fn(to_double(args[0]), to_double(args[1]), to_double(args[2]))};
+                    }
+                    case 4: {
+                        auto fn = reinterpret_cast<double(*)(double, double, double, double)>(raw);
+                        return CellValue{fn(to_double(args[0]), to_double(args[1]), to_double(args[2]), to_double(args[3]))};
+                    }
+                    default:
                         return CellValue{CellError::VALUE};
                     }
-                    return CellValue{fn_ptr(to_double(args[0]), to_double(args[1]))};
                 });
         }
 

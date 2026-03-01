@@ -1,20 +1,17 @@
 #include "example_stats.hpp"
 #include <PluginFactory.hpp>
-#include <cmath>
-#include <stdexcept>
 
 namespace magic::plugins {
 
-double ExampleStats::call(const std::string& func_name, const std::vector<double>& args) const {
+CellValue ExampleStats::call(const std::string& func_name, const std::vector<CellValue>& args) const {
     if (func_name == "ZSCORE") {
-        if (args.size() < 3) return std::nan("");
-        double x = args[0];
-        double mean = args[1];
-        double stddev = args[2];
-        if (stddev == 0.0) return std::nan("");
-        return (x - mean) / stddev;
+        double x = to_double(args[0]);
+        double mean = to_double(args[1]);
+        double stddev = to_double(args[2]);
+        if (stddev == 0.0) return CellValue{CellError::DIV0};
+        return CellValue{(x - mean) / stddev};
     }
-    return std::nan("");
+    return CellValue{CellError::NAME};
 }
 
 }  // namespace magic::plugins

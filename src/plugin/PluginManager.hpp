@@ -11,6 +11,9 @@
 
 namespace magic {
 
+// Count args from a C ABI signature like "double(double, double)" → 2.
+int count_args_from_signature(const char* sig);
+
 class PluginManager {
 public:
     explicit PluginManager(FunctionRegistry& registry);

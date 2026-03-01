@@ -1,4 +1,7 @@
-add_library(example_stats SHARED example_stats.cpp)
+add_library(example_stats SHARED
+    example_stats.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/CellValue.cpp
+)
 
 target_link_libraries(example_stats PRIVATE plugin_arch)
 

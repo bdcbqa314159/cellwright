@@ -10,10 +10,11 @@ public:
     std::string type() const override { return "function"; }
 
     std::vector<FunctionDescriptor> describe_functions() const override {
-        return {{"ZSCORE", 3}};
+        return {{"ZSCORE", 3, 3}};
     }
 
-    double call(const std::string& func_name, const std::vector<double>& args) const override;
+    CellValue call(const std::string& func_name,
+                   const std::vector<CellValue>& args) const override;
 };
 
 }  // namespace magic::plugins
