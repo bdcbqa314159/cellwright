@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "core/CellFormat.hpp"
+#include "core/DateSerial.hpp"
 
 using namespace magic;
 
@@ -45,4 +46,24 @@ TEST(CellFormat, FormatMap) {
 
     map.clear(a1);
     EXPECT_EQ(map.get(a1).type, FormatType::GENERAL);
+}
+
+TEST(CellFormat, DateFormat) {
+    CellFormat fmt;
+    fmt.type = FormatType::DATE;
+    // Epoch (serial 0) → "1970-01-01"
+    EXPECT_EQ(format_value(CellValue{0.0}, fmt), "1970-01-01");
+    // Known date roundtrip
+    auto r = parse_date("2024-12-25");
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(format_value(CellValue{r->serial}, fmt), "2024-12-25");
+}
+
+TEST(CellFormat, DateFormatNonNumeric) {
+    CellFormat fmt;
+    fmt.type = FormatType::DATE;
+    // Strings pass through
+    EXPECT_EQ(format_value(CellValue{std::string("hello")}, fmt), "hello");
+    // Empty → ""
+    EXPECT_EQ(format_value(CellValue{}, fmt), "");
 }

@@ -219,6 +219,12 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                         }
                     }
 
+                    // Tooltip for date cells
+                    if (ImGui::IsItemHovered() && fmt.type == FormatType::DATE
+                        && !fmt.date_input_hint.empty()) {
+                        ImGui::SetTooltip("%s", fmt.date_input_hint.c_str());
+                    }
+
                     // Capture selected cell rect using full cell bounds
                     // GetItemRectMax gives correct bottom-right (Selectable spans cell width),
                     // but use cell_min for top-left since right-align may shift cursor.

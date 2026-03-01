@@ -6,6 +6,7 @@
 #include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
+#include "core/DateSerial.hpp"
 #include "io/CsvIO.hpp"
 #include "io/WorkbookIO.hpp"
 #include <imgui.h>
@@ -106,12 +107,32 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
     } else {
         state.dep_graph.set_dependencies(addr, {});
         CellValue new_val;
-        try {
-            double d = std::stod(input);
-            new_val = CellValue{d};
-        } catch (...) {
-            new_val = CellValue{input};
+
+        // Try date parsing first (prevents "12/12/2024" → 12.0)
+        auto date_result = parse_date(input);
+        if (date_result) {
+            new_val = CellValue{date_result->serial};
+            // Auto-apply DATE format if cell is currently GENERAL
+            CellFormat cur = state.format_map.get(addr);
+            if (cur.type == FormatType::GENERAL) {
+                CellFormat date_fmt;
+                date_fmt.type = FormatType::DATE;
+                date_fmt.date_input_hint = date_result->input_hint;
+                state.format_map.set(addr, date_fmt);
+            }
+        } else {
+            try {
+                size_t pos = 0;
+                double d = std::stod(input, &pos);
+                if (pos == input.size())
+                    new_val = CellValue{d};
+                else
+                    new_val = CellValue{input};
+            } catch (...) {
+                new_val = CellValue{input};
+            }
         }
+
         auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
         state.undo_manager.execute(std::move(cmd), sheet);
         recalc_dependents(sheet, addr, state.dep_graph, state.function_registry, &state.workbook);
@@ -222,6 +243,9 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             if (ImGui::MenuItem("Scientific", nullptr, current.type == FormatType::SCIENTIFIC)) {
                 state.format_map.set(addr, {FormatType::SCIENTIFIC, 2});
+            }
+            if (ImGui::MenuItem("Date (ISO)", nullptr, current.type == FormatType::DATE)) {
+                state.format_map.set(addr, {FormatType::DATE});
             }
             ImGui::EndMenu();
         }
@@ -511,6 +535,7 @@ void MainWindow::render(AppState& state) {
         case FormatType::PERCENTAGE: fmt_name = "%"; break;
         case FormatType::CURRENCY: fmt_name = "$"; break;
         case FormatType::SCIENTIFIC: fmt_name = "Sci"; break;
+        case FormatType::DATE: fmt_name = "Date"; break;
         default: break;
     }
 

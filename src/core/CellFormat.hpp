@@ -12,12 +12,14 @@ enum class FormatType {
     PERCENTAGE,  // Multiply by 100, show %
     CURRENCY,    // Prefix $
     SCIENTIFIC,  // 1.23E+04
+    DATE,        // ISO date (YYYY-MM-DD)
 };
 
 struct CellFormat {
     FormatType type = FormatType::GENERAL;
     int decimals = 2;
     std::string currency_symbol = "$";
+    std::string date_input_hint;  // Tooltip text for date cells
 
     bool operator==(const CellFormat&) const = default;
 };

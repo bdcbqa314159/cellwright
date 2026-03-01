@@ -1,4 +1,5 @@
 #include "core/CellFormat.hpp"
+#include "core/DateSerial.hpp"
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -42,6 +43,11 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
             std::ostringstream oss;
             oss << std::scientific << std::setprecision(fmt.decimals) << d;
             return oss.str();
+        }
+
+        case FormatType::DATE: {
+            std::string iso = serial_to_iso(d);
+            return iso.empty() ? to_display_string(val) : iso;
         }
     }
 
