@@ -5,8 +5,7 @@
 namespace magic {
 
 class Sheet;
-class Workbook;
-class FunctionRegistry;
+class FormatMap;
 
 struct GridState {
     CellAddress selected{0, 0};
@@ -16,7 +15,7 @@ struct GridState {
 class SpreadsheetGrid {
 public:
     // Render the spreadsheet grid. Returns true if a cell value was committed.
-    bool render(Sheet& sheet, GridState& state);
+    bool render(Sheet& sheet, GridState& state, const FormatMap& formats);
 
 private:
     static constexpr int VISIBLE_COLS = 26;

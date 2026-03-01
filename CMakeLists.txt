@@ -19,6 +19,7 @@ file(GLOB_RECURSE DASHBOARD_SOURCES
     src/formula/*.cpp
     src/plugin/*.cpp
     src/builtin/*.cpp
+    src/io/*.cpp
     src/ui/*.cpp
 )
 

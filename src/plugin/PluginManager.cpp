@@ -7,9 +7,35 @@ PluginManager::PluginManager(FunctionRegistry& registry) : registry_(registry) {
 
 bool PluginManager::load(const std::string& path) {
     if (try_load_ifunction(path)) return true;
+    if (try_load_ipanel(path)) return true;
     if (try_load_cabi(path)) return true;
     std::cerr << "[PluginManager] Failed to load: " << path << "\n";
     return false;
+}
+
+bool PluginManager::try_load_ipanel(const std::string& path) {
+    try {
+        auto loader = std::make_shared<plugin_arch::PluginLoader<IPanel>>(path);
+        auto instance = loader->get_instance();
+
+        LoadedPlugin lp;
+        lp.path = path;
+        lp.name = instance->name();
+        lp.is_panel = true;
+
+        panels_.push_back({instance, loader});
+        loaded_.push_back(std::move(lp));
+        std::cout << "[PluginManager] Loaded panel plugin: " << loaded_.back().name << "\n";
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+void PluginManager::render_panels() {
+    for (auto& pi : panels_) {
+        pi.panel->render();
+    }
 }
 
 bool PluginManager::try_load_ifunction(const std::string& path) {

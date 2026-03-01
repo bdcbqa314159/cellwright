@@ -5,6 +5,8 @@
 #include "app/App.hpp"
 #include "builtin/MathFunctions.hpp"
 #include "builtin/LogicFunctions.hpp"
+#include "builtin/StatFunctions.hpp"
+#include "builtin/TextFunctions.hpp"
 #include "plugin/DropHandler.hpp"
 #include "ui/StyleSetup.hpp"
 
@@ -72,6 +74,7 @@ void App::init_imgui() {
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     setup_style();
 
@@ -82,6 +85,8 @@ void App::init_imgui() {
 void App::init_builtins() {
     register_math_functions(state_.function_registry);
     register_logic_functions(state_.function_registry);
+    register_stat_functions(state_.function_registry);
+    register_text_functions(state_.function_registry);
 }
 
 void App::main_loop() {
@@ -92,7 +97,7 @@ void App::main_loop() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        state_.main_window.render(state_.workbook, state_.function_registry);
+        state_.main_window.render(state_);
 
         ImGui::Render();
         int display_w, display_h;

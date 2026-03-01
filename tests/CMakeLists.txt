@@ -3,6 +3,7 @@ file(GLOB_RECURSE LIB_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/*.cpp
     ${CMAKE_SOURCE_DIR}/src/formula/*.cpp
     ${CMAKE_SOURCE_DIR}/src/builtin/*.cpp
+    ${CMAKE_SOURCE_DIR}/src/io/*.cpp
 )
 
 # Test sources

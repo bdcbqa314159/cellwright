@@ -1,16 +1,22 @@
 #include "ui/MainWindow.hpp"
-#include "core/Workbook.hpp"
-#include "formula/FunctionRegistry.hpp"
+#include "app/AppState.hpp"
 #include "formula/Tokenizer.hpp"
 #include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
-#include "formula/DependencyGraph.hpp"
+#include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
 #include <imgui.h>
 #include <cstring>
+#include <algorithm>
+
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 namespace magic {
 
-// Extract cell references from AST for dependency tracking
+// ── Formula helpers ─────────────────────────────────────────────────────────
+
 static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs) {
     std::visit([&](const auto& v) {
         using T = std::decay_t<decltype(v)>;
@@ -38,71 +44,289 @@ static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs) {
     }, node.value);
 }
 
-static DependencyGraph s_dep_graph;
+static void recalc_dependents(Sheet& sheet, const CellAddress& addr,
+                               DependencyGraph& dep_graph,
+                               const FunctionRegistry& registry) {
+    std::unordered_set<CellAddress> changed = {addr};
+    auto order = dep_graph.recalc_order(changed);
+    Evaluator eval(sheet, registry);
+    for (const auto& dep_cell : order) {
+        if (dep_cell == addr) continue;
+        if (!sheet.has_formula(dep_cell)) continue;
+        try {
+            auto dep_tokens = Tokenizer::tokenize(sheet.get_formula(dep_cell));
+            auto dep_ast = Parser::parse(dep_tokens);
+            sheet.set_value(dep_cell, eval.evaluate(*dep_ast));
+        } catch (...) {
+            sheet.set_value(dep_cell, CellValue{CellError::VALUE});
+        }
+    }
+}
 
 static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress& addr,
-                                FunctionRegistry& registry) {
+                                AppState& state) {
     std::string input(buf);
+    CellValue old_val = sheet.get_value(addr);
+    std::string old_formula = sheet.get_formula(addr);
 
     if (input.empty()) {
-        sheet.set_value(addr, CellValue{});
-        sheet.clear_formula(addr);
-        s_dep_graph.remove(addr);
+        auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
+        state.undo_manager.execute(std::move(cmd), sheet);
+        state.dep_graph.remove(addr);
         return;
     }
 
     if (input[0] == '=') {
         std::string formula = input.substr(1);
-        sheet.set_formula(addr, formula);
-
         try {
             auto tokens = Tokenizer::tokenize(formula);
             auto ast = Parser::parse(tokens);
 
-            // Extract dependencies
             std::vector<CellAddress> refs;
             collect_refs(*ast, refs);
-            s_dep_graph.set_dependencies(addr, refs);
+            state.dep_graph.set_dependencies(addr, refs);
 
-            // Evaluate
-            Evaluator eval(sheet, registry);
+            Evaluator eval(sheet, state.function_registry);
             CellValue result = eval.evaluate(*ast);
-            sheet.set_value(addr, result);
 
-            // Recalculate dependents
-            std::unordered_set<CellAddress> changed = {addr};
-            auto order = s_dep_graph.recalc_order(changed);
-            for (const auto& dep_cell : order) {
-                if (dep_cell == addr) continue;
-                if (!sheet.has_formula(dep_cell)) continue;
-                try {
-                    auto dep_tokens = Tokenizer::tokenize(sheet.get_formula(dep_cell));
-                    auto dep_ast = Parser::parse(dep_tokens);
-                    CellValue dep_result = eval.evaluate(*dep_ast);
-                    sheet.set_value(dep_cell, dep_result);
-                } catch (...) {
-                    sheet.set_value(dep_cell, CellValue{CellError::VALUE});
-                }
-            }
+            auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
+            state.undo_manager.execute(std::move(cmd), sheet);
+
+            recalc_dependents(sheet, addr, state.dep_graph, state.function_registry);
         } catch (const std::exception&) {
-            sheet.set_value(addr, CellValue{CellError::VALUE});
+            auto cmd = std::make_unique<SetFormulaCommand>(
+                addr, formula, CellValue{CellError::VALUE}, old_val, old_formula);
+            state.undo_manager.execute(std::move(cmd), sheet);
         }
     } else {
-        sheet.clear_formula(addr);
-        s_dep_graph.remove(addr);
-
-        // Try to parse as number
+        state.dep_graph.remove(addr);
+        CellValue new_val;
         try {
             double d = std::stod(input);
-            sheet.set_value(addr, CellValue{d});
+            new_val = CellValue{d};
         } catch (...) {
-            sheet.set_value(addr, CellValue{input});
+            new_val = CellValue{input};
+        }
+        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
+        state.undo_manager.execute(std::move(cmd), sheet);
+        recalc_dependents(sheet, addr, state.dep_graph, state.function_registry);
+    }
+}
+
+// ── File dialog helpers (simple path input via ImGui popup) ──────────────────
+
+static char s_file_path_buf[512] = {};
+static bool s_show_open = false;
+static bool s_show_save = false;
+static bool s_show_import_csv = false;
+static bool s_show_export_csv = false;
+
+// ── Menu bar ────────────────────────────────────────────────────────────────
+
+void MainWindow::render_menu_bar(AppState& state) {
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New")) {
+                state.workbook = Workbook();
+                state.undo_manager.clear();
+                state.dep_graph.clear();
+                state.current_file.clear();
+            }
+            if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+                s_show_open = true;
+                std::strncpy(s_file_path_buf, state.current_file.c_str(), sizeof(s_file_path_buf) - 1);
+            }
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {
+                if (!state.current_file.empty())
+                    WorkbookIO::save(state.current_file, state.workbook);
+                else
+                    s_show_save = true;
+            }
+            if (ImGui::MenuItem("Save As...")) {
+                s_show_save = true;
+                std::strncpy(s_file_path_buf, state.current_file.c_str(), sizeof(s_file_path_buf) - 1);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Import CSV...")) {
+                s_show_import_csv = true;
+                s_file_path_buf[0] = '\0';
+            }
+            if (ImGui::MenuItem("Export CSV...")) {
+                s_show_export_csv = true;
+                s_file_path_buf[0] = '\0';
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Edit")) {
+            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, state.undo_manager.can_undo())) {
+                state.undo_manager.undo(state.workbook.active_sheet());
+            }
+            if (ImGui::MenuItem("Redo", "Ctrl+Y", false, state.undo_manager.can_redo())) {
+                state.undo_manager.redo(state.workbook.active_sheet());
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Copy", "Ctrl+C")) {
+                state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+                state.clipboard.set_cut(false);
+            }
+            if (ImGui::MenuItem("Cut", "Ctrl+X")) {
+                state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+                state.clipboard.set_cut(true);
+            }
+            if (ImGui::MenuItem("Paste", "Ctrl+V", false, state.clipboard.has_data())) {
+                auto entries = state.clipboard.paste_at(grid_state_.selected);
+                auto& sheet = state.workbook.active_sheet();
+                for (const auto& pe : entries) {
+                    if (!pe.formula.empty()) {
+                        process_cell_input(("=" + pe.formula).c_str(), sheet, pe.addr, state);
+                    } else {
+                        std::string display = to_display_string(pe.value);
+                        process_cell_input(display.c_str(), sheet, pe.addr, state);
+                    }
+                }
+                if (state.clipboard.is_cut()) {
+                    // Clear source cell
+                    // (for single-cell cut, source = selected before paste)
+                }
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Format")) {
+            auto& addr = grid_state_.selected;
+            CellFormat current = state.format_map.get(addr);
+
+            if (ImGui::MenuItem("General", nullptr, current.type == FormatType::GENERAL)) {
+                state.format_map.set(addr, {FormatType::GENERAL});
+            }
+            if (ImGui::MenuItem("Number (2 dp)", nullptr, current.type == FormatType::NUMBER)) {
+                state.format_map.set(addr, {FormatType::NUMBER, 2});
+            }
+            if (ImGui::MenuItem("Percentage", nullptr, current.type == FormatType::PERCENTAGE)) {
+                state.format_map.set(addr, {FormatType::PERCENTAGE, 1});
+            }
+            if (ImGui::MenuItem("Currency ($)", nullptr, current.type == FormatType::CURRENCY)) {
+                state.format_map.set(addr, {FormatType::CURRENCY, 2, "$"});
+            }
+            if (ImGui::MenuItem("Scientific", nullptr, current.type == FormatType::SCIENTIFIC)) {
+                state.format_map.set(addr, {FormatType::SCIENTIFIC, 2});
+            }
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMenuBar();
+    }
+
+    // ── File dialogs (simple InputText popups) ──────────────────────────────
+    auto file_popup = [&](const char* id, bool& show, auto callback) {
+        if (show) ImGui::OpenPopup(id);
+        if (ImGui::BeginPopupModal(id, &show, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::InputText("Path", s_file_path_buf, sizeof(s_file_path_buf));
+            if (ImGui::Button("OK", ImVec2(120, 0))) {
+                callback(std::string(s_file_path_buf));
+                show = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                show = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+    };
+
+    file_popup("Open File", s_show_open, [&](const std::string& path) {
+        if (WorkbookIO::load(path, state.workbook)) {
+            state.current_file = path;
+            state.undo_manager.clear();
+            state.dep_graph.clear();
+        }
+    });
+
+    file_popup("Save File", s_show_save, [&](const std::string& path) {
+        if (WorkbookIO::save(path, state.workbook))
+            state.current_file = path;
+    });
+
+    file_popup("Import CSV", s_show_import_csv, [&](const std::string& path) {
+        auto& sheet = state.workbook.active_sheet();
+        CsvIO::import_file(path, sheet);
+    });
+
+    file_popup("Export CSV", s_show_export_csv, [&](const std::string& path) {
+        CsvIO::export_file(path, state.workbook.active_sheet());
+    });
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────────────
+
+void MainWindow::handle_keyboard(AppState& state) {
+    ImGuiIO& io = ImGui::GetIO();
+    bool ctrl = io.KeyCtrl;
+
+    // Don't handle shortcuts when typing in an input field
+    if (ImGui::GetIO().WantTextInput) return;
+
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
+        state.undo_manager.undo(state.workbook.active_sheet());
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
+        state.undo_manager.redo(state.workbook.active_sheet());
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C)) {
+        state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+        state.clipboard.set_cut(false);
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_X)) {
+        state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
+        state.clipboard.set_cut(true);
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
+        auto entries = state.clipboard.paste_at(grid_state_.selected);
+        auto& sheet = state.workbook.active_sheet();
+        for (const auto& pe : entries) {
+            if (!pe.formula.empty())
+                process_cell_input(("=" + pe.formula).c_str(), sheet, pe.addr, state);
+            else
+                process_cell_input(to_display_string(pe.value).c_str(), sheet, pe.addr, state);
+        }
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+        if (!state.current_file.empty())
+            WorkbookIO::save(state.current_file, state.workbook);
+        else
+            s_show_save = true;
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
+        s_show_open = true;
+    }
+
+    // Arrow key navigation (when not editing)
+    if (!grid_state_.editor.is_editing()) {
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && grid_state_.selected.row > 0)
+            grid_state_.selected.row--;
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
+            grid_state_.selected.row++;
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow) && grid_state_.selected.col > 0)
+            grid_state_.selected.col--;
+        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
+            grid_state_.selected.col++;
+        if (ImGui::IsKeyPressed(ImGuiKey_Tab))
+            grid_state_.selected.col++;
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter))
+            grid_state_.selected.row++;
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+            auto& sheet = state.workbook.active_sheet();
+            process_cell_input("", sheet, grid_state_.selected, state);
         }
     }
 }
 
-void MainWindow::render(Workbook& workbook, FunctionRegistry& registry) {
-    // Full-window panel
+// ── Main render ─────────────────────────────────────────────────────────────
+
+void MainWindow::render(AppState& state) {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -111,49 +335,68 @@ void MainWindow::render(Workbook& workbook, FunctionRegistry& registry) {
                                      ImGuiWindowFlags_NoCollapse |
                                      ImGuiWindowFlags_NoResize |
                                      ImGuiWindowFlags_NoMove |
-                                     ImGuiWindowFlags_NoBringToFrontOnFocus;
+                                     ImGuiWindowFlags_NoBringToFrontOnFocus |
+                                     ImGuiWindowFlags_MenuBar;
 
     ImGui::Begin("Magic Dashboard", nullptr, window_flags);
 
-    Sheet& sheet = workbook.active_sheet();
+    render_menu_bar(state);
+    handle_keyboard(state);
+
+    Sheet& sheet = state.workbook.active_sheet();
 
     // Formula bar
     if (formula_bar_.render(sheet, grid_state_.selected)) {
-        // Formula bar committed — get buffer content
-        // We need the buffer from FormulaBar; using a simpler approach
+        // Committed from formula bar — handled via buffer
     }
 
     ImGui::Separator();
 
     // Spreadsheet grid
-    if (grid_.render(sheet, grid_state_)) {
-        // Cell editor committed
+    if (grid_.render(sheet, grid_state_, state.format_map)) {
         process_cell_input(grid_state_.editor.buffer(), sheet,
-                          grid_state_.editor.editing_cell(), registry);
+                          grid_state_.editor.editing_cell(), state);
     }
 
     // Sheet tabs
     if (ImGui::BeginTabBar("##sheets")) {
-        for (int i = 0; i < workbook.sheet_count(); ++i) {
-            bool selected = (i == workbook.active_index());
-            if (ImGui::BeginTabItem(workbook.sheet(i).name().c_str(),
+        for (int i = 0; i < state.workbook.sheet_count(); ++i) {
+            bool selected = (i == state.workbook.active_index());
+            if (ImGui::BeginTabItem(state.workbook.sheet(i).name().c_str(),
                                      nullptr,
                                      selected ? ImGuiTabItemFlags_SetSelected : 0)) {
-                if (!selected) workbook.set_active(i);
+                if (!selected) state.workbook.set_active(i);
                 ImGui::EndTabItem();
             }
+        }
+        // "+" tab to add sheet
+        if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing)) {
+            state.workbook.add_sheet();
         }
         ImGui::EndTabBar();
     }
 
     // Status bar
     ImGui::Separator();
-    ImGui::Text("Cell: %s  |  Sheets: %d  |  Rows: %d",
+    auto fmt = state.format_map.get(grid_state_.selected);
+    const char* fmt_name = "General";
+    switch (fmt.type) {
+        case FormatType::NUMBER: fmt_name = "Number"; break;
+        case FormatType::PERCENTAGE: fmt_name = "%"; break;
+        case FormatType::CURRENCY: fmt_name = "$"; break;
+        case FormatType::SCIENTIFIC: fmt_name = "Sci"; break;
+        default: break;
+    }
+    ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d",
                 grid_state_.selected.to_a1().c_str(),
-                workbook.sheet_count(),
+                fmt_name,
+                state.workbook.sheet_count(),
                 sheet.row_count());
 
     ImGui::End();
+
+    // Render plugin panels as dockable windows
+    state.plugin_manager.render_panels();
 }
 
 }  // namespace magic
