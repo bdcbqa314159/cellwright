@@ -22,6 +22,7 @@ struct GridState {
 
     // Formula-mode drag state (for click-drag range insertion)
     CellAddress formula_drag_origin{0, 0};
+    CellAddress formula_drag_target{-1, -1};  // live hover target (for visual feedback)
     bool formula_dragging = false;
 
     // Formula bar buffer pointer (set by MainWindow each frame when formula bar is active)

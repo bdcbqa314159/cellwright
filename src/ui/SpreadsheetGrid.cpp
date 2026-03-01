@@ -174,6 +174,28 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
                                            ref_palette[ref_it->second]);
 
+                // Live highlight of the range being dragged in formula mode
+                if (state.formula_dragging && state.formula_drag_target.col >= 0) {
+                    int fc1 = std::min(state.formula_drag_origin.col, state.formula_drag_target.col);
+                    int fc2 = std::max(state.formula_drag_origin.col, state.formula_drag_target.col);
+                    int fr1 = std::min(state.formula_drag_origin.row, state.formula_drag_target.row);
+                    int fr2 = std::max(state.formula_drag_origin.row, state.formula_drag_target.row);
+                    if (col >= fc1 && col <= fc2 && row >= fr1 && row <= fr2)
+                        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                               IM_COL32(66, 133, 244, 100));
+                }
+
+                // Live highlight of the fill-drag target range
+                if (state.drag_mode == CellDragMode::Fill && state.drag_target.col >= 0) {
+                    int fc1 = std::min(state.drag_source.col, state.drag_target.col);
+                    int fc2 = std::max(state.drag_source.col, state.drag_target.col);
+                    int fr1 = std::min(state.drag_source.row, state.drag_target.row);
+                    int fr2 = std::max(state.drag_source.row, state.drag_target.row);
+                    if (col >= fc1 && col <= fc2 && row >= fr1 && row <= fr2)
+                        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                               IM_COL32(52, 168, 83, 80));
+                }
+
                 bool is_selected = (state.selected == addr);
                 // Highlight cells in selection range
                 if (!is_selected && state.has_range_selection) {
@@ -284,6 +306,13 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
 
     ImGui::EndTable();
 
+    // Update formula drag target each frame for visual feedback
+    if (state.formula_dragging && ImGui::IsMouseDown(0)) {
+        if (drag_hover.col >= 0)
+            state.formula_drag_target = drag_hover;
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+    }
+
     // Formula-mode drag end: mouse released over a cell
     if (state.formula_dragging && ImGui::IsMouseReleased(0)) {
         if (state.editor.is_formula_mode() && drag_hover.col >= 0) {
@@ -294,6 +323,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     state.formula_drag_origin.to_a1() + ":" + drag_hover.to_a1());
         }
         state.formula_dragging = false;
+        state.formula_drag_target = {-1, -1};
     }
 
     // Cell drag tracking while mouse is held
