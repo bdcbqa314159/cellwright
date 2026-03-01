@@ -10,7 +10,7 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
     if (is_empty(val)) return "";
     if (is_error(val)) return to_display_string(val);
     if (is_string(val)) return as_string(val);
-    if (is_bool(val)) return std::get<bool>(val) ? "TRUE" : "FALSE";
+    if (is_bool(val)) return std::get<bool>(val) ? "true" : "false";
 
     if (!is_number(val)) return to_display_string(val);
 

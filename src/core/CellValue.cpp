@@ -15,7 +15,7 @@ std::string to_display_string(const CellValue& v) {
         return oss.str();
     }
     if (is_string(v)) return as_string(v);
-    if (is_bool(v)) return std::get<bool>(v) ? "TRUE" : "FALSE";
+    if (is_bool(v)) return std::get<bool>(v) ? "true" : "false";
     if (is_error(v)) {
         switch (std::get<CellError>(v)) {
             case CellError::REF:   return "#REF!";
