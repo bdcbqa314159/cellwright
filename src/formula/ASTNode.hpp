@@ -1,6 +1,6 @@
 #pragma once
+#include "core/Arena.hpp"
 #include "core/CellAddress.hpp"
-#include <memory>
 #include <string>
 #include <variant>
 #include <vector>
@@ -16,14 +16,13 @@ struct SheetRefNode { std::string sheet_name; CellAddress addr; };
 struct SheetRangeNode { std::string sheet_name; CellAddress from; CellAddress to; };
 
 struct ASTNode;
-using ASTNodePtr = std::unique_ptr<ASTNode>;
 
-struct UnaryOpNode  { char op; ASTNodePtr operand; };
-struct BinOpNode    { char op; ASTNodePtr left; ASTNodePtr right; };
-struct FuncCallNode { std::string name; std::vector<ASTNodePtr> args; };
+struct UnaryOpNode  { char op; ASTNode* operand; };
+struct BinOpNode    { char op; ASTNode* left; ASTNode* right; };
+struct FuncCallNode { std::string name; std::vector<ASTNode*> args; };
 
 // A single comparison operator stored as string to support <=, >=, <>
-struct CompareNode  { std::string op; ASTNodePtr left; ASTNodePtr right; };
+struct CompareNode  { std::string op; ASTNode* left; ASTNode* right; };
 
 struct ASTNode {
     using Value = std::variant<
@@ -37,8 +36,16 @@ struct ASTNode {
     ASTNode(T&& v) : value(std::forward<T>(v)) {}
 };
 
-inline ASTNodePtr make_node(auto&& v) {
-    return std::make_unique<ASTNode>(std::forward<decltype(v)>(v));
+inline ASTNode* make_node(Arena& arena, auto&& v) {
+    return arena.create<ASTNode>(std::forward<decltype(v)>(v));
 }
+
+// Owns an Arena and the root AST node allocated within it.
+// When destroyed, all nodes are freed in one bulk deallocation.
+struct ParsedFormula {
+    Arena arena;
+    ASTNode* root = nullptr;
+    explicit operator bool() const { return root != nullptr; }
+};
 
 }  // namespace magic

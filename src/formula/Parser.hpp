@@ -7,19 +7,19 @@ namespace magic {
 
 class Parser {
 public:
-    // Parse a token stream into an AST
-    static ASTNodePtr parse(const std::vector<Token>& tokens);
+    // Parse a token stream into an AST owned by a ParsedFormula
+    static ParsedFormula parse(const std::vector<Token>& tokens);
 
 private:
-    explicit Parser(const std::vector<Token>& tokens);
+    Parser(const std::vector<Token>& tokens, Arena& arena);
 
-    ASTNodePtr parse_expression();
-    ASTNodePtr parse_comparison();
-    ASTNodePtr parse_addition();
-    ASTNodePtr parse_multiplication();
-    ASTNodePtr parse_power();
-    ASTNodePtr parse_unary();
-    ASTNodePtr parse_atom();
+    ASTNode* parse_expression();
+    ASTNode* parse_comparison();
+    ASTNode* parse_addition();
+    ASTNode* parse_multiplication();
+    ASTNode* parse_power();
+    ASTNode* parse_unary();
+    ASTNode* parse_atom();
 
     const Token& current() const;
     const Token& advance();
@@ -28,6 +28,7 @@ private:
 
     const std::vector<Token>& tokens_;
     size_t pos_ = 0;
+    Arena& arena_;
 };
 
 }  // namespace magic

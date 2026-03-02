@@ -29,13 +29,19 @@ private:
 
     std::vector<CellValue> expand_range(const RangeNode& range);
     std::vector<CellValue> expand_range_on(Sheet& s, const CellAddress& from, const CellAddress& to);
-    std::vector<CellValue> collect_args(const std::vector<ASTNodePtr>& args);
+    void expand_range_into(Sheet& s, const CellAddress& from, const CellAddress& to, std::vector<CellValue>& out);
+    std::vector<CellValue> collect_args(const std::vector<ASTNode*>& args);
+    void collect_args_into(const std::vector<ASTNode*>& args, std::vector<CellValue>& out);
 
     Sheet* find_sheet(const std::string& name);
 
     Sheet& sheet_;
     const FunctionRegistry& registry_;
     Workbook* workbook_;
+
+    // Scratch buffers reused per recursion depth to avoid repeated allocation
+    std::vector<std::vector<CellValue>> args_stack_;
+    size_t args_depth_ = 0;
 };
 
 }  // namespace magic

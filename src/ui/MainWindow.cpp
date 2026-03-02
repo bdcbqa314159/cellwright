@@ -61,8 +61,8 @@ static void recalc_dependents(Sheet& sheet, const CellAddress& addr,
         if (!sheet.has_formula(dep_cell)) continue;
         try {
             auto dep_tokens = Tokenizer::tokenize(sheet.get_formula(dep_cell));
-            auto dep_ast = Parser::parse(dep_tokens);
-            sheet.set_value(dep_cell, eval.evaluate(*dep_ast));
+            auto dep_formula = Parser::parse(dep_tokens);
+            sheet.set_value(dep_cell, eval.evaluate(*dep_formula.root));
         } catch (...) {
             sheet.set_value(dep_cell, CellValue{CellError::VALUE});
         }
@@ -87,14 +87,14 @@ static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress&
         std::string formula = input.substr(1);
         try {
             auto tokens = Tokenizer::tokenize(formula);
-            auto ast = Parser::parse(tokens);
+            auto parsed = Parser::parse(tokens);
 
             std::vector<CellAddress> refs;
-            collect_refs(*ast, refs);
+            collect_refs(*parsed.root, refs);
             state.dep_graph.set_dependencies(addr, refs);
 
             Evaluator eval(sheet, state.function_registry, &state.workbook);
-            CellValue result = eval.evaluate(*ast);
+            CellValue result = eval.evaluate(*parsed.root);
 
             auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
             state.undo_manager.execute(std::move(cmd), sheet);
@@ -158,14 +158,14 @@ static void set_cell_no_recalc(const char* buf, Sheet& sheet, const CellAddress&
         std::string formula = input.substr(1);
         try {
             auto tokens = Tokenizer::tokenize(formula);
-            auto ast = Parser::parse(tokens);
+            auto parsed = Parser::parse(tokens);
 
             std::vector<CellAddress> refs;
-            collect_refs(*ast, refs);
+            collect_refs(*parsed.root, refs);
             state.dep_graph.set_dependencies(addr, refs);
 
             Evaluator eval(sheet, state.function_registry, &state.workbook);
-            CellValue result = eval.evaluate(*ast);
+            CellValue result = eval.evaluate(*parsed.root);
 
             auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
             state.undo_manager.execute(std::move(cmd), sheet);
@@ -217,8 +217,8 @@ static void batch_recalc(Sheet& sheet, const std::unordered_set<CellAddress>& ch
         if (!sheet.has_formula(cell)) continue;
         try {
             auto tokens = Tokenizer::tokenize(sheet.get_formula(cell));
-            auto ast = Parser::parse(tokens);
-            sheet.set_value(cell, eval.evaluate(*ast));
+            auto parsed = Parser::parse(tokens);
+            sheet.set_value(cell, eval.evaluate(*parsed.root));
         } catch (...) {
             sheet.set_value(cell, CellValue{CellError::VALUE});
         }

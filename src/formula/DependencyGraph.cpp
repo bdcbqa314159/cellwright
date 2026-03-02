@@ -87,6 +87,7 @@ std::vector<CellAddress> DependencyGraph::recalc_order(const std::unordered_set<
     }
 
     std::vector<CellAddress> order;
+    order.reserve(affected.size());
     while (!ready.empty()) {
         auto curr = ready.front();
         ready.pop();

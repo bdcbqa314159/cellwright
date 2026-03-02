@@ -5,11 +5,14 @@
 
 namespace magic {
 
-Parser::Parser(const std::vector<Token>& tokens) : tokens_(tokens) {}
+Parser::Parser(const std::vector<Token>& tokens, Arena& arena)
+    : tokens_(tokens), arena_(arena) {}
 
-ASTNodePtr Parser::parse(const std::vector<Token>& tokens) {
-    Parser p(tokens);
-    return p.parse_expression();
+ParsedFormula Parser::parse(const std::vector<Token>& tokens) {
+    ParsedFormula result;
+    Parser p(tokens, result.arena);
+    result.root = p.parse_expression();
+    return result;
 }
 
 const Token& Parser::current() const {
@@ -34,13 +37,13 @@ void Parser::expect(TokenType type) {
 }
 
 // expression → comparison
-ASTNodePtr Parser::parse_expression() {
+ASTNode* Parser::parse_expression() {
     return parse_comparison();
 }
 
 // comparison → addition ( (= | <> | < | > | <= | >=) addition )?
-ASTNodePtr Parser::parse_comparison() {
-    auto left = parse_addition();
+ASTNode* Parser::parse_comparison() {
+    auto* left = parse_addition();
 
     auto t = current().type;
     if (t == TokenType::EQ || t == TokenType::NEQ ||
@@ -48,60 +51,60 @@ ASTNodePtr Parser::parse_comparison() {
         t == TokenType::LTE || t == TokenType::GTE) {
         std::string op = current().text;
         advance();
-        auto right = parse_addition();
-        return make_node(CompareNode{op, std::move(left), std::move(right)});
+        auto* right = parse_addition();
+        return make_node(arena_, CompareNode{op, left, right});
     }
 
     return left;
 }
 
 // addition → multiplication ( (+|-) multiplication )*
-ASTNodePtr Parser::parse_addition() {
-    auto left = parse_multiplication();
+ASTNode* Parser::parse_addition() {
+    auto* left = parse_multiplication();
 
     while (current().type == TokenType::PLUS || current().type == TokenType::MINUS) {
         char op = current().text[0];
         advance();
-        auto right = parse_multiplication();
-        left = make_node(BinOpNode{op, std::move(left), std::move(right)});
+        auto* right = parse_multiplication();
+        left = make_node(arena_, BinOpNode{op, left, right});
     }
 
     return left;
 }
 
 // multiplication → power ( (*|/) power )*
-ASTNodePtr Parser::parse_multiplication() {
-    auto left = parse_power();
+ASTNode* Parser::parse_multiplication() {
+    auto* left = parse_power();
 
     while (current().type == TokenType::STAR || current().type == TokenType::SLASH) {
         char op = current().text[0];
         advance();
-        auto right = parse_power();
-        left = make_node(BinOpNode{op, std::move(left), std::move(right)});
+        auto* right = parse_power();
+        left = make_node(arena_, BinOpNode{op, left, right});
     }
 
     return left;
 }
 
 // power → unary ( ^ unary )*
-ASTNodePtr Parser::parse_power() {
-    auto left = parse_unary();
+ASTNode* Parser::parse_power() {
+    auto* left = parse_unary();
 
     while (current().type == TokenType::CARET) {
         advance();
-        auto right = parse_unary();
-        left = make_node(BinOpNode{'^', std::move(left), std::move(right)});
+        auto* right = parse_unary();
+        left = make_node(arena_, BinOpNode{'^', left, right});
     }
 
     return left;
 }
 
 // unary → (-|+) unary | atom
-ASTNodePtr Parser::parse_unary() {
+ASTNode* Parser::parse_unary() {
     if (current().type == TokenType::MINUS) {
         advance();
-        auto operand = parse_unary();
-        return make_node(UnaryOpNode{'-', std::move(operand)});
+        auto* operand = parse_unary();
+        return make_node(arena_, UnaryOpNode{'-', operand});
     }
     if (current().type == TokenType::PLUS) {
         advance();
@@ -111,19 +114,19 @@ ASTNodePtr Parser::parse_unary() {
 }
 
 // atom → NUMBER | STRING | CELLREF (:CELLREF)? | FUNC(args) | IDENT | (expression)
-ASTNodePtr Parser::parse_atom() {
+ASTNode* Parser::parse_atom() {
     // Number
     if (current().type == TokenType::NUMBER) {
         double val = current().number_value;
         advance();
-        return make_node(NumberNode{val});
+        return make_node(arena_, NumberNode{val});
     }
 
     // String
     if (current().type == TokenType::STRING) {
         std::string val = current().text;
         advance();
-        return make_node(StringNode{std::move(val)});
+        return make_node(arena_, StringNode{std::move(val)});
     }
 
     // Sheet reference: Sheet2!A1 or Sheet2!A1:B10
@@ -146,10 +149,10 @@ ASTNodePtr Parser::parse_atom() {
             advance();
             auto addr2 = CellAddress::from_a1(ref2_text);
             if (!addr2) throw std::runtime_error("Invalid cell reference: " + ref2_text);
-            return make_node(SheetRangeNode{sheet_name, *addr, *addr2});
+            return make_node(arena_, SheetRangeNode{sheet_name, *addr, *addr2});
         }
 
-        return make_node(SheetRefNode{sheet_name, *addr});
+        return make_node(arena_, SheetRefNode{sheet_name, *addr});
     }
 
     // Cell reference (possibly range)
@@ -169,10 +172,10 @@ ASTNodePtr Parser::parse_atom() {
             advance();
             auto addr2 = CellAddress::from_a1(ref2_text);
             if (!addr2) throw std::runtime_error("Invalid cell reference: " + ref2_text);
-            return make_node(RangeNode{*addr, *addr2});
+            return make_node(arena_, RangeNode{*addr, *addr2});
         }
 
-        return make_node(CellRefNode{*addr});
+        return make_node(arena_, CellRefNode{*addr});
     }
 
     // Function call
@@ -183,7 +186,7 @@ ASTNodePtr Parser::parse_atom() {
         advance();
         expect(TokenType::LPAREN);
 
-        std::vector<ASTNodePtr> args;
+        std::vector<ASTNode*> args;
         if (current().type != TokenType::RPAREN) {
             args.push_back(parse_expression());
             while (match(TokenType::COMMA)) {
@@ -191,7 +194,7 @@ ASTNodePtr Parser::parse_atom() {
             }
         }
         expect(TokenType::RPAREN);
-        return make_node(FuncCallNode{std::move(name), std::move(args)});
+        return make_node(arena_, FuncCallNode{std::move(name), std::move(args)});
     }
 
     // Boolean keywords
@@ -200,14 +203,14 @@ ASTNodePtr Parser::parse_atom() {
         std::string upper = text;
         std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
         advance();
-        if (upper == "TRUE") return make_node(BoolNode{true});
-        if (upper == "FALSE") return make_node(BoolNode{false});
+        if (upper == "TRUE") return make_node(arena_, BoolNode{true});
+        if (upper == "FALSE") return make_node(arena_, BoolNode{false});
         throw std::runtime_error("Unknown identifier: " + text);
     }
 
     // Parenthesized expression
     if (match(TokenType::LPAREN)) {
-        auto node = parse_expression();
+        auto* node = parse_expression();
         expect(TokenType::RPAREN);
         return node;
     }

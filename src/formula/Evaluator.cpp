@@ -117,6 +117,7 @@ std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& f
     int32_t c2 = std::max(from.col, to.col);
     int32_t r1 = std::min(from.row, to.row);
     int32_t r2 = std::max(from.row, to.row);
+    result.reserve(static_cast<size_t>(c2 - c1 + 1) * static_cast<size_t>(r2 - r1 + 1));
 
     for (int32_t c = c1; c <= c2; ++c) {
         for (int32_t r = r1; r <= r2; ++r) {
@@ -126,30 +127,52 @@ std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& f
     return result;
 }
 
-std::vector<CellValue> Evaluator::collect_args(const std::vector<ASTNodePtr>& args) {
+void Evaluator::expand_range_into(Sheet& s, const CellAddress& from, const CellAddress& to, std::vector<CellValue>& out) {
+    int32_t c1 = std::min(from.col, to.col);
+    int32_t c2 = std::max(from.col, to.col);
+    int32_t r1 = std::min(from.row, to.row);
+    int32_t r2 = std::max(from.row, to.row);
+    out.reserve(out.size() + static_cast<size_t>(c2 - c1 + 1) * static_cast<size_t>(r2 - r1 + 1));
+
+    for (int32_t c = c1; c <= c2; ++c) {
+        for (int32_t r = r1; r <= r2; ++r) {
+            out.push_back(s.get_value({c, r}));
+        }
+    }
+}
+
+std::vector<CellValue> Evaluator::collect_args(const std::vector<ASTNode*>& args) {
     std::vector<CellValue> flat;
+    collect_args_into(args, flat);
+    return flat;
+}
+
+void Evaluator::collect_args_into(const std::vector<ASTNode*>& args, std::vector<CellValue>& flat) {
     for (const auto& arg : args) {
         if (auto* range = std::get_if<RangeNode>(&arg->value)) {
-            auto expanded = expand_range(*range);
-            flat.insert(flat.end(), expanded.begin(), expanded.end());
+            expand_range_into(sheet_, range->from, range->to, flat);
         } else if (auto* sr = std::get_if<SheetRangeNode>(&arg->value)) {
             Sheet* s = find_sheet(sr->sheet_name);
             if (!s) {
                 flat.push_back(CellValue{CellError::REF});
             } else {
-                auto expanded = expand_range_on(*s, sr->from, sr->to);
-                flat.insert(flat.end(), expanded.begin(), expanded.end());
+                expand_range_into(*s, sr->from, sr->to, flat);
             }
         } else {
             flat.push_back(evaluate(*arg));
         }
     }
-    return flat;
 }
 
 CellValue Evaluator::eval_func(const FuncCallNode& n) {
-    auto args = collect_args(n.args);
-    return registry_.call(n.name, args);
+    if (args_depth_ >= args_stack_.size())
+        args_stack_.emplace_back();
+    auto& buf = args_stack_[args_depth_++];
+    buf.clear();
+    collect_args_into(n.args, buf);
+    auto result = registry_.call_direct(n.name, buf);
+    --args_depth_;
+    return result;
 }
 
 Sheet* Evaluator::find_sheet(const std::string& name) {

@@ -19,9 +19,9 @@ protected:
 
     CellValue evaluate(const std::string& formula) {
         auto tokens = Tokenizer::tokenize(formula);
-        auto ast = Parser::parse(tokens);
+        auto parsed = Parser::parse(tokens);
         Evaluator eval(sheet, registry);
-        return eval.evaluate(*ast);
+        return eval.evaluate(*parsed.root);
     }
 
     Sheet sheet{"Test"};
@@ -40,9 +40,9 @@ protected:
 
     CellValue evaluate_on_sheet(int sheet_idx, const std::string& formula) {
         auto tokens = Tokenizer::tokenize(formula);
-        auto ast = Parser::parse(tokens);
+        auto parsed = Parser::parse(tokens);
         Evaluator eval(workbook.sheet(sheet_idx), registry, &workbook);
-        return eval.evaluate(*ast);
+        return eval.evaluate(*parsed.root);
     }
 
     Workbook workbook;

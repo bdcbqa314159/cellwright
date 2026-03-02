@@ -25,6 +25,13 @@ CellValue FunctionRegistry::call(const std::string& name, const std::vector<Cell
     return it->second(args);
 }
 
+CellValue FunctionRegistry::call_direct(const std::string& name, const std::vector<CellValue>& args) const {
+    auto it = funcs_.find(name);
+    if (it == funcs_.end())
+        return CellValue{CellError::NAME};
+    return it->second(args);
+}
+
 void FunctionRegistry::clear() {
     funcs_.clear();
 }

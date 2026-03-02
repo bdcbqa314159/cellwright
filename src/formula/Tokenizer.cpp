@@ -15,6 +15,7 @@ static bool is_cell_ref_start(const std::string& s, size_t pos) {
 
 std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
     std::vector<Token> tokens;
+    tokens.reserve(formula.size() / 2 + 1);
     size_t i = 0;
     const size_t n = formula.size();
 

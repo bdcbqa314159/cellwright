@@ -18,9 +18,9 @@ protected:
 
     CellValue evaluate(const std::string& formula) {
         auto tokens = Tokenizer::tokenize(formula);
-        auto ast = Parser::parse(tokens);
+        auto parsed = Parser::parse(tokens);
         Evaluator eval(sheet, registry);
-        return eval.evaluate(*ast);
+        return eval.evaluate(*parsed.root);
     }
 
     Sheet sheet{"Test"};
