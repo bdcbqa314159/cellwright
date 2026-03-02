@@ -81,6 +81,9 @@ void App::init_imgui() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
+    // Load Roboto as the default font (replaces ImGui's tiny ProggyClean)
+    io.Fonts->AddFontFromFileTTF(IMGUI_FONT_DIR "/Roboto-Medium.ttf", 16.0f);
+
     setup_style();
     apply_theme(Theme::Dark);
 

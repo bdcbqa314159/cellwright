@@ -29,6 +29,11 @@ target_include_directories(magic_dashboard PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+# Expose ImGui's bundled font directory so we can load Roboto at runtime
+target_compile_definitions(magic_dashboard PRIVATE
+    IMGUI_FONT_DIR="${imgui_SOURCE_DIR}/misc/fonts"
+)
+
 target_link_libraries(magic_dashboard PRIVATE
     plugin_arch
     imgui_glfw_opengl3
