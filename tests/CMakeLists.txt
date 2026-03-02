@@ -14,6 +14,7 @@ file(GLOB TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 # Plugin sources needed for direct-instantiation tests
 set(PLUGIN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/plugins/scientific/scientific.cpp
+    ${CMAKE_SOURCE_DIR}/plugins/bond/bond_plugin.cpp
 )
 
 add_executable(magic_tests ${TEST_SOURCES} ${LIB_SOURCES} ${PLUGIN_TEST_SOURCES})

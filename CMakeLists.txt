@@ -55,6 +55,7 @@ endif()
 # ── Plugins ──────────────────────────────────────────────────────────────────
 add_subdirectory(plugins/example_stats)
 add_subdirectory(plugins/scientific)
+add_subdirectory(plugins/bond)
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 enable_testing()
