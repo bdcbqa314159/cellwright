@@ -28,6 +28,9 @@ struct GridState {
     // Formula bar buffer pointer (set by MainWindow each frame when formula bar is active)
     const char* formula_bar_buf = nullptr;
 
+    // Theme flag (set by MainWindow each frame so overlay colors can adapt)
+    bool dark_theme = true;
+
     // Cached reference highlight map (recomputed only when formula buffer changes)
     std::string cached_ref_buffer;
     std::unordered_map<CellAddress, int> cached_ref_colors;

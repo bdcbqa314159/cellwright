@@ -82,6 +82,7 @@ void App::init_imgui() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     setup_style();
+    apply_theme(Theme::Dark);
 
     ImGui_ImplGlfw_InitForOpenGL(window_, true);
     ImGui_ImplOpenGL3_Init("#version 150");

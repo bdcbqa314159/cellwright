@@ -9,13 +9,25 @@ namespace magic {
 
 // Palette for formula reference highlighting (semi-transparent)
 static constexpr int NUM_REF_COLORS = 6;
-static const ImU32 ref_palette[NUM_REF_COLORS] = {
+
+// Dark theme: higher alpha needed on dark backgrounds
+static const ImU32 ref_palette_dark[NUM_REF_COLORS] = {
     IM_COL32(66,  133, 244, 70),  // blue
     IM_COL32(52,  168,  83, 70),  // green
     IM_COL32(154,  71, 237, 70),  // purple
     IM_COL32(234, 134,   0, 70),  // orange
     IM_COL32(234,  67,  53, 70),  // red
     IM_COL32(0,   172, 193, 70),  // teal
+};
+
+// Light theme: lower alpha since colors are vivid on white
+static const ImU32 ref_palette_light[NUM_REF_COLORS] = {
+    IM_COL32(66,  133, 244, 50),
+    IM_COL32(52,  168,  83, 50),
+    IM_COL32(154,  71, 237, 50),
+    IM_COL32(234, 134,   0, 50),
+    IM_COL32(234,  67,  53, 50),
+    IM_COL32(0,   172, 193, 50),
 };
 
 // Parse the formula buffer and map each referenced cell to a color index.
@@ -150,6 +162,11 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
         state.cached_ref_colors = build_ref_colors(ref_buf);
     }
     const auto& ref_colors = state.cached_ref_colors;
+    const ImU32* ref_palette = state.dark_theme ? ref_palette_dark : ref_palette_light;
+    const ImU32 formula_drag_color = state.dark_theme ? IM_COL32(66, 133, 244, 100) : IM_COL32(66, 133, 244, 60);
+    const ImU32 fill_drag_color    = state.dark_theme ? IM_COL32(52, 168, 83, 80)   : IM_COL32(52, 168, 83, 50);
+    const ImVec4 error_text_color  = state.dark_theme ? ImVec4(1.0f, 0.3f, 0.3f, 1.0f) : ImVec4(0.85f, 0.15f, 0.15f, 1.0f);
+    const ImU32 fill_handle_color  = state.dark_theme ? IM_COL32(0, 120, 215, 255)  : IM_COL32(0, 90, 180, 255);
 
     // Precompute selection bounds once (avoid per-cell min/max)
     auto sel_min = state.sel_min();
@@ -201,13 +218,13 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 if (has_formula_drag_highlight &&
                     col >= fd_c1 && col <= fd_c2 && row >= fd_r1 && row <= fd_r2)
                     ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
-                                           IM_COL32(66, 133, 244, 100));
+                                           formula_drag_color);
 
                 // Live highlight of the fill-drag target range
                 if (has_fill_drag_highlight &&
                     col >= fl_c1 && col <= fl_c2 && row >= fl_r1 && row <= fl_r2)
                     ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
-                                           IM_COL32(52, 168, 83, 80));
+                                           fill_drag_color);
 
                 bool is_selected = (state.selected == addr);
                 // Highlight cells in selection range
@@ -238,7 +255,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     }
 
                     // Color errors red
-                    if (is_error(val)) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.3f, 0.3f, 1));
+                    if (is_error(val)) ImGui::PushStyleColor(ImGuiCol_Text, error_text_color);
 
                     if (ImGui::Selectable(display.empty() ? "##empty" : display.c_str(),
                                           is_selected,
@@ -280,7 +297,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                             ImVec2 br = state.selected_rect_max;
                             ImVec2 fill_min(br.x - FILL_SIZE, br.y - FILL_SIZE);
                             ImGui::GetWindowDrawList()->AddRectFilled(
-                                fill_min, br, IM_COL32(0, 120, 215, 255));
+                                fill_min, br, fill_handle_color);
                         }
                     }
 

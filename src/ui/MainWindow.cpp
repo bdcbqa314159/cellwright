@@ -341,6 +341,18 @@ void MainWindow::render_menu_bar(AppState& state) {
             if (ImGui::MenuItem("Chart Panel", nullptr, chart_visible)) {
                 chart_panel_.set_visible(!chart_visible);
             }
+            ImGui::Separator();
+            if (ImGui::BeginMenu("Theme")) {
+                if (ImGui::MenuItem("Dark", nullptr, theme_ == Theme::Dark)) {
+                    theme_ = Theme::Dark;
+                    apply_theme(theme_);
+                }
+                if (ImGui::MenuItem("Light", nullptr, theme_ == Theme::Light)) {
+                    theme_ = Theme::Light;
+                    apply_theme(theme_);
+                }
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
 
@@ -551,6 +563,7 @@ void MainWindow::render(AppState& state) {
     // Pass formula bar buffer to grid for reference highlighting
     grid_state_.formula_bar_buf = formula_bar_.is_formula_mode()
         ? formula_bar_.buffer() : nullptr;
+    grid_state_.dark_theme = (theme_ == Theme::Dark);
 
     // Spreadsheet grid
     if (grid_.render(sheet, grid_state_, state.format_map)) {

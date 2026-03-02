@@ -2,6 +2,7 @@
 #include "ui/SpreadsheetGrid.hpp"
 #include "ui/FormulaBar.hpp"
 #include "ui/ChartPanel.hpp"
+#include "ui/StyleSetup.hpp"
 #include <cstdint>
 
 namespace magic {
@@ -23,6 +24,7 @@ private:
     GridState grid_state_;
     ChartPanel chart_panel_;
 
+    Theme theme_ = Theme::Dark;
     float zoom_ = 1.0f;
 
     // Cached selection stats (recomputed only when selection or data changes)
