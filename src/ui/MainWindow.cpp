@@ -518,6 +518,20 @@ void MainWindow::render(AppState& state) {
     render_menu_bar(state);
     handle_keyboard(state);
 
+    // Ctrl+Scroll to zoom, Ctrl+0 to reset
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.KeyCtrl && !io.WantTextInput) {
+        if (io.MouseWheel != 0.0f) {
+            zoom_ += io.MouseWheel * 0.1f;
+            zoom_ = std::clamp(zoom_, 0.5f, 3.0f);
+            io.MouseWheel = 0.0f;  // consume so grid doesn't scroll
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_0)) {
+            zoom_ = 1.0f;
+        }
+    }
+    io.FontGlobalScale = zoom_;
+
     // Apply any async recalc results
     auto async_results = state.async_recalc.poll_results();
     for (const auto& r : async_results) {
@@ -657,21 +671,24 @@ void MainWindow::render(AppState& state) {
             }
         }
         cached_has_range_ = true;
+        int zoom_pct = static_cast<int>(zoom_ * 100.0f + 0.5f);
         if (cached_count_ > 0) {
-            ImGui::Text("Cell: %s:%s  |  SUM: %.4g  AVG: %.4g  COUNT: %d  |  Format: %s",
+            ImGui::Text("Cell: %s:%s  |  SUM: %.4g  AVG: %.4g  COUNT: %d  |  Format: %s  |  Zoom: %d%%",
                         smin.to_a1().c_str(), smax.to_a1().c_str(),
-                        cached_sum_, cached_sum_ / cached_count_, cached_count_, fmt_name);
+                        cached_sum_, cached_sum_ / cached_count_, cached_count_, fmt_name, zoom_pct);
         } else {
-            ImGui::Text("Cell: %s:%s  |  COUNT: 0  |  Format: %s",
-                        smin.to_a1().c_str(), smax.to_a1().c_str(), fmt_name);
+            ImGui::Text("Cell: %s:%s  |  COUNT: 0  |  Format: %s  |  Zoom: %d%%",
+                        smin.to_a1().c_str(), smax.to_a1().c_str(), fmt_name, zoom_pct);
         }
     } else {
         cached_has_range_ = false;
-        ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d",
+        int zoom_pct = static_cast<int>(zoom_ * 100.0f + 0.5f);
+        ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d  |  Zoom: %d%%",
                     grid_state_.selected.to_a1().c_str(),
                     fmt_name,
                     state.workbook.sheet_count(),
-                    sheet.row_count());
+                    sheet.row_count(),
+                    zoom_pct);
     }
 
     ImGui::End();

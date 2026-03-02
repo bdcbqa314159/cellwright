@@ -23,6 +23,8 @@ private:
     GridState grid_state_;
     ChartPanel chart_panel_;
 
+    float zoom_ = 1.0f;
+
     // Cached selection stats (recomputed only when selection or data changes)
     CellAddress cached_sel_min_{-1, -1};
     CellAddress cached_sel_max_{-1, -1};
