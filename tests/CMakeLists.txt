@@ -6,6 +6,7 @@ file(GLOB_RECURSE LIB_SOURCES
     ${CMAKE_SOURCE_DIR}/src/io/*.cpp
     ${CMAKE_SOURCE_DIR}/src/plugin/PluginManager.cpp
     ${CMAKE_SOURCE_DIR}/src/plugin/PluginAllowlist.cpp
+    ${CMAKE_SOURCE_DIR}/src/plugin/PyFunctionPlugin.cpp
 )
 
 # Test sources
@@ -23,9 +24,14 @@ target_include_directories(magic_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
+target_compile_definitions(magic_tests PRIVATE
+    PY_BOND_PLUGIN_PATH="${CMAKE_SOURCE_DIR}/plugins/py_bond/py_bond.py"
+)
+
 target_link_libraries(magic_tests PRIVATE
     GTest::gtest_main
     plugin_arch
+    pybind11::embed
 )
 
 include(GoogleTest)

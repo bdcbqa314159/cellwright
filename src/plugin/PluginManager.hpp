@@ -1,6 +1,7 @@
 #pragma once
 #include "plugin/IFunction.hpp"
 #include "plugin/IPanel.hpp"
+#include "plugin/PyFunctionPlugin.hpp"
 #include "plugin/PluginAllowlist.hpp"
 #include "formula/FunctionRegistry.hpp"
 #include <PluginLoader.hpp>
@@ -44,10 +45,12 @@ public:
 private:
     bool check_trust(const std::string& path);
     static PluginKind probe_kind(plugin_arch::DynamicLibrary& lib);
+    static bool is_python_plugin(const std::string& path);
 
     bool load_ifunction(const std::string& path);
     bool load_ipanel(const std::string& path);
     bool load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib);
+    bool load_python(const std::string& path);
 
     FunctionRegistry& registry_;
     PluginAllowlist allowlist_;
@@ -55,6 +58,7 @@ private:
 
     std::vector<std::shared_ptr<plugin_arch::PluginLoader<IFunction>>> cpp_loaders_;
     std::vector<std::shared_ptr<plugin_arch::DynamicLibrary>> c_libs_;
+    std::vector<std::shared_ptr<PyFunctionPlugin>> py_plugins_;
 
     // IPanel instances
     struct PanelInstance {

@@ -20,7 +20,7 @@ void DropHandler::uninstall() {
 void DropHandler::glfw_drop_callback(GLFWwindow*, int count, const char** paths) {
     for (int i = 0; i < count; ++i) {
         std::string path = paths[i];
-        if (is_shared_library(path)) {
+        if (is_plugin_file(path)) {
             std::cout << "[DropHandler] Dropped: " << path << "\n";
             if (callback_) callback_(path);
         } else {
@@ -29,10 +29,10 @@ void DropHandler::glfw_drop_callback(GLFWwindow*, int count, const char** paths)
     }
 }
 
-bool DropHandler::is_shared_library(const std::string& path) {
+bool DropHandler::is_plugin_file(const std::string& path) {
     std::filesystem::path p(path);
     auto ext = p.extension().string();
-    return ext == ".dylib" || ext == ".so" || ext == ".dll";
+    return ext == ".dylib" || ext == ".so" || ext == ".dll" || ext == ".py";
 }
 
 }  // namespace magic

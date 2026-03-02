@@ -39,6 +39,7 @@ target_link_libraries(magic_dashboard PRIVATE
     imgui_glfw_opengl3
     implot_lib
     glfw
+    pybind11::embed
 )
 
 if(APPLE)

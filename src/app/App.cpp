@@ -15,6 +15,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <implot.h>
+#include <pybind11/embed.h>
 
 #include <iostream>
 #include <stdexcept>
@@ -30,6 +31,7 @@ namespace magic {
 App::App() = default;
 
 void App::run() {
+    pybind11::scoped_interpreter guard{};
     init_window();
     init_imgui();
     init_builtins();

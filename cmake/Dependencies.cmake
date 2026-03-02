@@ -67,6 +67,16 @@ add_library(implot_lib STATIC
 target_include_directories(implot_lib PUBLIC ${implot_SOURCE_DIR})
 target_link_libraries(implot_lib PUBLIC imgui_glfw_opengl3)
 
+# ── Python + pybind11 (for Python plugin adapter) ───────────────────────────
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+FetchContent_Declare(pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v2.13.6
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(pybind11)
+
 # ── Google Test ──────────────────────────────────────────────────────────────
 FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git

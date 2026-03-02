@@ -1,5 +1,6 @@
 #include "plugin/PluginManager.hpp"
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 
 namespace magic {
@@ -47,11 +48,20 @@ PluginKind PluginManager::probe_kind(plugin_arch::DynamicLibrary& lib) {
     return PluginKind::Unknown;
 }
 
+// ── Python detection ────────────────────────────────────────────────────────
+
+bool PluginManager::is_python_plugin(const std::string& path) {
+    return std::filesystem::path(path).extension() == ".py";
+}
+
 // ── Main load pipeline ──────────────────────────────────────────────────────
 
 bool PluginManager::load(const std::string& path) {
     // Phase 1: security gate (0 dlopen if untrusted)
     if (!check_trust(path)) return false;
+
+    // Python plugins: skip dlopen, go straight to Python loader
+    if (is_python_plugin(path)) return load_python(path);
 
     // Phase 2: single dlopen to probe plugin kind
     std::shared_ptr<plugin_arch::DynamicLibrary> probe;
@@ -210,6 +220,43 @@ bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) 
         std::cout << "[PluginManager] Loaded C ABI plugin: " << loaded_.back().name << "\n";
         return true;
     } catch (const std::exception&) {
+        return false;
+    }
+}
+
+// ── Python plugin loader ────────────────────────────────────────────────────
+
+bool PluginManager::load_python(const std::string& path) {
+    try {
+        auto instance = std::make_shared<PyFunctionPlugin>(std::filesystem::path(path));
+
+        LoadedPlugin lp;
+        lp.path = path;
+        lp.name = instance->name();
+
+        for (const auto& fd : instance->describe_functions()) {
+            lp.function_names.push_back(fd.name);
+
+            auto inst = instance;
+            std::string fn_name = fd.name;
+            int min_args = fd.min_args;
+            int max_args = fd.max_args;
+            registry_.register_function(fd.name,
+                [inst, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
+                    int n = static_cast<int>(args.size());
+                    if (n < min_args) return CellValue{CellError::VALUE};
+                    if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+                    return inst->call(fn_name, args);
+                });
+        }
+
+        py_plugins_.push_back(std::move(instance));
+        loaded_.push_back(std::move(lp));
+        std::cout << "[PluginManager] Loaded Python plugin: " << loaded_.back().name << "\n";
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "[PluginManager] Failed to load Python plugin: " << path
+                  << " — " << e.what() << "\n";
         return false;
     }
 }

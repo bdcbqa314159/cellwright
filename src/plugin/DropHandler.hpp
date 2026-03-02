@@ -16,7 +16,7 @@ public:
     static void glfw_drop_callback(GLFWwindow* window, int count, const char** paths);
 
 private:
-    static bool is_shared_library(const std::string& path);
+    static bool is_plugin_file(const std::string& path);
     static LoadCallback callback_;
 };
 
