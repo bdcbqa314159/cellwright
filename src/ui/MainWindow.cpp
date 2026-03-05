@@ -183,6 +183,7 @@ void MainWindow::render_menu_bar(AppState& state) {
             state.current_file = path;
             state.sheet_states.clear();
             state.sheet_states.resize(state.workbook.sheet_count());
+            state.mark_saved();
         }
     });
 

@@ -12,10 +12,15 @@ struct DuckDBEngine::Impl {
     std::unordered_map<std::string, uint64_t> imported_generations_;
 };
 
-DuckDBEngine::DuckDBEngine() : impl_(std::make_unique<Impl>()) {}
+DuckDBEngine::DuckDBEngine() = default;
 DuckDBEngine::~DuckDBEngine() = default;
 
+void DuckDBEngine::ensure_init() {
+    if (!impl_) impl_ = std::make_unique<Impl>();
+}
+
 void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_name) {
+    ensure_init();
     uint64_t gen = sheet.value_generation();
     auto it = impl_->imported_generations_.find(table_name);
     if (it != impl_->imported_generations_.end() && it->second == gen)
@@ -34,7 +39,8 @@ void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_nam
         create_sql += "\"" + CellAddress::col_to_letters(c) + "\" VARCHAR";
     }
     create_sql += ")";
-    impl_->conn.Query(create_sql);
+    auto create_result = impl_->conn.Query(create_sql);
+    if (create_result->HasError()) return;
 
     // Bulk insert using Appender
     duckdb::Appender appender(impl_->conn, table_name);
@@ -68,6 +74,7 @@ void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_nam
 }
 
 QueryResult DuckDBEngine::query(const std::string& sql) {
+    ensure_init();
     QueryResult qr;
     try {
         auto result = impl_->conn.Query(sql);
@@ -100,7 +107,7 @@ QueryResult DuckDBEngine::query(const std::string& sql) {
                         try {
                             double d = val.GetValue<double>();
                             col_data.push_back(CellValue{d});
-                        } catch (...) {
+                        } catch (const std::exception&) {
                             col_data.push_back(CellValue{val.ToString()});
                         }
                     }

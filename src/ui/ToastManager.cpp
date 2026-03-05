@@ -1,17 +1,18 @@
 #include "ui/ToastManager.hpp"
 #include <imgui.h>
+#include <algorithm>
 
 namespace magic {
 
-void ToastManager::show(const std::string& message, float duration_sec) {
-    float now = static_cast<float>(ImGui::GetTime());
+void ToastManager::show(const std::string& message, double duration_sec) {
+    double now = ImGui::GetTime();
     toasts_.push_back({message, now, duration_sec});
 }
 
 void ToastManager::render() {
     if (toasts_.empty()) return;
 
-    float now = static_cast<float>(ImGui::GetTime());
+    double now = ImGui::GetTime();
 
     // Remove expired toasts
     while (!toasts_.empty()) {
@@ -30,13 +31,13 @@ void ToastManager::render() {
 
     for (size_t i = 0; i < toasts_.size(); ++i) {
         auto& t = toasts_[i];
-        float elapsed = now - t.start_time;
-        float remaining = t.duration - elapsed;
+        double elapsed = now - t.start_time;
+        double remaining = t.duration - elapsed;
 
         // Fade out during last 0.5s
         float alpha = 1.0f;
-        if (remaining < 0.5f)
-            alpha = remaining / 0.5f;
+        if (remaining < 0.5)
+            alpha = std::max(0.0f, static_cast<float>(remaining / 0.5));
 
         ImGui::SetNextWindowBgAlpha(0.85f * alpha);
         ImGui::SetNextWindowPos(

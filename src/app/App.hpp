@@ -1,5 +1,6 @@
 #pragma once
 #include "app/AppState.hpp"
+#include <string>
 
 struct GLFWwindow;
 
@@ -19,6 +20,11 @@ private:
 
     GLFWwindow* window_ = nullptr;
     AppState state_;
+
+    // Cached title state to avoid rebuilding every frame
+    std::string cached_title_;
+    std::string cached_title_file_;
+    bool cached_title_dirty_ = false;
 };
 
 }  // namespace magic

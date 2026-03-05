@@ -197,7 +197,16 @@ int PluginManager::poll_reloads() {
                     });
             }
 
-            std::cout << "[PluginManager] Hot-reloaded: " << entry.loader->library_path() << "\n";
+            // Update loaded_ metadata to stay in sync
+            std::string lpath = entry.loader->library_path();
+            for (auto& lp : loaded_) {
+                if (lp.path == lpath) {
+                    lp.function_names = entry.function_names;
+                    break;
+                }
+            }
+
+            std::cout << "[PluginManager] Hot-reloaded: " << lpath << "\n";
             ++count;
         }
     }

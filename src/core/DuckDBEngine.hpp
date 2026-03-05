@@ -38,6 +38,7 @@ public:
     static void export_to_sheet(const QueryResult& result, Sheet& sheet);
 
 private:
+    void ensure_init();
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

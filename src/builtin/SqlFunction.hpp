@@ -3,7 +3,7 @@
 namespace magic {
 class FunctionRegistry;
 class DuckDBEngine;
-class Sheet;
+class Workbook;
 
-void register_sql_function(FunctionRegistry& registry, DuckDBEngine& engine, Sheet& sheet);
+void register_sql_function(FunctionRegistry& registry, DuckDBEngine& engine, Workbook& workbook);
 }  // namespace magic

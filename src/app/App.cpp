@@ -117,7 +117,7 @@ void App::init_builtins() {
     register_stat_functions(state_.function_registry);
     register_text_functions(state_.function_registry);
     register_sql_function(state_.function_registry, state_.duckdb_engine,
-                          state_.workbook.active_sheet());
+                          state_.workbook);
 }
 
 void App::main_loop() {
@@ -144,18 +144,23 @@ void App::main_loop() {
 
         glfwSwapBuffers(window_);
 
-        // Update window title with filename and dirty indicator
+        // Update window title only when state changes
         {
-            std::string title = "Magic Dashboard";
-            if (!state_.current_file.empty()) {
-                auto fname = std::filesystem::path(state_.current_file).filename().string();
-                title += " — ";
-                if (state_.is_dirty()) title += "[*]";
-                title += fname;
-            } else if (state_.is_dirty()) {
-                title += " — [*]Untitled";
+            bool dirty = state_.is_dirty();
+            if (state_.current_file != cached_title_file_ || dirty != cached_title_dirty_) {
+                cached_title_file_ = state_.current_file;
+                cached_title_dirty_ = dirty;
+                cached_title_ = "Magic Dashboard";
+                if (!state_.current_file.empty()) {
+                    auto fname = std::filesystem::path(state_.current_file).filename().string();
+                    cached_title_ += " — ";
+                    if (dirty) cached_title_ += "[*]";
+                    cached_title_ += fname;
+                } else if (dirty) {
+                    cached_title_ += " — [*]Untitled";
+                }
+                glfwSetWindowTitle(window_, cached_title_.c_str());
             }
-            glfwSetWindowTitle(window_, title.c_str());
         }
 
         // Sleep when idle to avoid burning CPU.

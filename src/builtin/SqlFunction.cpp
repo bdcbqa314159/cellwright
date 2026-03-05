@@ -1,20 +1,20 @@
 #include "builtin/SqlFunction.hpp"
 #include "core/DuckDBEngine.hpp"
-#include "core/Sheet.hpp"
+#include "core/Workbook.hpp"
 #include "formula/FunctionRegistry.hpp"
 
 namespace magic {
 
-void register_sql_function(FunctionRegistry& registry, DuckDBEngine& engine, Sheet& sheet) {
+void register_sql_function(FunctionRegistry& registry, DuckDBEngine& engine, Workbook& workbook) {
     registry.register_function("SQL",
-        [&engine, &sheet](const std::vector<CellValue>& args) -> CellValue {
+        [&engine, &workbook](const std::vector<CellValue>& args) -> CellValue {
             if (args.empty() || !is_string(args[0]))
                 return CellValue{CellError::VALUE};
 
             const std::string& sql = as_string(args[0]);
 
             // Import active sheet as "data" table
-            engine.import_sheet(sheet, "data");
+            engine.import_sheet(workbook.active_sheet(), "data");
 
             auto result = engine.query(sql);
             if (!result.ok())
