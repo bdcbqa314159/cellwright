@@ -30,12 +30,16 @@ class DuckDBEngine {
 public:
     DuckDBEngine();
     ~DuckDBEngine();
+    DuckDBEngine(const DuckDBEngine&) = delete;
+    DuckDBEngine& operator=(const DuckDBEngine&) = delete;
+    DuckDBEngine(DuckDBEngine&&) noexcept;
+    DuckDBEngine& operator=(DuckDBEngine&&) noexcept;
 
     // Import a sheet as a DuckDB table. Skips re-import if generation unchanged.
     void import_sheet(const Sheet& sheet, const std::string& table_name);
 
     // Execute a SQL query and return results
-    QueryResult query(const std::string& sql);
+    [[nodiscard]] QueryResult query(const std::string& sql);
 
     // Write query results into a sheet starting at A1
     static void export_to_sheet(const QueryResult& result, Sheet& sheet);

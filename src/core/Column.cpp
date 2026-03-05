@@ -73,7 +73,7 @@ double Column::sum(int32_t from, int32_t to) const {
     // Slow path: mixed types
     double s = 0.0;
     for (int32_t r = start; r < end; ++r) {
-        if (non_numeric_.count(r) == 0) {
+        if (!non_numeric_.contains(r)) {
             double d = doubles_[r];
             if (!std::isnan(d)) s += d;
         } else {
@@ -95,7 +95,7 @@ double Column::min(int32_t from, int32_t to) const {
     double result = std::numeric_limits<double>::infinity();
     for (int32_t r = start; r < end; ++r) {
         double d;
-        if (non_numeric_.count(r) == 0) {
+        if (!non_numeric_.contains(r)) {
             d = doubles_[r];
         } else {
             auto& ov = non_numeric_.at(r);
@@ -118,7 +118,7 @@ double Column::max(int32_t from, int32_t to) const {
     double result = -std::numeric_limits<double>::infinity();
     for (int32_t r = start; r < end; ++r) {
         double d;
-        if (non_numeric_.count(r) == 0) {
+        if (!non_numeric_.contains(r)) {
             d = doubles_[r];
         } else {
             auto& ov = non_numeric_.at(r);
@@ -140,7 +140,7 @@ size_t Column::count_numeric(int32_t from, int32_t to) const {
 
     size_t result = 0;
     for (int32_t r = start; r < end; ++r) {
-        if (non_numeric_.count(r) == 0) {
+        if (!non_numeric_.contains(r)) {
             if (!std::isnan(doubles_[r])) ++result;
         } else {
             if (is_number(non_numeric_.at(r))) ++result;
@@ -160,7 +160,7 @@ double Column::sum_of_squares(int32_t from, int32_t to, double mean) const {
     double result = 0.0;
     for (int32_t r = start; r < end; ++r) {
         double d;
-        if (non_numeric_.count(r) == 0) {
+        if (!non_numeric_.contains(r)) {
             d = doubles_[r];
         } else {
             auto& ov = non_numeric_.at(r);

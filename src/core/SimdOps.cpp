@@ -1,5 +1,6 @@
 #include "core/SimdOps.hpp"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <limits>
 
@@ -16,6 +17,7 @@ namespace magic {
 #if defined(__ARM_NEON)
 
 double simd_sum(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     float64x2_t vsum = vdupq_n_f64(0.0);
     size_t i = 0;
     for (; i + 2 <= count; i += 2) {
@@ -33,6 +35,7 @@ double simd_sum(const double* data, size_t count) {
 }
 
 double simd_min(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double result = std::numeric_limits<double>::infinity();
     float64x2_t vmin = vdupq_n_f64(result);
     size_t i = 0;
@@ -50,6 +53,7 @@ double simd_min(const double* data, size_t count) {
 }
 
 double simd_max(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double result = -std::numeric_limits<double>::infinity();
     float64x2_t vmax = vdupq_n_f64(result);
     size_t i = 0;
@@ -67,6 +71,7 @@ double simd_max(const double* data, size_t count) {
 }
 
 size_t simd_count_numeric(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     uint64x2_t vcount = vdupq_n_u64(0);
     uint64x2_t one = vdupq_n_u64(1);
     size_t i = 0;
@@ -83,6 +88,7 @@ size_t simd_count_numeric(const double* data, size_t count) {
 }
 
 double simd_sum_of_squares(const double* data, size_t count, double mean) {
+    assert(count == 0 || data != nullptr);
     float64x2_t vmean = vdupq_n_f64(mean);
     float64x2_t vsum = vdupq_n_f64(0.0);
     size_t i = 0;
@@ -108,7 +114,15 @@ double simd_sum_of_squares(const double* data, size_t count, double mean) {
 
 #elif defined(__AVX2__)
 
+#ifdef _MSC_VER
+#include <intrin.h>
+static inline int portable_popcountll(unsigned long long x) { return static_cast<int>(__popcnt64(x)); }
+#else
+static inline int portable_popcountll(unsigned long long x) { return __builtin_popcountll(x); }
+#endif
+
 double simd_sum(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     __m256d vsum = _mm256_setzero_pd();
     size_t i = 0;
     for (; i + 4 <= count; i += 4) {
@@ -127,6 +141,7 @@ double simd_sum(const double* data, size_t count) {
 }
 
 double simd_min(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double inf = std::numeric_limits<double>::infinity();
     __m256d vmin = _mm256_set1_pd(inf);
     size_t i = 0;
@@ -146,6 +161,7 @@ double simd_min(const double* data, size_t count) {
 }
 
 double simd_max(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double ninf = -std::numeric_limits<double>::infinity();
     __m256d vmax = _mm256_set1_pd(ninf);
     size_t i = 0;
@@ -165,12 +181,13 @@ double simd_max(const double* data, size_t count) {
 }
 
 size_t simd_count_numeric(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     size_t result = 0;
     size_t i = 0;
     for (; i + 4 <= count; i += 4) {
         __m256d v = _mm256_loadu_pd(data + i);
         __m256d mask = _mm256_cmp_pd(v, v, _CMP_EQ_OQ);
-        result += static_cast<size_t>(__builtin_popcountll(
+        result += static_cast<size_t>(portable_popcountll(
             static_cast<unsigned long long>(_mm256_movemask_pd(mask))));
     }
     for (; i < count; ++i) {
@@ -180,6 +197,7 @@ size_t simd_count_numeric(const double* data, size_t count) {
 }
 
 double simd_sum_of_squares(const double* data, size_t count, double mean) {
+    assert(count == 0 || data != nullptr);
     __m256d vmean = _mm256_set1_pd(mean);
     __m256d vsum = _mm256_setzero_pd();
     size_t i = 0;
@@ -208,6 +226,7 @@ double simd_sum_of_squares(const double* data, size_t count, double mean) {
 #else
 
 double simd_sum(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double result = 0.0;
     for (size_t i = 0; i < count; ++i) {
         if (!std::isnan(data[i])) result += data[i];
@@ -216,6 +235,7 @@ double simd_sum(const double* data, size_t count) {
 }
 
 double simd_min(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double result = std::numeric_limits<double>::infinity();
     for (size_t i = 0; i < count; ++i) {
         if (!std::isnan(data[i]) && data[i] < result) result = data[i];
@@ -224,6 +244,7 @@ double simd_min(const double* data, size_t count) {
 }
 
 double simd_max(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     double result = -std::numeric_limits<double>::infinity();
     for (size_t i = 0; i < count; ++i) {
         if (!std::isnan(data[i]) && data[i] > result) result = data[i];
@@ -232,6 +253,7 @@ double simd_max(const double* data, size_t count) {
 }
 
 size_t simd_count_numeric(const double* data, size_t count) {
+    assert(count == 0 || data != nullptr);
     size_t result = 0;
     for (size_t i = 0; i < count; ++i) {
         if (!std::isnan(data[i])) ++result;
@@ -240,6 +262,7 @@ size_t simd_count_numeric(const double* data, size_t count) {
 }
 
 double simd_sum_of_squares(const double* data, size_t count, double mean) {
+    assert(count == 0 || data != nullptr);
     double result = 0.0;
     for (size_t i = 0; i < count; ++i) {
         if (!std::isnan(data[i])) {

@@ -175,7 +175,7 @@ void MainWindow::render_menu_bar(AppState& state) {
     };
 
     file_popup("Open File", file_dialog_.show_open, [&](const std::string& path) {
-        state.open_file(path);
+        (void)state.open_file(path);
     });
 
     file_popup("Save File", file_dialog_.show_save, [&](const std::string& path) {

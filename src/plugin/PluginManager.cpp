@@ -175,7 +175,7 @@ int PluginManager::poll_reloads() {
         if (entry.loader->check_and_reload()) {
             // Unregister old functions
             for (const auto& name : entry.function_names)
-                registry_.unregister_function(name);
+                (void)registry_.unregister_function(name);
 
             // Re-describe functions from the new instance
             auto instance = entry.loader->get_instance();

@@ -1,7 +1,6 @@
 #pragma once
 #include "core/Workbook.hpp"
 #include "core/Command.hpp"
-#include "io/WorkbookIO.hpp"
 #include "core/Clipboard.hpp"
 #include "core/CellFormat.hpp"
 #include "core/DuckDBEngine.hpp"
@@ -55,19 +54,10 @@ struct AppState {
     }
 
     // Open a file, replacing current workbook state
-    bool open_file(const std::string& path) {
-        if (WorkbookIO::load(path, workbook)) {
-            current_file = path;
-            sheet_states.clear();
-            sheet_states.resize(workbook.sheet_count());
-            mark_saved();
-            return true;
-        }
-        return false;
-    }
+    [[nodiscard]] bool open_file(const std::string& path);
 
     // Dirty tracking: compare each sheet's undo generation against saved snapshot
-    bool is_dirty() const {
+    [[nodiscard]] bool is_dirty() const {
         if (sheet_states.size() != saved_generations_.size()) return true;
         for (size_t i = 0; i < sheet_states.size(); ++i) {
             if (sheet_states[i].undo_manager.generation() != saved_generations_[i])

@@ -17,11 +17,11 @@ public:
 
     // Fast-path aggregates over contiguous doubles (SIMD-accelerated when possible).
     // All use half-open interval [from, to) — i.e. 'from' inclusive, 'to' exclusive.
-    double sum(int32_t from, int32_t to) const;
-    double min(int32_t from, int32_t to) const;
-    double max(int32_t from, int32_t to) const;
-    size_t count_numeric(int32_t from, int32_t to) const;
-    double sum_of_squares(int32_t from, int32_t to, double mean) const;
+    [[nodiscard]] double sum(int32_t from, int32_t to) const;
+    [[nodiscard]] double min(int32_t from, int32_t to) const;
+    [[nodiscard]] double max(int32_t from, int32_t to) const;
+    [[nodiscard]] size_t count_numeric(int32_t from, int32_t to) const;
+    [[nodiscard]] double sum_of_squares(int32_t from, int32_t to, double mean) const;
 
     const std::vector<double>& doubles() const { return doubles_; }
 

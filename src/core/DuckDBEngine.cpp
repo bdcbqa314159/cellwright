@@ -2,6 +2,7 @@
 #include "core/Sheet.hpp"
 #include "core/CellAddress.hpp"
 #include "duckdb.hpp"
+#include <cstdio>
 #include <unordered_map>
 
 namespace magic {
@@ -24,6 +25,8 @@ struct DuckDBEngine::Impl {
 
 DuckDBEngine::DuckDBEngine() = default;
 DuckDBEngine::~DuckDBEngine() = default;
+DuckDBEngine::DuckDBEngine(DuckDBEngine&&) noexcept = default;
+DuckDBEngine& DuckDBEngine::operator=(DuckDBEngine&&) noexcept = default;
 
 void DuckDBEngine::ensure_init() {
     if (!impl_) impl_ = std::make_unique<Impl>();
@@ -68,8 +71,11 @@ void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_nam
         appender.BeginRow();
         for (int32_t c = 0; c < ncols; ++c) {
             CellValue val = sheet.get_value({c, r});
-            if (is_number(val))
-                appender.Append(duckdb::Value(std::to_string(as_number(val))));
+            if (is_number(val)) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "%.17g", as_number(val));
+                appender.Append(duckdb::Value(std::string(buf)));
+            }
             else if (is_string(val))
                 appender.Append(duckdb::Value(as_string(val)));
             else if (is_bool(val))

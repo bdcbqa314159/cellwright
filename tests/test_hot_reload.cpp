@@ -26,7 +26,7 @@ TEST(FunctionRegistry, UnregisterNonexistent) {
 TEST(FunctionRegistry, ReregisterAfterUnregister) {
     FunctionRegistry reg;
     reg.register_function("TEST", [](const std::vector<CellValue>&) { return CellValue{1.0}; });
-    reg.unregister_function("TEST");
+    (void)reg.unregister_function("TEST");
     reg.register_function("TEST", [](const std::vector<CellValue>&) { return CellValue{2.0}; });
     auto result = reg.call("TEST", {});
     ASSERT_TRUE(is_number(result));

@@ -13,7 +13,7 @@ using SpreadsheetFunc = std::function<CellValue(const std::vector<CellValue>&)>;
 class FunctionRegistry {
 public:
     void register_function(const std::string& name, SpreadsheetFunc fn);
-    bool unregister_function(const std::string& name);
+    [[nodiscard]] bool unregister_function(const std::string& name);
     bool has(const std::string& name) const;
     CellValue call(const std::string& name, const std::vector<CellValue>& args) const;
     // Like call(), but assumes name is already uppercase (skips toupper transform).
