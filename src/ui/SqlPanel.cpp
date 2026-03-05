@@ -25,7 +25,6 @@ void SqlPanel::render(DuckDBEngine& engine, Sheet& sheet) {
 
     // Execute / Export buttons
     if (ImGui::Button("Execute")) {
-        engine.import_sheet(sheet, "data");
         last_result_ = engine.query(sql_buf_);
     }
     ImGui::SameLine();

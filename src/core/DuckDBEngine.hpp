@@ -23,6 +23,9 @@ struct QueryResult {
     size_t col_count() const { return columns.size(); }
 };
 
+// Embedded DuckDB engine for SQL queries over sheet data.
+// Uses pimpl with lazy init — no DuckDB allocation until first use.
+// Tested via integration tests (test_duckdb_engine.cpp) using a real in-memory instance.
 class DuckDBEngine {
 public:
     DuckDBEngine();

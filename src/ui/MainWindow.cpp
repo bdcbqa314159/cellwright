@@ -28,11 +28,7 @@ void MainWindow::render_menu_bar(AppState& state) {
                 if (state.is_dirty()) {
                     show_dirty_new_modal_ = true;
                 } else {
-                    state.workbook = Workbook();
-                    state.sheet_states.clear();
-                    state.sheet_states.emplace_back();
-                    state.saved_generations_ = {0};
-                    state.current_file.clear();
+                    state.reset_to_new();
                 }
             }
             if (ImGui::MenuItem("Open...", "Ctrl+O")) {
@@ -179,12 +175,7 @@ void MainWindow::render_menu_bar(AppState& state) {
     };
 
     file_popup("Open File", file_dialog_.show_open, [&](const std::string& path) {
-        if (WorkbookIO::load(path, state.workbook)) {
-            state.current_file = path;
-            state.sheet_states.clear();
-            state.sheet_states.resize(state.workbook.sheet_count());
-            state.mark_saved();
-        }
+        state.open_file(path);
     });
 
     file_popup("Save File", file_dialog_.show_save, [&](const std::string& path) {
@@ -560,11 +551,7 @@ void MainWindow::render(AppState& state) {
                 should_quit_ = true;
                 wants_close_ = false;
             } else {
-                state.workbook = Workbook();
-                state.sheet_states.clear();
-                state.sheet_states.emplace_back();
-                state.saved_generations_ = {0};
-                state.current_file.clear();
+                state.reset_to_new();
             }
             show_dirty_new_modal_ = false;
             ImGui::CloseCurrentPopup();

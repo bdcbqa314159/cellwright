@@ -1,8 +1,10 @@
 #include "formula/Evaluator.hpp"
+#include "core/Column.hpp"
 #include "core/Sheet.hpp"
 #include "core/Workbook.hpp"
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 namespace magic {
@@ -205,9 +207,20 @@ void Evaluator::collect_args_into(const std::vector<ASTNode*>& args, std::vector
     }
 }
 
+// Column fast-path dispatch: maps builtin aggregate names to Column SIMD methods.
+// Coupled to StatFunctions.cpp registration — names must match exactly.
+static std::optional<CellValue> try_column_aggregate(
+    const std::string& name, const Column& col, int32_t from, int32_t to) {
+    if (name == "SUM")   return CellValue{col.sum(from, to)};
+    if (name == "MIN")   return CellValue{col.min(from, to)};
+    if (name == "MAX")   return CellValue{col.max(from, to)};
+    if (name == "COUNT") return CellValue{static_cast<double>(col.count_numeric(from, to))};
+    return std::nullopt;
+}
+
 CellValue Evaluator::eval_func(const FuncCallNode& n) {
-    // Fast path: single-argument single-column range for SUM/MIN/MAX/COUNT
-    // Bypasses CellValue vector allocation and uses Column SIMD methods directly
+    // Fast path: single-argument single-column range for builtin aggregates.
+    // Bypasses CellValue vector allocation and uses Column SIMD methods directly.
     if (n.args.size() == 1) {
         if (auto* range = std::get_if<RangeNode>(&n.args[0]->value)) {
             if (range->from.col == range->to.col) {
@@ -215,15 +228,8 @@ CellValue Evaluator::eval_func(const FuncCallNode& n) {
                 int32_t r1 = std::min(range->from.row, range->to.row);
                 int32_t r2 = std::max(range->from.row, range->to.row);
                 if (col >= 0 && col < sheet_.col_count()) {
-                    const auto& column = sheet_.column(col);
-                    if (n.name == "SUM")
-                        return CellValue{column.sum(r1, r2 + 1)};
-                    if (n.name == "MIN")
-                        return CellValue{column.min(r1, r2 + 1)};
-                    if (n.name == "MAX")
-                        return CellValue{column.max(r1, r2 + 1)};
-                    if (n.name == "COUNT")
-                        return CellValue{static_cast<double>(column.count_numeric(r1, r2 + 1))};
+                    auto result = try_column_aggregate(n.name, sheet_.column(col), r1, r2 + 1);
+                    if (result) return *result;
                 }
             }
         }

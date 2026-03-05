@@ -6,6 +6,16 @@
 
 namespace magic {
 
+static std::string escape_sql_identifier(const std::string& name) {
+    std::string result;
+    result.reserve(name.size());
+    for (char c : name) {
+        if (c == '"') result += "\"\"";
+        else result += c;
+    }
+    return result;
+}
+
 struct DuckDBEngine::Impl {
     duckdb::DuckDB db{nullptr};  // in-memory database
     duckdb::Connection conn{db};
@@ -27,13 +37,14 @@ void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_nam
         return;  // already up to date
 
     // Drop existing table
-    impl_->conn.Query("DROP TABLE IF EXISTS \"" + table_name + "\"");
+    std::string escaped = escape_sql_identifier(table_name);
+    impl_->conn.Query("DROP TABLE IF EXISTS \"" + escaped + "\"");
 
     // Create table with columns A, B, C, ...
     int32_t ncols = sheet.col_count();
     int32_t nrows = sheet.row_count();
 
-    std::string create_sql = "CREATE TABLE \"" + table_name + "\" (";
+    std::string create_sql = "CREATE TABLE \"" + escaped + "\" (";
     for (int32_t c = 0; c < ncols; ++c) {
         if (c > 0) create_sql += ", ";
         create_sql += "\"" + CellAddress::col_to_letters(c) + "\" VARCHAR";

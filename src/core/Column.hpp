@@ -15,7 +15,8 @@ public:
     void clear(int32_t row);
     int32_t size() const;
 
-    // Fast-path aggregates over contiguous doubles (SIMD-accelerated when possible)
+    // Fast-path aggregates over contiguous doubles (SIMD-accelerated when possible).
+    // All use half-open interval [from, to) — i.e. 'from' inclusive, 'to' exclusive.
     double sum(int32_t from, int32_t to) const;
     double min(int32_t from, int32_t to) const;
     double max(int32_t from, int32_t to) const;
