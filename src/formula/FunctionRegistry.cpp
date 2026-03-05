@@ -11,6 +11,12 @@ void FunctionRegistry::register_function(const std::string& name, SpreadsheetFun
     funcs_[upper] = std::move(fn);
 }
 
+bool FunctionRegistry::unregister_function(const std::string& name) {
+    std::string upper = name;
+    std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
+    return funcs_.erase(upper) > 0;
+}
+
 bool FunctionRegistry::has(const std::string& name) const {
     std::string upper = name;
     std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });

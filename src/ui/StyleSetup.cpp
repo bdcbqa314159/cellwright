@@ -46,7 +46,7 @@ void apply_theme(Theme theme) {
         colors[ImGuiCol_TableBorderStrong] = ImVec4(0.30f, 0.30f, 0.35f, 1.0f);
         colors[ImGuiCol_TableBorderLight]  = ImVec4(0.22f, 0.22f, 0.26f, 1.0f);
         colors[ImGuiCol_TableRowBg]        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-        colors[ImGuiCol_TableRowBgAlt]     = ImVec4(1.00f, 1.00f, 1.00f, 0.03f);
+        colors[ImGuiCol_TableRowBgAlt]     = ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
     } else {
         // Light theme — Excel/Sheets inspired
         colors[ImGuiCol_WindowBg]          = ImVec4(0.95f, 0.95f, 0.96f, 1.0f);
@@ -79,7 +79,7 @@ void apply_theme(Theme theme) {
         colors[ImGuiCol_TableBorderStrong] = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
         colors[ImGuiCol_TableBorderLight]  = ImVec4(0.82f, 0.82f, 0.85f, 1.0f);
         colors[ImGuiCol_TableRowBg]        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-        colors[ImGuiCol_TableRowBgAlt]     = ImVec4(0.00f, 0.00f, 0.00f, 0.03f);
+        colors[ImGuiCol_TableRowBgAlt]     = ImVec4(0.00f, 0.00f, 0.00f, 0.04f);
     }
 }
 

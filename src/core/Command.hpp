@@ -69,10 +69,13 @@ public:
     void clear();
     std::optional<CellAddress> last_affected() const { return last_affected_; }
 
+    uint64_t generation() const { return generation_; }
+
 private:
     std::vector<CommandPtr> undo_stack_;
     std::vector<CommandPtr> redo_stack_;
     std::optional<CellAddress> last_affected_;
+    uint64_t generation_ = 0;
 };
 
 }  // namespace magic

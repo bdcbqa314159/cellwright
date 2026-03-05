@@ -59,6 +59,7 @@ void UndoManager::execute(CommandPtr cmd, Sheet& sheet) {
     cmd->execute(sheet);
     undo_stack_.push_back(std::move(cmd));
     redo_stack_.clear();
+    ++generation_;
 }
 
 void UndoManager::undo(Sheet& sheet) {
@@ -68,6 +69,7 @@ void UndoManager::undo(Sheet& sheet) {
     last_affected_ = cmd->cell();
     cmd->undo(sheet);
     redo_stack_.push_back(std::move(cmd));
+    ++generation_;
 }
 
 void UndoManager::redo(Sheet& sheet) {
@@ -77,6 +79,7 @@ void UndoManager::redo(Sheet& sheet) {
     last_affected_ = cmd->cell();
     cmd->execute(sheet);
     undo_stack_.push_back(std::move(cmd));
+    ++generation_;
 }
 
 void UndoManager::clear() {

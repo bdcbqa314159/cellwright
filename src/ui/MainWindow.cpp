@@ -25,20 +25,28 @@ void MainWindow::render_menu_bar(AppState& state) {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New")) {
-                state.workbook = Workbook();
-                state.sheet_states.clear();
-                state.sheet_states.emplace_back();
-                state.current_file.clear();
+                if (state.is_dirty()) {
+                    show_dirty_new_modal_ = true;
+                } else {
+                    state.workbook = Workbook();
+                    state.sheet_states.clear();
+                    state.sheet_states.emplace_back();
+                    state.saved_generations_ = {0};
+                    state.current_file.clear();
+                }
             }
             if (ImGui::MenuItem("Open...", "Ctrl+O")) {
                 file_dialog_.show_open = true;
                 snprintf(file_dialog_.path_buf, sizeof(file_dialog_.path_buf), "%s", state.current_file.c_str());
             }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {
-                if (!state.current_file.empty())
+                if (!state.current_file.empty()) {
                     WorkbookIO::save(state.current_file, state.workbook);
-                else
+                    state.mark_saved();
+                    state.toasts.show("Saved");
+                } else {
                     file_dialog_.show_save = true;
+                }
             }
             if (ImGui::MenuItem("Save As...")) {
                 file_dialog_.show_save = true;
@@ -91,23 +99,35 @@ void MainWindow::render_menu_bar(AppState& state) {
             auto& addr = grid_state_.selected;
             CellFormat current = as.format_map.get(addr);
 
+            auto apply_format = [&](CellFormat fmt) {
+                if (grid_state_.has_range_selection) {
+                    auto smin = grid_state_.sel_min();
+                    auto smax = grid_state_.sel_max();
+                    for (int32_t c = smin.col; c <= smax.col; ++c)
+                        for (int32_t r = smin.row; r <= smax.row; ++r)
+                            as.format_map.set({c, r}, fmt);
+                } else {
+                    as.format_map.set(addr, fmt);
+                }
+            };
+
             if (ImGui::MenuItem("General", nullptr, current.type == FormatType::GENERAL)) {
-                as.format_map.set(addr, {FormatType::GENERAL});
+                apply_format({FormatType::GENERAL});
             }
             if (ImGui::MenuItem("Number (2 dp)", nullptr, current.type == FormatType::NUMBER)) {
-                as.format_map.set(addr, {FormatType::NUMBER, 2});
+                apply_format({FormatType::NUMBER, 2});
             }
             if (ImGui::MenuItem("Percentage", nullptr, current.type == FormatType::PERCENTAGE)) {
-                as.format_map.set(addr, {FormatType::PERCENTAGE, 1});
+                apply_format({FormatType::PERCENTAGE, 1});
             }
             if (ImGui::MenuItem("Currency ($)", nullptr, current.type == FormatType::CURRENCY)) {
-                as.format_map.set(addr, {FormatType::CURRENCY, 2, "$"});
+                apply_format({FormatType::CURRENCY, 2, "$"});
             }
             if (ImGui::MenuItem("Scientific", nullptr, current.type == FormatType::SCIENTIFIC)) {
-                as.format_map.set(addr, {FormatType::SCIENTIFIC, 2});
+                apply_format({FormatType::SCIENTIFIC, 2});
             }
             if (ImGui::MenuItem("Date (ISO)", nullptr, current.type == FormatType::DATE)) {
-                as.format_map.set(addr, {FormatType::DATE});
+                apply_format({FormatType::DATE});
             }
             ImGui::EndMenu();
         }
@@ -116,6 +136,10 @@ void MainWindow::render_menu_bar(AppState& state) {
             bool chart_visible = chart_panel_.is_visible();
             if (ImGui::MenuItem("Chart Panel", nullptr, chart_visible)) {
                 chart_panel_.set_visible(!chart_visible);
+            }
+            bool sql_visible = sql_panel_.is_visible();
+            if (ImGui::MenuItem("SQL Query Panel", nullptr, sql_visible)) {
+                sql_panel_.set_visible(!sql_visible);
             }
             ImGui::Separator();
             if (ImGui::BeginMenu("Theme")) {
@@ -163,8 +187,11 @@ void MainWindow::render_menu_bar(AppState& state) {
     });
 
     file_popup("Save File", file_dialog_.show_save, [&](const std::string& path) {
-        if (WorkbookIO::save(path, state.workbook))
+        if (WorkbookIO::save(path, state.workbook)) {
             state.current_file = path;
+            state.mark_saved();
+            state.toasts.show("Saved");
+        }
     });
 
     file_popup("Import CSV", file_dialog_.show_import_csv, [&](const std::string& path) {
@@ -173,6 +200,7 @@ void MainWindow::render_menu_bar(AppState& state) {
         as.dep_graph.clear();
         as.format_map = FormatMap{};
         as.undo_manager.clear();
+        state.toasts.show("CSV imported");
     });
 
     file_popup("Export CSV", file_dialog_.show_export_csv, [&](const std::string& path) {
@@ -218,10 +246,13 @@ void MainWindow::handle_keyboard(AppState& state) {
                  as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-        if (!state.current_file.empty())
+        if (!state.current_file.empty()) {
             WorkbookIO::save(state.current_file, state.workbook);
-        else
+            state.mark_saved();
+            state.toasts.show("Saved");
+        } else {
             file_dialog_.show_save = true;
+        }
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
         file_dialog_.show_open = true;
@@ -258,8 +289,23 @@ void MainWindow::handle_keyboard(AppState& state) {
         }
         if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
             auto& sheet = state.workbook.active_sheet();
-            ci.process("", sheet, grid_state_.selected,
-                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+            if (grid_state_.has_range_selection) {
+                auto smin = grid_state_.sel_min();
+                auto smax = grid_state_.sel_max();
+                std::unordered_set<CellAddress> changed;
+                for (int32_t c = smin.col; c <= smax.col; ++c) {
+                    for (int32_t r = smin.row; r <= smax.row; ++r) {
+                        CellAddress addr{c, r};
+                        ci.process_no_recalc("", sheet, addr,
+                                             as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                        changed.insert(addr);
+                    }
+                }
+                ci.batch_recalc(sheet, changed, as.dep_graph, &state.workbook);
+            } else {
+                ci.process("", sheet, grid_state_.selected,
+                           as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+            }
         }
 
         // F2 to edit current cell
@@ -499,6 +545,38 @@ void MainWindow::render(AppState& state) {
 
     ImGui::End();
 
+    // Render toast notifications
+    state.toasts.render();
+
+    // ── Unsaved changes modal ────────────────────────────────────────────────
+    if (show_dirty_new_modal_ || wants_close_)
+        ImGui::OpenPopup("Unsaved Changes");
+    if (ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("You have unsaved changes. Discard them?");
+        ImGui::Spacing();
+        if (ImGui::Button("Discard", ImVec2(120, 0))) {
+            if (wants_close_) {
+                should_quit_ = true;
+                wants_close_ = false;
+            } else {
+                state.workbook = Workbook();
+                state.sheet_states.clear();
+                state.sheet_states.emplace_back();
+                state.saved_generations_ = {0};
+                state.current_file.clear();
+            }
+            show_dirty_new_modal_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            wants_close_ = false;
+            show_dirty_new_modal_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
     // ── Plugin trust confirmation modal ─────────────────────────────────────
     if (!state.pending_plugin_path.empty()) {
         // Cache hash on first frame modal opens
@@ -522,6 +600,7 @@ void MainWindow::render(AppState& state) {
         ImGui::Spacing();
         if (ImGui::Button("Trust & Load", ImVec2(140, 0))) {
             state.plugin_manager.trust_and_load(state.pending_plugin_path);
+            state.toasts.show("Plugin loaded");
             state.pending_plugin_path.clear();
             ImGui::CloseCurrentPopup();
         }
@@ -535,6 +614,9 @@ void MainWindow::render(AppState& state) {
 
     // Render chart panel as a separate dockable window
     chart_panel_.render(sheet);
+
+    // Render SQL query panel
+    sql_panel_.render(state.duckdb_engine, sheet);
 
     // Render plugin panels as dockable windows
     state.plugin_manager.render_panels();

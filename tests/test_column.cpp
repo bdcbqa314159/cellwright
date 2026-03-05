@@ -49,3 +49,45 @@ TEST(Column, Clear) {
     auto v = col.get(0);
     ASSERT_TRUE(is_empty(v));
 }
+
+TEST(Column, Min) {
+    Column col;
+    col.set(0, CellValue{5.0});
+    col.set(1, CellValue{2.0});
+    col.set(2, CellValue{8.0});
+    col.set(3, CellValue{1.0});
+    EXPECT_DOUBLE_EQ(col.min(0, 4), 1.0);
+    EXPECT_DOUBLE_EQ(col.min(0, 2), 2.0);
+}
+
+TEST(Column, Max) {
+    Column col;
+    col.set(0, CellValue{5.0});
+    col.set(1, CellValue{2.0});
+    col.set(2, CellValue{8.0});
+    EXPECT_DOUBLE_EQ(col.max(0, 3), 8.0);
+}
+
+TEST(Column, CountNumeric) {
+    Column col;
+    col.set(0, CellValue{1.0});
+    col.set(1, CellValue{std::string("text")});
+    col.set(2, CellValue{3.0});
+    col.set(3, CellValue{4.0});
+    EXPECT_EQ(col.count_numeric(0, 4), 3u);
+}
+
+TEST(Column, SumOfSquares) {
+    Column col;
+    col.set(0, CellValue{2.0});
+    col.set(1, CellValue{4.0});
+    col.set(2, CellValue{6.0});
+    double mean = 4.0;
+    EXPECT_DOUBLE_EQ(col.sum_of_squares(0, 3, mean), 8.0);
+}
+
+TEST(Column, EmptyRangeAggregation) {
+    Column col;
+    EXPECT_DOUBLE_EQ(col.sum(0, 0), 0.0);
+    EXPECT_EQ(col.count_numeric(0, 0), 0u);
+}

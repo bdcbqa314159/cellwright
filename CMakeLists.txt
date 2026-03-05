@@ -34,12 +34,18 @@ target_compile_definitions(magic_dashboard PRIVATE
     IMGUI_FONT_DIR="${imgui_SOURCE_DIR}/misc/fonts"
 )
 
+# SIMD flags for x86_64 (ARM NEON is auto-enabled on Apple Silicon)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(magic_dashboard PRIVATE -mavx2 -mfma)
+endif()
+
 target_link_libraries(magic_dashboard PRIVATE
     plugin_arch
     imgui_glfw_opengl3
     implot_lib
     glfw
     pybind11::embed
+    duckdb
 )
 
 if(APPLE)

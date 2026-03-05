@@ -21,12 +21,13 @@ void Clipboard::copy_single(const Sheet& sheet, const CellAddress& addr) {
 
 void Clipboard::copy(const Sheet& sheet, const CellAddress& from, const CellAddress& to) {
     cells_.clear();
-    origin_ = from;
 
     int32_t c1 = std::min(from.col, to.col);
     int32_t c2 = std::max(from.col, to.col);
     int32_t r1 = std::min(from.row, to.row);
     int32_t r2 = std::max(from.row, to.row);
+
+    origin_ = {c1, r1};
 
     for (int32_t c = c1; c <= c2; ++c) {
         for (int32_t r = r1; r <= r2; ++r) {

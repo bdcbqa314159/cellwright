@@ -24,6 +24,11 @@ target_include_directories(magic_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
+# SIMD flags for x86_64
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(magic_tests PRIVATE -mavx2 -mfma)
+endif()
+
 target_compile_definitions(magic_tests PRIVATE
     PY_BOND_PLUGIN_PATH="${CMAKE_SOURCE_DIR}/plugins/py_bond/py_bond.py"
 )
@@ -32,6 +37,7 @@ target_link_libraries(magic_tests PRIVATE
     GTest::gtest_main
     plugin_arch
     pybind11::embed
+    duckdb
 )
 
 include(GoogleTest)

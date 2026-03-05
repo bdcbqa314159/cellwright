@@ -106,30 +106,34 @@ bool PluginManager::trust_and_load(const std::string& path) {
 
 bool PluginManager::load_ifunction(const std::string& path) {
     try {
-        auto loader = std::make_shared<plugin_arch::PluginLoader<IFunction>>(path);
-        auto instance = loader->get_instance();
+        auto hot = std::make_shared<plugin_arch::HotPluginLoader<IFunction>>(path);
+        auto instance = hot->get_instance();
 
         LoadedPlugin lp;
         lp.path = path;
         lp.name = instance->name();
 
+        HotPluginEntry entry;
+        entry.loader = hot;
+
         for (const auto& fd : instance->describe_functions()) {
             lp.function_names.push_back(fd.name);
+            entry.function_names.push_back(fd.name);
 
-            auto inst = instance;
+            auto hot_ref = hot;  // lambda captures shared_ptr to HotPluginLoader
             std::string fn_name = fd.name;
             int min_args = fd.min_args;
             int max_args = fd.max_args;
             registry_.register_function(fd.name,
-                [inst, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
+                [hot_ref, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
                     int n = static_cast<int>(args.size());
                     if (n < min_args) return CellValue{CellError::VALUE};
                     if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
-                    return inst->call(fn_name, args);
+                    return hot_ref->get_instance()->call(fn_name, args);
                 });
         }
 
-        cpp_loaders_.push_back(std::move(loader));
+        hot_loaders_.push_back(std::move(entry));
         loaded_.push_back(std::move(lp));
         std::cout << "[PluginManager] Loaded C++ plugin: " << loaded_.back().name << "\n";
         return true;
@@ -163,6 +167,41 @@ void PluginManager::render_panels() {
     for (auto& pi : panels_) {
         pi.panel->render();
     }
+}
+
+int PluginManager::poll_reloads() {
+    int count = 0;
+    for (auto& entry : hot_loaders_) {
+        if (entry.loader->check_and_reload()) {
+            // Unregister old functions
+            for (const auto& name : entry.function_names)
+                registry_.unregister_function(name);
+
+            // Re-describe functions from the new instance
+            auto instance = entry.loader->get_instance();
+            entry.function_names.clear();
+
+            for (const auto& fd : instance->describe_functions()) {
+                entry.function_names.push_back(fd.name);
+
+                auto hot_ref = entry.loader;
+                std::string fn_name = fd.name;
+                int min_args = fd.min_args;
+                int max_args = fd.max_args;
+                registry_.register_function(fd.name,
+                    [hot_ref, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
+                        int n = static_cast<int>(args.size());
+                        if (n < min_args) return CellValue{CellError::VALUE};
+                        if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+                        return hot_ref->get_instance()->call(fn_name, args);
+                    });
+            }
+
+            std::cout << "[PluginManager] Hot-reloaded: " << entry.loader->library_path() << "\n";
+            ++count;
+        }
+    }
+    return count;
 }
 
 // ── C ABI loader (reuses probe handle) ──────────────────────────────────────

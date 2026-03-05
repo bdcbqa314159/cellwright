@@ -7,6 +7,7 @@
 #include "builtin/LogicFunctions.hpp"
 #include "builtin/StatFunctions.hpp"
 #include "builtin/TextFunctions.hpp"
+#include "builtin/SqlFunction.hpp"
 #include "plugin/DropHandler.hpp"
 #include "ui/StyleSetup.hpp"
 
@@ -17,6 +18,7 @@
 #include <implot.h>
 #include <pybind11/embed.h>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -74,6 +76,16 @@ void App::init_window() {
             state_.pending_plugin_path = path;
         }
     });
+
+    // Intercept window close when there are unsaved changes
+    glfwSetWindowUserPointer(window_, this);
+    glfwSetWindowCloseCallback(window_, [](GLFWwindow* w) {
+        auto* app = static_cast<App*>(glfwGetWindowUserPointer(w));
+        if (app->state_.is_dirty()) {
+            glfwSetWindowShouldClose(w, GLFW_FALSE);
+            app->state_.main_window.request_close();
+        }
+    });
 }
 
 void App::init_imgui() {
@@ -104,15 +116,21 @@ void App::init_builtins() {
     register_logic_functions(state_.function_registry);
     register_stat_functions(state_.function_registry);
     register_text_functions(state_.function_registry);
+    register_sql_function(state_.function_registry, state_.duckdb_engine,
+                          state_.workbook.active_sheet());
 }
 
 void App::main_loop() {
-    while (!glfwWindowShouldClose(window_)) {
+    while (!glfwWindowShouldClose(window_) && !state_.main_window.should_quit()) {
         glfwPollEvents();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        // Poll hot-reloadable plugins for changes
+        if (int n = state_.plugin_manager.poll_reloads(); n > 0)
+            state_.toasts.show("Plugin reloaded");
 
         state_.main_window.render(state_);
 
@@ -125,6 +143,20 @@ void App::main_loop() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window_);
+
+        // Update window title with filename and dirty indicator
+        {
+            std::string title = "Magic Dashboard";
+            if (!state_.current_file.empty()) {
+                auto fname = std::filesystem::path(state_.current_file).filename().string();
+                title += " — ";
+                if (state_.is_dirty()) title += "[*]";
+                title += fname;
+            } else if (state_.is_dirty()) {
+                title += " — [*]Untitled";
+            }
+            glfwSetWindowTitle(window_, title.c_str());
+        }
 
         // Sleep when idle to avoid burning CPU.
         // During interaction (mouse held, text input, drags, async work)

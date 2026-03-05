@@ -298,6 +298,11 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                             ImGui::GetWindowDrawList()->AddRectFilled(
                                 fill_min, br, fill_handle_color);
                         }
+
+                        // Active cell border (2px blue)
+                        ImGui::GetWindowDrawList()->AddRect(
+                            state.selected_rect_min, state.selected_rect_max,
+                            fill_handle_color, 0.0f, 0, 2.0f);
                     }
 
                     // Track hovered cell for drag operations.

@@ -77,6 +77,18 @@ FetchContent_Declare(pybind11
 )
 FetchContent_MakeAvailable(pybind11)
 
+# ── DuckDB ───────────────────────────────────────────────────────────────────
+set(BUILD_SHELL OFF CACHE BOOL "" FORCE)
+set(BUILD_UNITTESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(duckdb
+    GIT_REPOSITORY https://github.com/duckdb/duckdb.git
+    GIT_TAG        v1.1.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(duckdb)
+
 # ── Google Test ──────────────────────────────────────────────────────────────
 FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git

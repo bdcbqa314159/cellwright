@@ -15,13 +15,18 @@ public:
     void clear(int32_t row);
     int32_t size() const;
 
-    // Fast-path aggregate over contiguous doubles
+    // Fast-path aggregates over contiguous doubles (SIMD-accelerated when possible)
     double sum(int32_t from, int32_t to) const;
+    double min(int32_t from, int32_t to) const;
+    double max(int32_t from, int32_t to) const;
+    size_t count_numeric(int32_t from, int32_t to) const;
+    double sum_of_squares(int32_t from, int32_t to, double mean) const;
 
     const std::vector<double>& doubles() const { return doubles_; }
 
 private:
     void ensure_row(int32_t row);
+    bool has_non_numeric_in_range(int32_t from, int32_t to) const;
 
     std::vector<double> doubles_;                          // dense numeric
     std::unordered_map<int32_t, CellValue> non_numeric_;   // sparse non-numeric

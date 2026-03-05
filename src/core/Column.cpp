@@ -1,4 +1,5 @@
 #include "core/Column.hpp"
+#include "core/SimdOps.hpp"
 #include <cmath>
 #include <limits>
 
@@ -53,10 +54,24 @@ int32_t Column::size() const {
     return static_cast<int32_t>(doubles_.size());
 }
 
+bool Column::has_non_numeric_in_range(int32_t from, int32_t to) const {
+    for (const auto& [row, _] : non_numeric_) {
+        if (row >= from && row < to) return true;
+    }
+    return false;
+}
+
 double Column::sum(int32_t from, int32_t to) const {
-    double s = 0.0;
     int32_t start = std::max(from, int32_t{0});
     int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
+    if (start >= end) return 0.0;
+
+    // Fast path: no non-numeric entries in range — use SIMD
+    if (!has_non_numeric_in_range(start, end))
+        return simd_sum(doubles_.data() + start, static_cast<size_t>(end - start));
+
+    // Slow path: mixed types
+    double s = 0.0;
     for (int32_t r = start; r < end; ++r) {
         if (non_numeric_.count(r) == 0) {
             double d = doubles_[r];
@@ -67,6 +82,97 @@ double Column::sum(int32_t from, int32_t to) const {
         }
     }
     return s;
+}
+
+double Column::min(int32_t from, int32_t to) const {
+    int32_t start = std::max(from, int32_t{0});
+    int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
+    if (start >= end) return std::numeric_limits<double>::infinity();
+
+    if (!has_non_numeric_in_range(start, end))
+        return simd_min(doubles_.data() + start, static_cast<size_t>(end - start));
+
+    double result = std::numeric_limits<double>::infinity();
+    for (int32_t r = start; r < end; ++r) {
+        double d;
+        if (non_numeric_.count(r) == 0) {
+            d = doubles_[r];
+        } else {
+            auto& ov = non_numeric_.at(r);
+            if (!is_number(ov)) continue;
+            d = as_number(ov);
+        }
+        if (!std::isnan(d) && d < result) result = d;
+    }
+    return result;
+}
+
+double Column::max(int32_t from, int32_t to) const {
+    int32_t start = std::max(from, int32_t{0});
+    int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
+    if (start >= end) return -std::numeric_limits<double>::infinity();
+
+    if (!has_non_numeric_in_range(start, end))
+        return simd_max(doubles_.data() + start, static_cast<size_t>(end - start));
+
+    double result = -std::numeric_limits<double>::infinity();
+    for (int32_t r = start; r < end; ++r) {
+        double d;
+        if (non_numeric_.count(r) == 0) {
+            d = doubles_[r];
+        } else {
+            auto& ov = non_numeric_.at(r);
+            if (!is_number(ov)) continue;
+            d = as_number(ov);
+        }
+        if (!std::isnan(d) && d > result) result = d;
+    }
+    return result;
+}
+
+size_t Column::count_numeric(int32_t from, int32_t to) const {
+    int32_t start = std::max(from, int32_t{0});
+    int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
+    if (start >= end) return 0;
+
+    if (!has_non_numeric_in_range(start, end))
+        return simd_count_numeric(doubles_.data() + start, static_cast<size_t>(end - start));
+
+    size_t result = 0;
+    for (int32_t r = start; r < end; ++r) {
+        if (non_numeric_.count(r) == 0) {
+            if (!std::isnan(doubles_[r])) ++result;
+        } else {
+            if (is_number(non_numeric_.at(r))) ++result;
+        }
+    }
+    return result;
+}
+
+double Column::sum_of_squares(int32_t from, int32_t to, double mean) const {
+    int32_t start = std::max(from, int32_t{0});
+    int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
+    if (start >= end) return 0.0;
+
+    if (!has_non_numeric_in_range(start, end))
+        return simd_sum_of_squares(doubles_.data() + start, static_cast<size_t>(end - start), mean);
+
+    double result = 0.0;
+    for (int32_t r = start; r < end; ++r) {
+        double d;
+        if (non_numeric_.count(r) == 0) {
+            d = doubles_[r];
+        } else {
+            auto& ov = non_numeric_.at(r);
+            if (!is_number(ov)) continue;
+            d = as_number(ov);
+        }
+        if (!std::isnan(d)) {
+            double diff = d - mean;
+            result += diff * diff;
+        }
+    }
+    return result;
 }
 
 }  // namespace magic

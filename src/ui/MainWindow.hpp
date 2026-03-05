@@ -2,6 +2,7 @@
 #include "ui/SpreadsheetGrid.hpp"
 #include "ui/FormulaBar.hpp"
 #include "ui/ChartPanel.hpp"
+#include "ui/SqlPanel.hpp"
 #include "ui/StyleSetup.hpp"
 #include <cstdint>
 
@@ -29,6 +30,10 @@ public:
                grid_state_.formula_dragging;
     }
 
+    // Signal that the user wants to close but has unsaved changes
+    void request_close() { wants_close_ = true; }
+    bool should_quit() const { return should_quit_; }
+
 private:
     void render_menu_bar(AppState& state);
     void handle_keyboard(AppState& state);
@@ -37,6 +42,7 @@ private:
     FormulaBar formula_bar_;
     GridState grid_state_;
     ChartPanel chart_panel_;
+    SqlPanel sql_panel_;
     FileDialogState file_dialog_;
 
     Theme theme_ = Theme::Dark;
@@ -53,6 +59,10 @@ private:
     // Cached plugin hash (avoid SHA-256 every frame while trust modal is open)
     std::string trust_modal_path_;
     std::string trust_modal_hash_;
+
+    bool show_dirty_new_modal_ = false;
+    bool wants_close_ = false;
+    bool should_quit_ = false;
 };
 
 }  // namespace magic

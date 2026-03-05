@@ -5,6 +5,7 @@
 #include "plugin/PluginAllowlist.hpp"
 #include "formula/FunctionRegistry.hpp"
 #include <PluginLoader.hpp>
+#include <HotPluginLoader.hpp>
 #include <DynamicLibrary.hpp>
 #include <PluginDescriptor.hpp>
 #include <memory>
@@ -40,6 +41,9 @@ public:
     // Render all loaded IPanel plugins
     void render_panels();
 
+    // Poll all hot-reloadable plugins for changes; returns number of reloads
+    int poll_reloads();
+
     const PluginAllowlist& allowlist() const { return allowlist_; }
 
 private:
@@ -56,7 +60,11 @@ private:
     PluginAllowlist allowlist_;
     std::vector<LoadedPlugin> loaded_;
 
-    std::vector<std::shared_ptr<plugin_arch::PluginLoader<IFunction>>> cpp_loaders_;
+    struct HotPluginEntry {
+        std::shared_ptr<plugin_arch::HotPluginLoader<IFunction>> loader;
+        std::vector<std::string> function_names;
+    };
+    std::vector<HotPluginEntry> hot_loaders_;
     std::vector<std::shared_ptr<plugin_arch::DynamicLibrary>> c_libs_;
     std::vector<std::shared_ptr<PyFunctionPlugin>> py_plugins_;
 
