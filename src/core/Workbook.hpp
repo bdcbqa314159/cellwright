@@ -1,5 +1,6 @@
 #pragma once
 #include "core/Sheet.hpp"
+#include <algorithm>
 #include <vector>
 #include <string>
 
@@ -15,11 +16,11 @@ public:
     int active_index() const { return active_; }
     void set_active(int idx);
 
-    Sheet& sheet(int idx) { return sheets_[idx]; }
-    const Sheet& sheet(int idx) const { return sheets_[idx]; }
+    Sheet& sheet(int idx) { return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)]; }
+    const Sheet& sheet(int idx) const { return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)]; }
     int sheet_count() const { return static_cast<int>(sheets_.size()); }
 
-    Sheet& add_sheet(const std::string& name = "");
+    int add_sheet(const std::string& name = "");
     void remove_sheet(int idx);
 
 private:

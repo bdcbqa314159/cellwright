@@ -52,7 +52,9 @@ PyFunctionPlugin::PyFunctionPlugin(const std::filesystem::path& py_path) {
     }
 }
 
-std::string PyFunctionPlugin::name() const { return name_; }
+const std::string& PyFunctionPlugin::name() const { return name_; }
+const std::string& PyFunctionPlugin::version() const { return version_; }
+const std::string& PyFunctionPlugin::type() const { return type_; }
 
 std::vector<FunctionDescriptor> PyFunctionPlugin::describe_functions() const {
     return descriptors_;

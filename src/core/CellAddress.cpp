@@ -33,7 +33,9 @@ std::optional<CellAddress> CellAddress::from_a1(const std::string& s) {
         if (!std::isdigit(static_cast<unsigned char>(ch))) return std::nullopt;
     }
 
-    int row_1based = std::stoi(digits);
+    int row_1based;
+    try { row_1based = std::stoi(digits); }
+    catch (...) { return std::nullopt; }
     if (row_1based < 1) return std::nullopt;
 
     return CellAddress{letters_to_col(letters), row_1based - 1};

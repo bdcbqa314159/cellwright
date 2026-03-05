@@ -24,7 +24,7 @@ void DependencyGraph::set_dependencies(const CellAddress& cell, const std::vecto
 }
 
 void DependencyGraph::remove(const CellAddress& cell) {
-    // Remove forward edges
+    // Remove forward edges (what cell depends on)
     if (auto it = deps_.find(cell); it != deps_.end()) {
         for (const auto& dep : it->second) {
             if (auto rit = rdeps_.find(dep); rit != rdeps_.end()) {
@@ -34,8 +34,14 @@ void DependencyGraph::remove(const CellAddress& cell) {
         deps_.erase(it);
     }
 
-    // Remove reverse edges where this cell is a dependency
+    // Remove reverse edges: clean up deps_ of cells that depend on this cell
     if (auto rit = rdeps_.find(cell); rit != rdeps_.end()) {
+        for (const auto& dependent : rit->second) {
+            if (auto dit = deps_.find(dependent); dit != deps_.end()) {
+                auto& dv = dit->second;
+                dv.erase(std::remove(dv.begin(), dv.end(), cell), dv.end());
+            }
+        }
         rdeps_.erase(rit);
     }
 }
@@ -101,6 +107,14 @@ std::vector<CellAddress> DependencyGraph::recalc_order(const std::unordered_set<
                     ready.push(dep);
                 }
             }
+        }
+    }
+
+    // Detect circular dependencies: cells with non-zero in-degree are in cycles.
+    // Mark them as CellError::REF by including them with a special flag.
+    for (const auto& [cell, deg] : in_degree) {
+        if (deg > 0) {
+            order.push_back(cell);  // include cycle cells so caller can mark them as errors
         }
     }
 

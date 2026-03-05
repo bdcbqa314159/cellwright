@@ -1,5 +1,6 @@
 #include "core/CellFormat.hpp"
 #include "core/DateSerial.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -14,6 +15,7 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
     if (!is_number(val)) return to_display_string(val);
 
     double d = as_number(val);
+    int decimals = std::clamp(fmt.decimals, 0, 20);
 
     switch (fmt.type) {
         case FormatType::GENERAL:
@@ -21,26 +23,26 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
 
         case FormatType::NUMBER: {
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "%.*f", fmt.decimals, d);
+            std::snprintf(buf, sizeof(buf), "%.*f", decimals, d);
             return buf;
         }
 
         case FormatType::PERCENTAGE: {
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "%.*f%%", fmt.decimals, d * 100.0);
+            std::snprintf(buf, sizeof(buf), "%.*f%%", decimals, d * 100.0);
             return buf;
         }
 
         case FormatType::CURRENCY: {
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "%s%.*f", fmt.currency_symbol.c_str(), fmt.decimals, std::abs(d));
+            std::snprintf(buf, sizeof(buf), "%s%.*f", fmt.currency_symbol.c_str(), decimals, std::abs(d));
             if (d < 0) return std::string("-") + buf;
             return buf;
         }
 
         case FormatType::SCIENTIFIC: {
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "%.*e", fmt.decimals, d);
+            std::snprintf(buf, sizeof(buf), "%.*e", decimals, d);
             return buf;
         }
 

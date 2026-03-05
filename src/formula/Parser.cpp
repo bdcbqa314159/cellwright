@@ -1,6 +1,7 @@
 #include "formula/Parser.hpp"
 #include "core/CellAddress.hpp"
 #include <algorithm>
+#include <cctype>
 #include <stdexcept>
 
 namespace magic {
@@ -16,10 +17,12 @@ ParsedFormula Parser::parse(const std::vector<Token>& tokens) {
 }
 
 const Token& Parser::current() const {
+    if (pos_ >= tokens_.size()) return tokens_.back();  // END token
     return tokens_[pos_];
 }
 
 const Token& Parser::advance() {
+    if (pos_ >= tokens_.size()) return tokens_.back();
     return tokens_[pos_++];
 }
 
@@ -86,13 +89,13 @@ ASTNode* Parser::parse_multiplication() {
     return left;
 }
 
-// power → unary ( ^ unary )*
+// power → unary ( ^ power )?   (right-associative)
 ASTNode* Parser::parse_power() {
     auto* left = parse_unary();
 
-    while (current().type == TokenType::CARET) {
+    if (current().type == TokenType::CARET) {
         advance();
-        auto* right = parse_unary();
+        auto* right = parse_power();  // recurse for right-associativity
         left = make_node(arena_, BinOpNode{'^', left, right});
     }
 
@@ -182,7 +185,7 @@ ASTNode* Parser::parse_atom() {
     if (current().type == TokenType::FUNC) {
         std::string name = current().text;
         // Uppercase the function name for case-insensitive lookup
-        std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::toupper(c); });
         advance();
         expect(TokenType::LPAREN);
 
@@ -201,7 +204,7 @@ ASTNode* Parser::parse_atom() {
     if (current().type == TokenType::IDENT) {
         std::string text = current().text;
         std::string upper = text;
-        std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+        std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
         advance();
         if (upper == "TRUE") return make_node(arena_, BoolNode{true});
         if (upper == "FALSE") return make_node(arena_, BoolNode{false});

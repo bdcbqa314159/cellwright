@@ -81,8 +81,11 @@ std::vector<Clipboard::PasteEntry> Clipboard::paste_at(const CellAddress& dest) 
     entries.reserve(cells_.size());
 
     for (const auto& cc : cells_) {
+        CellAddress pa{dest.col + cc.rel_col, dest.row + cc.rel_row};
+        if (pa.col < 0 || pa.row < 0) continue;
+
         PasteEntry pe;
-        pe.addr = {dest.col + cc.rel_col, dest.row + cc.rel_row};
+        pe.addr = pa;
 
         if (!cc.formula.empty()) {
             int32_t dcol = pe.addr.col - (origin_.col + cc.rel_col);
@@ -95,6 +98,15 @@ std::vector<Clipboard::PasteEntry> Clipboard::paste_at(const CellAddress& dest) 
     }
 
     return entries;
+}
+
+std::vector<CellAddress> Clipboard::source_cells() const {
+    std::vector<CellAddress> result;
+    result.reserve(cells_.size());
+    for (const auto& c : cells_) {
+        result.push_back({origin_.col + c.rel_col, origin_.row + c.rel_row});
+    }
+    return result;
 }
 
 }  // namespace magic

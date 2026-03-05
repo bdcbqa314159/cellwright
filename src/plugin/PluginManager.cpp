@@ -6,6 +6,7 @@
 namespace magic {
 
 int count_args_from_signature(const char* sig) {
+    if (!sig) return 0;
     const char* open = std::strchr(sig, '(');
     if (!open) return 0;
     const char* close = std::strchr(open, ')');
@@ -181,7 +182,7 @@ bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) 
             lp.function_names.push_back(sym_name);
 
             int nargs = count_args_from_signature(entry.signature);
-            void* raw = lib->resolve<void*>(sym_name);
+            auto raw = reinterpret_cast<void*>(lib->resolve<void(*)()>(sym_name));
             auto captured_lib = lib;
 
             registry_.register_function(sym_name,

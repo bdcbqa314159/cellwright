@@ -266,9 +266,8 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                             state.sel_anchor = addr;
                             state.has_range_selection = false;
 
-                            // Single click on formula cell → enter edit mode
-                            // Double click on any cell → enter edit mode
-                            if (sheet.has_formula(addr) || ImGui::IsMouseDoubleClicked(0)) {
+                            // Double click only to enter edit mode (#33)
+                            if (ImGui::IsMouseDoubleClicked(0)) {
                                 std::string initial;
                                 if (sheet.has_formula(addr))
                                     initial = "=" + sheet.get_formula(addr);
@@ -380,10 +379,8 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 state.drag_completed = true;
             }
         }
-        if (state.drag_mode == CellDragMode::Select) {
-            // Selection is already updated — just reset drag mode
-            state.drag_mode = CellDragMode::None;
-        }
+        // Always reset drag mode on mouse release (#5)
+        state.drag_mode = CellDragMode::None;
     }
 
     return committed;

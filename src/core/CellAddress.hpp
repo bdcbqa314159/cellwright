@@ -35,6 +35,6 @@ struct std::hash<magic::CellAddress> {
     std::size_t operator()(const magic::CellAddress& a) const noexcept {
         auto h1 = std::hash<int32_t>{}(a.col);
         auto h2 = std::hash<int32_t>{}(a.row);
-        return h1 ^ (h2 << 16);
+        return h1 ^ (h2 * 0x9e3779b97f4a7c15ULL);
     }
 };

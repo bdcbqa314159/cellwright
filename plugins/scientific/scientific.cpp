@@ -1,5 +1,5 @@
 #include "scientific.hpp"
-#include <PluginFactory.hpp>
+#include <PluginExport.hpp>
 #include <cmath>
 #include <string>
 

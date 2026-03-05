@@ -7,11 +7,13 @@ namespace magic {
 static constexpr double EMPTY_SENTINEL = std::numeric_limits<double>::quiet_NaN();
 
 void Column::ensure_row(int32_t row) {
+    if (row < 0) return;
     if (row >= static_cast<int32_t>(doubles_.size()))
-        doubles_.resize(row + 1, EMPTY_SENTINEL);
+        doubles_.resize(static_cast<size_t>(row) + 1, EMPTY_SENTINEL);
 }
 
 CellValue Column::get(int32_t row) const {
+    if (row < 0) return CellValue{};
     auto it = overrides_.find(row);
     if (it != overrides_.end()) return it->second;
     if (row < static_cast<int32_t>(doubles_.size())) {
@@ -23,6 +25,7 @@ CellValue Column::get(int32_t row) const {
 }
 
 void Column::set(int32_t row, const CellValue& val) {
+    if (row < 0) return;
     if (is_number(val)) {
         overrides_.erase(row);
         ensure_row(row);
@@ -39,6 +42,7 @@ void Column::set(int32_t row, const CellValue& val) {
 }
 
 void Column::clear(int32_t row) {
+    if (row < 0) return;
     overrides_.erase(row);
     if (row < static_cast<int32_t>(doubles_.size()))
         doubles_[row] = EMPTY_SENTINEL;
@@ -50,8 +54,9 @@ int32_t Column::size() const {
 
 double Column::sum(int32_t from, int32_t to) const {
     double s = 0.0;
+    int32_t start = std::max(from, int32_t{0});
     int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
-    for (int32_t r = from; r < end; ++r) {
+    for (int32_t r = start; r < end; ++r) {
         if (overrides_.count(r) == 0) {
             double d = doubles_[r];
             if (!std::isnan(d)) s += d;

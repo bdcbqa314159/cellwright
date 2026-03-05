@@ -41,11 +41,15 @@ public:
     // Returns completed results and clears the internal buffer.
     std::vector<RecalcResult> poll_results();
 
-    // True if the engine is currently processing a batch.
-    bool is_busy() const { return busy_.load(); }
+    // True if the engine is processing or has pending batches.
+    bool is_busy() const { return busy_.load() || has_pending(); }
 
 private:
     void worker_loop();
+    bool has_pending() const {
+        std::lock_guard lock(queue_mutex_);
+        return !pending_.empty();
+    }
 
     struct Batch {
         std::vector<RecalcJob> jobs;
@@ -53,7 +57,7 @@ private:
     };
 
     std::thread worker_;
-    std::mutex queue_mutex_;
+    mutable std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     std::queue<Batch> pending_;
     std::atomic<bool> stop_{false};

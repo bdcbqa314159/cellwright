@@ -1,5 +1,5 @@
 #include "example_stats.hpp"
-#include <PluginFactory.hpp>
+#include <PluginExport.hpp>
 
 namespace magic::plugins {
 

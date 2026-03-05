@@ -16,9 +16,9 @@ public:
     // Throws std::runtime_error if the .py file is invalid.
     explicit PyFunctionPlugin(const std::filesystem::path& py_path);
 
-    std::string name() const override;
-    std::string version() const override { return "1.0.0"; }
-    std::string type() const override { return "function"; }
+    const std::string& name() const override;
+    const std::string& version() const override;
+    const std::string& type() const override;
 
     std::vector<FunctionDescriptor> describe_functions() const override;
     CellValue call(const std::string& func_name,
@@ -30,6 +30,8 @@ public:
 
 private:
     std::string name_;
+    std::string version_{"1.0.0"};
+    std::string type_{"function"};
     std::vector<FunctionDescriptor> descriptors_;
     py::dict scope_;
 };

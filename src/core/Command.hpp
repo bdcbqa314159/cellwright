@@ -2,6 +2,7 @@
 #include "core/CellAddress.hpp"
 #include "core/CellValue.hpp"
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,7 @@ public:
     virtual void execute(Sheet& sheet) = 0;
     virtual void undo(Sheet& sheet) = 0;
     virtual std::string description() const = 0;
+    virtual CellAddress cell() const = 0;
 };
 
 using CommandPtr = std::unique_ptr<Command>;
@@ -28,6 +30,7 @@ public:
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
+    CellAddress cell() const override { return addr_; }
 
 private:
     CellAddress addr_;
@@ -45,6 +48,7 @@ public:
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
+    CellAddress cell() const override { return addr_; }
 
 private:
     CellAddress addr_;
@@ -63,10 +67,12 @@ public:
     void undo(Sheet& sheet);
     void redo(Sheet& sheet);
     void clear();
+    std::optional<CellAddress> last_affected() const { return last_affected_; }
 
 private:
     std::vector<CommandPtr> undo_stack_;
     std::vector<CommandPtr> redo_stack_;
+    std::optional<CellAddress> last_affected_;
 };
 
 }  // namespace magic

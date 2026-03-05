@@ -77,7 +77,14 @@ void PluginAllowlist::revoke(const std::string& hash) {
 
 bool PluginAllowlist::verify_codesign(const std::string& path) {
 #ifdef __APPLE__
-    std::string cmd = "codesign -v \"" + path + "\" 2>/dev/null";
+    // Reject paths with shell metacharacters to prevent command injection
+    for (char ch : path) {
+        if (ch == '\'' || ch == '"' || ch == '\\' || ch == '$' || ch == '`'
+            || ch == '(' || ch == ')' || ch == ';' || ch == '&' || ch == '|'
+            || ch == '\n' || ch == '\r')
+            return false;
+    }
+    std::string cmd = "codesign -v '" + path + "' 2>/dev/null";
     int status = std::system(cmd.c_str());
     return status == 0;
 #else

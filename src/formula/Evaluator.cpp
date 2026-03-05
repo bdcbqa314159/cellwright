@@ -82,6 +82,28 @@ CellValue Evaluator::eval_compare(const CompareNode& n) {
     if (is_error(lv)) return lv;
     if (is_error(rv)) return rv;
 
+    // Type-aware comparison: strings compare lexicographically, bools by identity
+    if (is_string(lv) && is_string(rv)) {
+        int cmp = as_string(lv).compare(as_string(rv));
+        if (n.op == "=")       return CellValue{cmp == 0};
+        if (n.op == "<>")      return CellValue{cmp != 0};
+        if (n.op == "<")       return CellValue{cmp < 0};
+        if (n.op == ">")       return CellValue{cmp > 0};
+        if (n.op == "<=")      return CellValue{cmp <= 0};
+        if (n.op == ">=")      return CellValue{cmp >= 0};
+    }
+
+    if (is_bool(lv) && is_bool(rv)) {
+        bool lb = std::get<bool>(lv), rb = std::get<bool>(rv);
+        if (n.op == "=")       return CellValue{lb == rb};
+        if (n.op == "<>")      return CellValue{lb != rb};
+        // Booleans: FALSE < TRUE
+        if (n.op == "<")       return CellValue{!lb && rb};
+        if (n.op == ">")       return CellValue{lb && !rb};
+        if (n.op == "<=")      return CellValue{!lb || rb};
+        if (n.op == ">=")      return CellValue{lb || !rb};
+    }
+
     double l = to_double(lv);
     double r = to_double(rv);
 
@@ -113,11 +135,14 @@ std::vector<CellValue> Evaluator::expand_range(const RangeNode& range) {
 
 std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& from, const CellAddress& to) {
     std::vector<CellValue> result;
-    int32_t c1 = std::min(from.col, to.col);
+    int32_t c1 = std::max(std::min(from.col, to.col), int32_t{0});
     int32_t c2 = std::max(from.col, to.col);
-    int32_t r1 = std::min(from.row, to.row);
+    int32_t r1 = std::max(std::min(from.row, to.row), int32_t{0});
     int32_t r2 = std::max(from.row, to.row);
-    result.reserve(static_cast<size_t>(c2 - c1 + 1) * static_cast<size_t>(r2 - r1 + 1));
+    static constexpr size_t MAX_RANGE_CELLS = 1'000'000;
+    size_t count = static_cast<size_t>(c2 - c1 + 1) * static_cast<size_t>(r2 - r1 + 1);
+    if (count > MAX_RANGE_CELLS) return {CellValue{CellError::VALUE}};
+    result.reserve(count);
 
     for (int32_t c = c1; c <= c2; ++c) {
         for (int32_t r = r1; r <= r2; ++r) {
@@ -169,10 +194,15 @@ CellValue Evaluator::eval_func(const FuncCallNode& n) {
         args_stack_.emplace_back();
     auto& buf = args_stack_[args_depth_++];
     buf.clear();
-    collect_args_into(n.args, buf);
-    auto result = registry_.call_direct(n.name, buf);
-    --args_depth_;
-    return result;
+    try {
+        collect_args_into(n.args, buf);
+        auto result = registry_.call_direct(n.name, buf);
+        --args_depth_;
+        return result;
+    } catch (...) {
+        --args_depth_;
+        return CellValue{CellError::VALUE};
+    }
 }
 
 Sheet* Evaluator::find_sheet(const std::string& name) {

@@ -65,6 +65,7 @@ void UndoManager::undo(Sheet& sheet) {
     if (undo_stack_.empty()) return;
     auto cmd = std::move(undo_stack_.back());
     undo_stack_.pop_back();
+    last_affected_ = cmd->cell();
     cmd->undo(sheet);
     redo_stack_.push_back(std::move(cmd));
 }
@@ -73,6 +74,7 @@ void UndoManager::redo(Sheet& sheet) {
     if (redo_stack_.empty()) return;
     auto cmd = std::move(redo_stack_.back());
     redo_stack_.pop_back();
+    last_affected_ = cmd->cell();
     cmd->execute(sheet);
     undo_stack_.push_back(std::move(cmd));
 }

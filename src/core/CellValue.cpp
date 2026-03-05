@@ -1,5 +1,6 @@
 #include "core/CellValue.hpp"
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 
 namespace magic {
@@ -8,7 +9,8 @@ std::string to_display_string(const CellValue& v) {
     if (is_empty(v)) return "";
     if (is_number(v)) {
         double d = as_number(v);
-        if (d == static_cast<int64_t>(d))
+        if (std::isfinite(d) && d >= static_cast<double>(INT64_MIN) &&
+            d <= static_cast<double>(INT64_MAX) && d == static_cast<int64_t>(d))
             return std::to_string(static_cast<int64_t>(d));
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%g", d);

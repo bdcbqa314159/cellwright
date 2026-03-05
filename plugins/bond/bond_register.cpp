@@ -1,4 +1,4 @@
 #include "bond_plugin.hpp"
-#include <PluginFactory.hpp>
+#include <PluginExport.hpp>
 
 REGISTER_PLUGIN(magic::plugins::BondPlugin)

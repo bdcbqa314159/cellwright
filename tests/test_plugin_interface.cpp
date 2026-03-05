@@ -11,9 +11,9 @@ using namespace magic;
 
 class MockStats : public IFunction {
 public:
-    std::string name() const override { return "MockStats"; }
-    std::string version() const override { return "1.0.0"; }
-    std::string type() const override { return "function"; }
+    const std::string& name() const override { return name_; }
+    const std::string& version() const override { return version_; }
+    const std::string& type() const override { return type_; }
 
     std::vector<FunctionDescriptor> describe_functions() const override {
         return {{"ZSCORE", 3, 3}};
@@ -30,6 +30,11 @@ public:
         }
         return CellValue{CellError::NAME};
     }
+
+private:
+    std::string name_    = "MockStats";
+    std::string version_ = "1.0.0";
+    std::string type_    = "function";
 };
 
 // ── Direct plugin tests (no dynamic loading) ───────────────────────────────

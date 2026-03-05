@@ -23,6 +23,8 @@ public:
     bool has_data() const { return !cells_.empty(); }
     bool is_cut() const { return is_cut_; }
     void set_cut(bool v) { is_cut_ = v; }
+    std::vector<CellAddress> source_cells() const;
+    void clear() { cells_.clear(); is_cut_ = false; }
 
     // Get cells to paste at destination, adjusting relative references
     struct PasteEntry {

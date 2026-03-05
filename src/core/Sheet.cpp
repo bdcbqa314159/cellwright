@@ -8,7 +8,7 @@ Sheet::Sheet(const std::string& name, int32_t cols, int32_t rows)
     : name_(name), row_count_(rows), columns_(cols) {}
 
 CellValue Sheet::get_value(const CellAddress& addr) const {
-    if (addr.col < 0 || addr.col >= col_count()) return CellValue{CellError::REF};
+    if (addr.col < 0 || addr.row < 0 || addr.col >= col_count()) return CellValue{CellError::REF};
     return columns_[addr.col].get(addr.row);
 }
 
@@ -18,6 +18,7 @@ void Sheet::set_value(const CellAddress& addr, const CellValue& val) {
     columns_[addr.col].set(addr.row, val);
     if (addr.row >= row_count_) row_count_ = addr.row + 1;
     ++value_generation_;
+    mark_dirty(addr);
 }
 
 bool Sheet::has_formula(const CellAddress& addr) const {
@@ -33,6 +34,7 @@ const std::string& Sheet::get_formula(const CellAddress& addr) const {
 void Sheet::set_formula(const CellAddress& addr, const std::string& formula) {
     formulas_[addr] = formula;
     mark_dirty(addr);
+    ++value_generation_;
 }
 
 void Sheet::clear_formula(const CellAddress& addr) {
@@ -48,11 +50,13 @@ void Sheet::clear_dirty() {
 }
 
 Column& Sheet::column(int32_t col) {
+    if (col < 0) { static Column empty; return empty; }
     while (col >= col_count()) columns_.emplace_back();
     return columns_[col];
 }
 
 const Column& Sheet::column(int32_t col) const {
+    if (col < 0 || col >= col_count()) { static const Column empty; return empty; }
     return columns_[col];
 }
 

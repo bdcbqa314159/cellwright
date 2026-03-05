@@ -34,6 +34,10 @@ private:
     double cached_sum_ = 0;
     int cached_count_ = 0;
     bool cached_has_range_ = false;
+
+    // Cached plugin hash (avoid SHA-256 every frame while trust modal is open)
+    std::string cached_plugin_path_;
+    std::string cached_plugin_hash_;
 };
 
 }  // namespace magic

@@ -62,7 +62,12 @@ void ChartPanel::render_controls(Sheet& sheet) {
         }
     }
 
-    // Y columns — row of checkboxes
+    // Clamp x_col_ if columns were removed (#42)
+    if (x_col_ >= num_cols) x_col_ = -1;
+
+    // Y columns — row of checkboxes (truncate if columns were removed)
+    if (static_cast<int>(y_col_selected_.size()) > num_cols)
+        y_col_selected_.resize(static_cast<size_t>(num_cols));
     y_col_selected_.resize(static_cast<size_t>(num_cols), false);
     if (num_cols > 0 && std::none_of(y_col_selected_.begin(), y_col_selected_.end(), [](bool v){ return v; })) {
         y_col_selected_[0] = true;  // default: select first column

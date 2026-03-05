@@ -13,6 +13,7 @@ public:
     const char* buffer() const { return buf_; }
     bool is_editing() const { return editing_; }
     bool is_formula_mode() const { return editing_ && buf_[0] == '='; }
+    void force_refresh() { last_selected_ = {-1, -1}; }
 
 private:
     char buf_[1024] = {};

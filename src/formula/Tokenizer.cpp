@@ -28,7 +28,14 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
         // Number
         if (std::isdigit(static_cast<unsigned char>(ch)) || (ch == '.' && i + 1 < n && std::isdigit(static_cast<unsigned char>(formula[i + 1])))) {
             size_t start = i;
-            while (i < n && (std::isdigit(static_cast<unsigned char>(formula[i])) || formula[i] == '.')) ++i;
+            bool has_dot = false;
+            while (i < n && (std::isdigit(static_cast<unsigned char>(formula[i])) || formula[i] == '.')) {
+                if (formula[i] == '.') {
+                    if (has_dot) break;  // stop at second decimal point
+                    has_dot = true;
+                }
+                ++i;
+            }
             std::string text = formula.substr(start, i - start);
             tokens.push_back({TokenType::NUMBER, text, std::stod(text)});
             continue;
@@ -38,8 +45,9 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
         if (ch == '"') {
             size_t start = ++i;
             while (i < n && formula[i] != '"') ++i;
+            if (i >= n) throw std::runtime_error("Unterminated string literal");
             std::string text = formula.substr(start, i - start);
-            if (i < n) ++i;  // skip closing quote
+            ++i;  // skip closing quote
             tokens.push_back({TokenType::STRING, text});
             continue;
         }

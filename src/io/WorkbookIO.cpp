@@ -255,7 +255,9 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                 r.expect('{');
                                 int c = 0, r2 = 0;
                                 std::string type;
-                                CellValue val;
+                                // Two-pass: store raw value string, then parse after type is known
+                                std::string raw_v;
+                                bool has_v = false;
 
                                 while (r.peek() != '}') {
                                     std::string ck = r.read_string();
@@ -264,17 +266,34 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                     else if (ck == "r") r2 = r.read_int();
                                     else if (ck == "t") type = r.read_string();
                                     else if (ck == "v") {
-                                        if (type == "n") val = CellValue{r.read_number()};
-                                        else if (type == "s") val = CellValue{r.read_string()};
-                                        else if (type == "b") val = CellValue{r.read_bool()};
-                                        else if (type == "e") val = CellValue{static_cast<CellError>(r.read_int())};
-                                        else r.skip_value();
+                                        // Capture raw value text for deferred parsing
+                                        size_t v_start = r.pos;
+                                        r.skip_ws();
+                                        v_start = r.pos;
+                                        r.skip_value();
+                                        raw_v = r.s.substr(v_start, r.pos - v_start);
+                                        has_v = true;
                                     } else {
                                         r.skip_value();
                                     }
                                     if (r.peek() == ',') r.next();
                                 }
                                 r.expect('}');
+
+                                // Now interpret the value based on type
+                                CellValue val;
+                                if (has_v && !type.empty()) {
+                                    if (type == "n") val = CellValue{std::stod(raw_v)};
+                                    else if (type == "s") {
+                                        // Strip surrounding quotes
+                                        if (raw_v.size() >= 2 && raw_v.front() == '"' && raw_v.back() == '"')
+                                            val = CellValue{raw_v.substr(1, raw_v.size() - 2)};
+                                        else
+                                            val = CellValue{raw_v};
+                                    }
+                                    else if (type == "b") val = CellValue{raw_v == "true"};
+                                    else if (type == "e") val = CellValue{static_cast<CellError>(std::stoi(raw_v))};
+                                }
                                 cells.emplace_back(c, r2, val);
                                 if (r.peek() == ',') r.next();
                             }
@@ -341,7 +360,8 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
             workbook.sheet(static_cast<int>(i)) = std::move(sheets[i]);
         }
 
-        workbook.set_active(active);
+        if (active >= 0 && active < workbook.sheet_count())
+            workbook.set_active(active);
         return true;
     } catch (const std::exception&) {
         return false;
