@@ -126,10 +126,8 @@ void App::main_loop() {
         // During interaction (mouse held, text input, drags, async work)
         // events keep waking us immediately so responsiveness is unchanged.
         ImGuiIO& io = ImGui::GetIO();
-        auto& gs = state_.main_window.grid_state();
         bool active = io.MouseDown[0] || io.WantTextInput ||
-                      gs.drag_mode != CellDragMode::None ||
-                      gs.formula_dragging ||
+                      state_.main_window.is_interaction_active() ||
                       state_.async_recalc.is_busy();
         if (!active)
             glfwWaitEventsTimeout(0.1);

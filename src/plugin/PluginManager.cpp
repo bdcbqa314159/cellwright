@@ -1,4 +1,5 @@
 #include "plugin/PluginManager.hpp"
+#include "util/Sha256.hpp"
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -34,7 +35,7 @@ PluginManager::PluginManager(FunctionRegistry& registry, std::filesystem::path a
 bool PluginManager::check_trust(const std::string& path) {
     if (allowlist_.is_trusted(path)) return true;
 
-    std::string hash = PluginAllowlist::sha256_of_file(path);
+    std::string hash = sha256_of_file(path);
     std::cerr << "[PluginManager] UNTRUSTED plugin blocked: " << path << "\n"
               << "  SHA-256: " << hash << "\n"
               << "  To trust: call trust_and_load(\"" << path << "\")\n";

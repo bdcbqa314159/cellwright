@@ -1,11 +1,8 @@
 #include "plugin/PluginAllowlist.hpp"
-
-#include <CommonCrypto/CommonDigest.h>
+#include "util/Sha256.hpp"
 
 #include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <sstream>
 
 namespace magic {
 
@@ -24,45 +21,22 @@ PluginAllowlist::PluginAllowlist(std::filesystem::path json_path)
     load();
 }
 
-// ── SHA-256 ─────────────────────────────────────────────────────────────────
+// ── SHA-256 (forwards to free function) ─────────────────────────────────────
 
 std::string PluginAllowlist::sha256_of_file(const std::string& path) {
-    std::ifstream file(path, std::ios::binary);
-    if (!file) return {};
-
-    CC_SHA256_CTX ctx;
-    CC_SHA256_Init(&ctx);
-
-    char buf[8192];
-    while (file.read(buf, sizeof(buf))) {
-        CC_SHA256_Update(&ctx, buf, static_cast<CC_LONG>(file.gcount()));
-    }
-    // Final partial read
-    if (file.gcount() > 0) {
-        CC_SHA256_Update(&ctx, buf, static_cast<CC_LONG>(file.gcount()));
-    }
-
-    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
-    CC_SHA256_Final(digest, &ctx);
-
-    std::ostringstream hex;
-    hex << std::hex << std::setfill('0');
-    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; ++i) {
-        hex << std::setw(2) << static_cast<unsigned>(digest[i]);
-    }
-    return hex.str();
+    return magic::sha256_of_file(path);
 }
 
 // ── Trust queries ───────────────────────────────────────────────────────────
 
 bool PluginAllowlist::is_trusted(const std::string& path) const {
-    std::string hash = sha256_of_file(path);
+    std::string hash = magic::sha256_of_file(path);
     if (hash.empty()) return false;
     return trusted_.count(hash) > 0;
 }
 
 void PluginAllowlist::trust(const std::string& path) {
-    std::string hash = sha256_of_file(path);
+    std::string hash = magic::sha256_of_file(path);
     if (hash.empty()) return;
     trusted_.insert(hash);
     save();

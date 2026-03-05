@@ -2,14 +2,10 @@
 #include "app/AppState.hpp"
 #include "core/Workbook.hpp"
 #include "core/Clipboard.hpp"
-#include "formula/Tokenizer.hpp"
-#include "formula/Parser.hpp"
-#include "formula/Evaluator.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
-#include "core/DateSerial.hpp"
 #include "io/CsvIO.hpp"
 #include "io/WorkbookIO.hpp"
-#include "plugin/PluginAllowlist.hpp"
+#include "util/Sha256.hpp"
 #include <imgui.h>
 #include <cstring>
 #include <algorithm>
@@ -20,224 +16,12 @@
 
 namespace magic {
 
-// ── Formula helpers ─────────────────────────────────────────────────────────
-
-static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs) {
-    std::visit([&](const auto& v) {
-        using T = std::decay_t<decltype(v)>;
-        if constexpr (std::is_same_v<T, CellRefNode>) {
-            refs.push_back(v.addr);
-        } else if constexpr (std::is_same_v<T, RangeNode>) {
-            int32_t c1 = std::min(v.from.col, v.to.col);
-            int32_t c2 = std::max(v.from.col, v.to.col);
-            int32_t r1 = std::min(v.from.row, v.to.row);
-            int32_t r2 = std::max(v.from.row, v.to.row);
-            for (int32_t c = c1; c <= c2; ++c)
-                for (int32_t r = r1; r <= r2; ++r)
-                    refs.push_back({c, r});
-        } else if constexpr (std::is_same_v<T, BinOpNode>) {
-            collect_refs(*v.left, refs);
-            collect_refs(*v.right, refs);
-        } else if constexpr (std::is_same_v<T, UnaryOpNode>) {
-            collect_refs(*v.operand, refs);
-        } else if constexpr (std::is_same_v<T, FuncCallNode>) {
-            for (const auto& arg : v.args) collect_refs(*arg, refs);
-        } else if constexpr (std::is_same_v<T, CompareNode>) {
-            collect_refs(*v.left, refs);
-            collect_refs(*v.right, refs);
-        }
-    }, node.value);
-}
-
-static void recalc_dependents(Sheet& sheet, const CellAddress& addr,
-                               DependencyGraph& dep_graph,
-                               const FunctionRegistry& registry,
-                               Workbook* workbook = nullptr) {
-    std::unordered_set<CellAddress> changed = {addr};
-    auto order = dep_graph.recalc_order(changed);
-    Evaluator eval(sheet, registry, workbook);
-    for (const auto& dep_cell : order) {
-        if (dep_cell == addr) continue;
-        if (!sheet.has_formula(dep_cell)) continue;
-        try {
-            auto dep_tokens = Tokenizer::tokenize(sheet.get_formula(dep_cell));
-            auto dep_formula = Parser::parse(dep_tokens);
-            sheet.set_value(dep_cell, eval.evaluate(*dep_formula.root));
-        } catch (...) {
-            sheet.set_value(dep_cell, CellValue{CellError::VALUE});
-        }
-    }
-}
-
-static void process_cell_input(const char* buf, Sheet& sheet, const CellAddress& addr,
-                                AppState& state) {
-    std::string input(buf);
-    CellValue old_val = sheet.get_value(addr);
-    std::string old_formula = sheet.get_formula(addr);
-
-    if (input.empty()) {
-        auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
-        state.active_state().undo_manager.execute(std::move(cmd), sheet);
-        state.active_state().dep_graph.set_dependencies(addr, {});
-        recalc_dependents(sheet, addr, state.active_state().dep_graph, state.function_registry, &state.workbook);
-        return;
-    }
-
-    if (input[0] == '=') {
-        std::string formula = input.substr(1);
-        try {
-            auto tokens = Tokenizer::tokenize(formula);
-            auto parsed = Parser::parse(tokens);
-
-            std::vector<CellAddress> refs;
-            collect_refs(*parsed.root, refs);
-            state.active_state().dep_graph.set_dependencies(addr, refs);
-
-            Evaluator eval(sheet, state.function_registry, &state.workbook);
-            CellValue result = eval.evaluate(*parsed.root);
-
-            auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
-            state.active_state().undo_manager.execute(std::move(cmd), sheet);
-
-            recalc_dependents(sheet, addr, state.active_state().dep_graph, state.function_registry, &state.workbook);
-        } catch (const std::exception&) {
-            state.active_state().dep_graph.set_dependencies(addr, {});  // clear stale deps (#29)
-            auto cmd = std::make_unique<SetFormulaCommand>(
-                addr, formula, CellValue{CellError::VALUE}, old_val, old_formula);
-            state.active_state().undo_manager.execute(std::move(cmd), sheet);
-        }
-    } else {
-        state.active_state().dep_graph.set_dependencies(addr, {});
-        CellValue new_val;
-
-        // Try date parsing first (prevents "12/12/2024" → 12.0)
-        auto date_result = parse_date(input);
-        if (date_result) {
-            new_val = CellValue{date_result->serial};
-            // Auto-apply DATE format if cell is currently GENERAL
-            CellFormat cur = state.active_state().format_map.get(addr);
-            if (cur.type == FormatType::GENERAL) {
-                CellFormat date_fmt;
-                date_fmt.type = FormatType::DATE;
-                date_fmt.date_input_hint = date_result->input_hint;
-                state.active_state().format_map.set(addr, date_fmt);
-            }
-        } else {
-            try {
-                size_t pos = 0;
-                double d = std::stod(input, &pos);
-                if (pos == input.size())
-                    new_val = CellValue{d};
-                else
-                    new_val = CellValue{input};
-            } catch (...) {
-                new_val = CellValue{input};
-            }
-        }
-
-        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
-        state.active_state().undo_manager.execute(std::move(cmd), sheet);
-        recalc_dependents(sheet, addr, state.active_state().dep_graph, state.function_registry, &state.workbook);
-    }
-}
-
-// Like process_cell_input but without recalc_dependents calls (for batch use).
-static void set_cell_no_recalc(const char* buf, Sheet& sheet, const CellAddress& addr,
-                                AppState& state) {
-    std::string input(buf);
-    CellValue old_val = sheet.get_value(addr);
-    std::string old_formula = sheet.get_formula(addr);
-
-    if (input.empty()) {
-        auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
-        state.active_state().undo_manager.execute(std::move(cmd), sheet);
-        state.active_state().dep_graph.set_dependencies(addr, {});
-        return;
-    }
-
-    if (input[0] == '=') {
-        std::string formula = input.substr(1);
-        try {
-            auto tokens = Tokenizer::tokenize(formula);
-            auto parsed = Parser::parse(tokens);
-
-            std::vector<CellAddress> refs;
-            collect_refs(*parsed.root, refs);
-            state.active_state().dep_graph.set_dependencies(addr, refs);
-
-            Evaluator eval(sheet, state.function_registry, &state.workbook);
-            CellValue result = eval.evaluate(*parsed.root);
-
-            auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
-            state.active_state().undo_manager.execute(std::move(cmd), sheet);
-        } catch (const std::exception&) {
-            state.active_state().dep_graph.set_dependencies(addr, {});  // clear stale deps (#29)
-            auto cmd = std::make_unique<SetFormulaCommand>(
-                addr, formula, CellValue{CellError::VALUE}, old_val, old_formula);
-            state.active_state().undo_manager.execute(std::move(cmd), sheet);
-        }
-    } else {
-        state.active_state().dep_graph.set_dependencies(addr, {});
-        CellValue new_val;
-
-        auto date_result = parse_date(input);
-        if (date_result) {
-            new_val = CellValue{date_result->serial};
-            CellFormat cur = state.active_state().format_map.get(addr);
-            if (cur.type == FormatType::GENERAL) {
-                CellFormat date_fmt;
-                date_fmt.type = FormatType::DATE;
-                date_fmt.date_input_hint = date_result->input_hint;
-                state.active_state().format_map.set(addr, date_fmt);
-            }
-        } else {
-            try {
-                size_t pos = 0;
-                double d = std::stod(input, &pos);
-                if (pos == input.size())
-                    new_val = CellValue{d};
-                else
-                    new_val = CellValue{input};
-            } catch (...) {
-                new_val = CellValue{input};
-            }
-        }
-
-        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
-        state.active_state().undo_manager.execute(std::move(cmd), sheet);
-    }
-}
-
-// Batch recalc: given a set of changed cells, do one topological sort and
-// re-evaluate all dependents that have formulas.
-static void batch_recalc(Sheet& sheet, const std::unordered_set<CellAddress>& changed,
-                          DependencyGraph& dep_graph, const FunctionRegistry& registry,
-                          Workbook* workbook = nullptr) {
-    auto order = dep_graph.recalc_order(changed);
-    Evaluator eval(sheet, registry, workbook);
-    for (const auto& cell : order) {
-        if (!sheet.has_formula(cell)) continue;
-        try {
-            auto tokens = Tokenizer::tokenize(sheet.get_formula(cell));
-            auto parsed = Parser::parse(tokens);
-            sheet.set_value(cell, eval.evaluate(*parsed.root));
-        } catch (...) {
-            sheet.set_value(cell, CellValue{CellError::VALUE});
-        }
-    }
-}
-
-// ── File dialog helpers (simple path input via ImGui popup) ──────────────────
-
-static char s_file_path_buf[512] = {};
-static bool s_show_open = false;
-static bool s_show_save = false;
-static bool s_show_import_csv = false;
-static bool s_show_export_csv = false;
-
 // ── Menu bar ────────────────────────────────────────────────────────────────
 
 void MainWindow::render_menu_bar(AppState& state) {
+    auto& ci = state.cell_input;
+    auto& as = state.active_state();
+
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New")) {
@@ -247,104 +31,83 @@ void MainWindow::render_menu_bar(AppState& state) {
                 state.current_file.clear();
             }
             if (ImGui::MenuItem("Open...", "Ctrl+O")) {
-                s_show_open = true;
-                std::strncpy(s_file_path_buf, state.current_file.c_str(), sizeof(s_file_path_buf) - 1);
+                file_dialog_.show_open = true;
+                std::strncpy(file_dialog_.path_buf, state.current_file.c_str(), sizeof(file_dialog_.path_buf) - 1);
             }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {
                 if (!state.current_file.empty())
                     WorkbookIO::save(state.current_file, state.workbook);
                 else
-                    s_show_save = true;
+                    file_dialog_.show_save = true;
             }
             if (ImGui::MenuItem("Save As...")) {
-                s_show_save = true;
-                std::strncpy(s_file_path_buf, state.current_file.c_str(), sizeof(s_file_path_buf) - 1);
+                file_dialog_.show_save = true;
+                std::strncpy(file_dialog_.path_buf, state.current_file.c_str(), sizeof(file_dialog_.path_buf) - 1);
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Import CSV...")) {
-                s_show_import_csv = true;
-                s_file_path_buf[0] = '\0';
+                file_dialog_.show_import_csv = true;
+                file_dialog_.path_buf[0] = '\0';
             }
             if (ImGui::MenuItem("Export CSV...")) {
-                s_show_export_csv = true;
-                s_file_path_buf[0] = '\0';
+                file_dialog_.show_export_csv = true;
+                file_dialog_.path_buf[0] = '\0';
             }
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Edit")) {
-            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, state.active_state().undo_manager.can_undo())) {
+            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, as.undo_manager.can_undo())) {
                 auto& sheet = state.workbook.active_sheet();
-                state.active_state().undo_manager.undo(sheet);
-                if (auto cell = state.active_state().undo_manager.last_affected())
-                    recalc_dependents(sheet, *cell, state.active_state().dep_graph, state.function_registry, &state.workbook);
+                as.undo_manager.undo(sheet);
+                if (auto cell = as.undo_manager.last_affected())
+                    ci.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
             }
-            if (ImGui::MenuItem("Redo", "Ctrl+Y", false, state.active_state().undo_manager.can_redo())) {
+            if (ImGui::MenuItem("Redo", "Ctrl+Y", false, as.undo_manager.can_redo())) {
                 auto& sheet = state.workbook.active_sheet();
-                state.active_state().undo_manager.redo(sheet);
-                if (auto cell = state.active_state().undo_manager.last_affected())
-                    recalc_dependents(sheet, *cell, state.active_state().dep_graph, state.function_registry, &state.workbook);
+                as.undo_manager.redo(sheet);
+                if (auto cell = as.undo_manager.last_affected())
+                    ci.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Copy", "Ctrl+C")) {
-                if (grid_state_.has_range_selection)
-                    state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
-                else
-                    state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
-                state.clipboard.set_cut(false);
+                ci.copy(state.clipboard, state.workbook.active_sheet(),
+                        grid_state_.selected, grid_state_.has_range_selection,
+                        grid_state_.sel_min(), grid_state_.sel_max());
             }
             if (ImGui::MenuItem("Cut", "Ctrl+X")) {
-                if (grid_state_.has_range_selection)
-                    state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
-                else
-                    state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
-                state.clipboard.set_cut(true);
+                ci.cut(state.clipboard, state.workbook.active_sheet(),
+                       grid_state_.selected, grid_state_.has_range_selection,
+                       grid_state_.sel_min(), grid_state_.sel_max());
             }
             if (ImGui::MenuItem("Paste", "Ctrl+V", false, state.clipboard.has_data())) {
-                auto entries = state.clipboard.paste_at(grid_state_.selected);
-                auto& sheet = state.workbook.active_sheet();
-                for (const auto& pe : entries) {
-                    if (!pe.formula.empty()) {
-                        process_cell_input(("=" + pe.formula).c_str(), sheet, pe.addr, state);
-                    } else {
-                        std::string display = to_display_string(pe.value);
-                        process_cell_input(display.c_str(), sheet, pe.addr, state);
-                    }
-                }
-                if (state.clipboard.is_cut()) {
-                    std::unordered_set<CellAddress> dest_set;
-                    for (const auto& pe : entries) dest_set.insert(pe.addr);
-                    for (const auto& src : state.clipboard.source_cells()) {
-                        if (dest_set.count(src) == 0)
-                            process_cell_input("", sheet, src, state);
-                    }
-                    state.clipboard.clear();
-                }
+                ci.paste(state.clipboard, state.workbook.active_sheet(), grid_state_.selected,
+                         as.undo_manager, as.format_map, as.dep_graph, state.workbook);
             }
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Format")) {
             auto& addr = grid_state_.selected;
-            CellFormat current = state.active_state().format_map.get(addr);
+            CellFormat current = as.format_map.get(addr);
 
             if (ImGui::MenuItem("General", nullptr, current.type == FormatType::GENERAL)) {
-                state.active_state().format_map.set(addr, {FormatType::GENERAL});
+                as.format_map.set(addr, {FormatType::GENERAL});
             }
             if (ImGui::MenuItem("Number (2 dp)", nullptr, current.type == FormatType::NUMBER)) {
-                state.active_state().format_map.set(addr, {FormatType::NUMBER, 2});
+                as.format_map.set(addr, {FormatType::NUMBER, 2});
             }
             if (ImGui::MenuItem("Percentage", nullptr, current.type == FormatType::PERCENTAGE)) {
-                state.active_state().format_map.set(addr, {FormatType::PERCENTAGE, 1});
+                as.format_map.set(addr, {FormatType::PERCENTAGE, 1});
             }
             if (ImGui::MenuItem("Currency ($)", nullptr, current.type == FormatType::CURRENCY)) {
-                state.active_state().format_map.set(addr, {FormatType::CURRENCY, 2, "$"});
+                as.format_map.set(addr, {FormatType::CURRENCY, 2, "$"});
             }
             if (ImGui::MenuItem("Scientific", nullptr, current.type == FormatType::SCIENTIFIC)) {
-                state.active_state().format_map.set(addr, {FormatType::SCIENTIFIC, 2});
+                as.format_map.set(addr, {FormatType::SCIENTIFIC, 2});
             }
             if (ImGui::MenuItem("Date (ISO)", nullptr, current.type == FormatType::DATE)) {
-                state.active_state().format_map.set(addr, {FormatType::DATE});
+                as.format_map.set(addr, {FormatType::DATE});
             }
             ImGui::EndMenu();
         }
@@ -376,9 +139,9 @@ void MainWindow::render_menu_bar(AppState& state) {
     auto file_popup = [&](const char* id, bool& show, auto callback) {
         if (show) ImGui::OpenPopup(id);
         if (ImGui::BeginPopupModal(id, &show, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::InputText("Path", s_file_path_buf, sizeof(s_file_path_buf));
+            ImGui::InputText("Path", file_dialog_.path_buf, sizeof(file_dialog_.path_buf));
             if (ImGui::Button("OK", ImVec2(120, 0))) {
-                callback(std::string(s_file_path_buf));
+                callback(std::string(file_dialog_.path_buf));
                 show = false;
                 ImGui::CloseCurrentPopup();
             }
@@ -391,7 +154,7 @@ void MainWindow::render_menu_bar(AppState& state) {
         }
     };
 
-    file_popup("Open File", s_show_open, [&](const std::string& path) {
+    file_popup("Open File", file_dialog_.show_open, [&](const std::string& path) {
         if (WorkbookIO::load(path, state.workbook)) {
             state.current_file = path;
             state.sheet_states.clear();
@@ -399,21 +162,20 @@ void MainWindow::render_menu_bar(AppState& state) {
         }
     });
 
-    file_popup("Save File", s_show_save, [&](const std::string& path) {
+    file_popup("Save File", file_dialog_.show_save, [&](const std::string& path) {
         if (WorkbookIO::save(path, state.workbook))
             state.current_file = path;
     });
 
-    file_popup("Import CSV", s_show_import_csv, [&](const std::string& path) {
+    file_popup("Import CSV", file_dialog_.show_import_csv, [&](const std::string& path) {
         auto& sheet = state.workbook.active_sheet();
         CsvIO::import_file(path, sheet);
-        // Clear stale per-sheet state after import (#31)
-        state.active_state().dep_graph.clear();
-        state.active_state().format_map = FormatMap{};
-        state.active_state().undo_manager.clear();
+        as.dep_graph.clear();
+        as.format_map = FormatMap{};
+        as.undo_manager.clear();
     });
 
-    file_popup("Export CSV", s_show_export_csv, [&](const std::string& path) {
+    file_popup("Export CSV", file_dialog_.show_export_csv, [&](const std::string& path) {
         CsvIO::export_file(path, state.workbook.active_sheet());
     });
 }
@@ -423,63 +185,46 @@ void MainWindow::render_menu_bar(AppState& state) {
 void MainWindow::handle_keyboard(AppState& state) {
     ImGuiIO& io = ImGui::GetIO();
     bool ctrl = io.KeyCtrl;
+    auto& ci = state.cell_input;
+    auto& as = state.active_state();
 
     // Don't handle shortcuts when typing in an input field
     if (ImGui::GetIO().WantTextInput) return;
 
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
         auto& sheet = state.workbook.active_sheet();
-        state.active_state().undo_manager.undo(sheet);
-        if (auto cell = state.active_state().undo_manager.last_affected())
-            recalc_dependents(sheet, *cell, state.active_state().dep_graph, state.function_registry, &state.workbook);
+        as.undo_manager.undo(sheet);
+        if (auto cell = as.undo_manager.last_affected())
+            ci.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
         auto& sheet = state.workbook.active_sheet();
-        state.active_state().undo_manager.redo(sheet);
-        if (auto cell = state.active_state().undo_manager.last_affected())
-            recalc_dependents(sheet, *cell, state.active_state().dep_graph, state.function_registry, &state.workbook);
+        as.undo_manager.redo(sheet);
+        if (auto cell = as.undo_manager.last_affected())
+            ci.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C)) {
-        if (grid_state_.has_range_selection)
-            state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
-        else
-            state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
-        state.clipboard.set_cut(false);
+        ci.copy(state.clipboard, state.workbook.active_sheet(),
+                grid_state_.selected, grid_state_.has_range_selection,
+                grid_state_.sel_min(), grid_state_.sel_max());
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_X)) {
-        if (grid_state_.has_range_selection)
-            state.clipboard.copy(state.workbook.active_sheet(), grid_state_.sel_min(), grid_state_.sel_max());
-        else
-            state.clipboard.copy_single(state.workbook.active_sheet(), grid_state_.selected);
-        state.clipboard.set_cut(true);
+        ci.cut(state.clipboard, state.workbook.active_sheet(),
+               grid_state_.selected, grid_state_.has_range_selection,
+               grid_state_.sel_min(), grid_state_.sel_max());
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
-        auto entries = state.clipboard.paste_at(grid_state_.selected);
-        auto& sheet = state.workbook.active_sheet();
-        for (const auto& pe : entries) {
-            if (!pe.formula.empty())
-                process_cell_input(("=" + pe.formula).c_str(), sheet, pe.addr, state);
-            else
-                process_cell_input(to_display_string(pe.value).c_str(), sheet, pe.addr, state);
-        }
-        if (state.clipboard.is_cut()) {
-            std::unordered_set<CellAddress> dest_set;
-            for (const auto& pe : entries) dest_set.insert(pe.addr);
-            for (const auto& src : state.clipboard.source_cells()) {
-                if (dest_set.count(src) == 0)
-                    process_cell_input("", sheet, src, state);
-            }
-            state.clipboard.clear();
-        }
+        ci.paste(state.clipboard, state.workbook.active_sheet(), grid_state_.selected,
+                 as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
         if (!state.current_file.empty())
             WorkbookIO::save(state.current_file, state.workbook);
         else
-            s_show_save = true;
+            file_dialog_.show_save = true;
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
-        s_show_open = true;
+        file_dialog_.show_open = true;
     }
 
     // When not editing a cell
@@ -513,7 +258,8 @@ void MainWindow::handle_keyboard(AppState& state) {
         }
         if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
             auto& sheet = state.workbook.active_sheet();
-            process_cell_input("", sheet, grid_state_.selected, state);
+            ci.process("", sheet, grid_state_.selected,
+                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
         }
 
         // F2 to edit current cell
@@ -527,7 +273,7 @@ void MainWindow::handle_keyboard(AppState& state) {
             grid_state_.editor.begin_edit(grid_state_.selected, initial);
         }
 
-        // Start typing on selected cell → begin editing
+        // Start typing on selected cell -> begin editing
         // Seed buffer with first char (InputText won't process queue on activation frame)
         if (!ctrl && !io.KeyAlt) {
             ImGuiIO& input_io = ImGui::GetIO();
@@ -562,6 +308,9 @@ void MainWindow::render(AppState& state) {
     render_menu_bar(state);
     handle_keyboard(state);
 
+    auto& ci = state.cell_input;
+    auto& as = state.active_state();
+
     // Ctrl+Scroll to zoom, Ctrl+0 to reset
     ImGuiIO& io = ImGui::GetIO();
     if (io.KeyCtrl && !io.WantTextInput) {
@@ -591,7 +340,8 @@ void MainWindow::render(AppState& state) {
     // Formula bar
     bool cell_editing = grid_state_.editor.is_editing();
     if (formula_bar_.render(sheet, grid_state_.selected, cell_editing)) {
-        process_cell_input(formula_bar_.buffer(), sheet, grid_state_.selected, state);
+        ci.process(formula_bar_.buffer(), sheet, grid_state_.selected,
+                   as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
 
     ImGui::Separator();
@@ -602,9 +352,10 @@ void MainWindow::render(AppState& state) {
     grid_state_.dark_theme = (theme_ == Theme::Dark);
 
     // Spreadsheet grid
-    if (grid_.render(sheet, grid_state_, state.active_state().format_map)) {
-        process_cell_input(grid_state_.editor.buffer(), sheet,
-                          grid_state_.editor.editing_cell(), state);
+    if (grid_.render(sheet, grid_state_, as.format_map)) {
+        ci.process(grid_state_.editor.buffer(), sheet,
+                   grid_state_.editor.editing_cell(),
+                   as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
 
     // Handle cell drag completions (move / fill)
@@ -623,13 +374,16 @@ void MainWindow::render(AppState& state) {
                 int32_t dcol = tgt.col - src.col;
                 int32_t drow = tgt.row - src.row;
                 std::string adjusted = Clipboard::adjust_references(src_formula, dcol, drow);
-                process_cell_input(("=" + adjusted).c_str(), sheet, tgt, state);
+                ci.process(("=" + adjusted).c_str(), sheet, tgt,
+                           as.undo_manager, as.format_map, as.dep_graph, state.workbook);
             } else {
                 std::string display = to_display_string(src_val);
-                process_cell_input(display.c_str(), sheet, tgt, state);
+                ci.process(display.c_str(), sheet, tgt,
+                           as.undo_manager, as.format_map, as.dep_graph, state.workbook);
             }
             // Clear source cell
-            process_cell_input("", sheet, src, state);
+            ci.process("", sheet, src,
+                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
             grid_state_.selected = tgt;
             grid_state_.sel_anchor = tgt;
             grid_state_.has_range_selection = false;
@@ -652,17 +406,19 @@ void MainWindow::render(AppState& state) {
                     if (!src_formula.empty()) {
                         std::string adjusted = Clipboard::adjust_references(
                             src_formula, c - src.col, r - src.row);
-                        set_cell_no_recalc(("=" + adjusted).c_str(), sheet, fill_addr, state);
+                        ci.process_no_recalc(("=" + adjusted).c_str(), sheet, fill_addr,
+                                             as.undo_manager, as.format_map, as.dep_graph, state.workbook);
                     } else {
                         std::string display = to_display_string(src_val);
-                        set_cell_no_recalc(display.c_str(), sheet, fill_addr, state);
+                        ci.process_no_recalc(display.c_str(), sheet, fill_addr,
+                                             as.undo_manager, as.format_map, as.dep_graph, state.workbook);
                     }
                     changed_cells.insert(fill_addr);
                 }
             }
 
             // Phase 2: one batch recalc for all changed cells
-            batch_recalc(sheet, changed_cells, state.active_state().dep_graph, state.function_registry, &state.workbook);
+            ci.batch_recalc(sheet, changed_cells, as.dep_graph, &state.workbook);
         }
         grid_state_.drag_mode = CellDragMode::None;
     }
@@ -688,7 +444,7 @@ void MainWindow::render(AppState& state) {
 
     // Status bar
     ImGui::Separator();
-    auto fmt = state.active_state().format_map.get(grid_state_.selected);
+    auto fmt = as.format_map.get(grid_state_.selected);
     const char* fmt_name = "General";
     switch (fmt.type) {
         case FormatType::NUMBER: fmt_name = "Number"; break;
@@ -745,10 +501,10 @@ void MainWindow::render(AppState& state) {
 
     // ── Plugin trust confirmation modal ─────────────────────────────────────
     if (!state.pending_plugin_path.empty()) {
-        // Cache hash on first frame modal opens (#32)
-        if (state.pending_plugin_path != cached_plugin_path_) {
-            cached_plugin_path_ = state.pending_plugin_path;
-            cached_plugin_hash_ = PluginAllowlist::sha256_of_file(state.pending_plugin_path);
+        // Cache hash on first frame modal opens
+        if (state.pending_plugin_path != trust_modal_path_) {
+            trust_modal_path_ = state.pending_plugin_path;
+            trust_modal_hash_ = sha256_of_file(state.pending_plugin_path);
         }
         ImGui::OpenPopup("Trust Plugin?");
     }
@@ -759,7 +515,7 @@ void MainWindow::render(AppState& state) {
         ImGui::Spacing();
         ImGui::Text("SHA-256:");
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.85f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", cached_plugin_hash_.c_str());
+        ImGui::TextWrapped("%s", trust_modal_hash_.c_str());
         ImGui::PopStyleColor();
         ImGui::Spacing();
         ImGui::Separator();

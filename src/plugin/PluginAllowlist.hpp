@@ -11,7 +11,10 @@ public:
     PluginAllowlist();                                          // ~/.magic_dashboard/trusted_plugins.json
     explicit PluginAllowlist(std::filesystem::path json_path);  // testable
 
+    // Deprecated: prefer free function sha256_of_file() from util/Sha256.hpp.
+    // Kept as a forwarding wrapper for backward compatibility with tests.
     static std::string sha256_of_file(const std::string& path);
+
     bool is_trusted(const std::string& path) const;
     void trust(const std::string& path);
     void revoke(const std::string& hash);

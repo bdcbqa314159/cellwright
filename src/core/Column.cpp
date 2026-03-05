@@ -14,8 +14,8 @@ void Column::ensure_row(int32_t row) {
 
 CellValue Column::get(int32_t row) const {
     if (row < 0) return CellValue{};
-    auto it = overrides_.find(row);
-    if (it != overrides_.end()) return it->second;
+    auto it = non_numeric_.find(row);
+    if (it != non_numeric_.end()) return it->second;
     if (row < static_cast<int32_t>(doubles_.size())) {
         double d = doubles_[row];
         if (std::isnan(d)) return CellValue{};  // empty
@@ -27,23 +27,23 @@ CellValue Column::get(int32_t row) const {
 void Column::set(int32_t row, const CellValue& val) {
     if (row < 0) return;
     if (is_number(val)) {
-        overrides_.erase(row);
+        non_numeric_.erase(row);
         ensure_row(row);
         doubles_[row] = as_number(val);
     } else if (is_empty(val)) {
-        overrides_.erase(row);
+        non_numeric_.erase(row);
         if (row < static_cast<int32_t>(doubles_.size()))
             doubles_[row] = EMPTY_SENTINEL;
     } else {
         ensure_row(row);
         doubles_[row] = EMPTY_SENTINEL;
-        overrides_[row] = val;
+        non_numeric_[row] = val;
     }
 }
 
 void Column::clear(int32_t row) {
     if (row < 0) return;
-    overrides_.erase(row);
+    non_numeric_.erase(row);
     if (row < static_cast<int32_t>(doubles_.size()))
         doubles_[row] = EMPTY_SENTINEL;
 }
@@ -57,11 +57,11 @@ double Column::sum(int32_t from, int32_t to) const {
     int32_t start = std::max(from, int32_t{0});
     int32_t end = std::min(to, static_cast<int32_t>(doubles_.size()));
     for (int32_t r = start; r < end; ++r) {
-        if (overrides_.count(r) == 0) {
+        if (non_numeric_.count(r) == 0) {
             double d = doubles_[r];
             if (!std::isnan(d)) s += d;
         } else {
-            auto& ov = overrides_.at(r);
+            auto& ov = non_numeric_.at(r);
             if (is_number(ov)) s += as_number(ov);
         }
     }

@@ -13,9 +13,9 @@ public:
 
     static void install(GLFWwindow* window, LoadCallback callback);
     static void uninstall();
-    static void glfw_drop_callback(GLFWwindow* window, int count, const char** paths);
 
 private:
+    static void glfw_drop_callback(GLFWwindow* window, int count, const char** paths);
     static bool is_plugin_file(const std::string& path);
     static LoadCallback callback_;
 };

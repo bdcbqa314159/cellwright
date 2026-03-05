@@ -16,6 +16,7 @@ public:
     int active_index() const { return active_; }
     void set_active(int idx);
 
+    // Access sheet by index. Out-of-range indices are clamped to [0, sheet_count()-1].
     Sheet& sheet(int idx) { return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)]; }
     const Sheet& sheet(int idx) const { return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)]; }
     int sheet_count() const { return static_cast<int>(sheets_.size()); }

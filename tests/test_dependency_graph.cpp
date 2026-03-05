@@ -28,17 +28,18 @@ TEST(DependencyGraph, RecalcOrder) {
     graph.set_dependencies(c1, {b1});
 
     std::unordered_set<CellAddress> changed = {a1};
-    auto order = graph.recalc_order(changed);
+    auto plan = graph.recalc_order(changed);
 
-    // Should contain A1, B1, C1 in topological order
-    ASSERT_EQ(order.size(), 3u);
+    // Should contain A1, B1, C1 in topological order with no cycles
+    ASSERT_EQ(plan.order.size(), 3u);
+    EXPECT_TRUE(plan.cycles.empty());
 
     // A1 should come before B1, B1 before C1
     int a1_pos = -1, b1_pos = -1, c1_pos = -1;
-    for (int i = 0; i < static_cast<int>(order.size()); ++i) {
-        if (order[i] == a1) a1_pos = i;
-        if (order[i] == b1) b1_pos = i;
-        if (order[i] == c1) c1_pos = i;
+    for (int i = 0; i < static_cast<int>(plan.order.size()); ++i) {
+        if (plan.order[i] == a1) a1_pos = i;
+        if (plan.order[i] == b1) b1_pos = i;
+        if (plan.order[i] == c1) c1_pos = i;
     }
     EXPECT_LT(a1_pos, b1_pos);
     EXPECT_LT(b1_pos, c1_pos);

@@ -190,17 +190,17 @@ void Evaluator::collect_args_into(const std::vector<ASTNode*>& args, std::vector
 }
 
 CellValue Evaluator::eval_func(const FuncCallNode& n) {
-    if (args_depth_ >= args_stack_.size())
-        args_stack_.emplace_back();
-    auto& buf = args_stack_[args_depth_++];
+    if (pool_depth_ >= args_pool_.size())
+        args_pool_.emplace_back();
+    auto& buf = args_pool_[pool_depth_++];
     buf.clear();
     try {
         collect_args_into(n.args, buf);
         auto result = registry_.call_direct(n.name, buf);
-        --args_depth_;
+        --pool_depth_;
         return result;
     } catch (...) {
-        --args_depth_;
+        --pool_depth_;
         return CellValue{CellError::VALUE};
     }
 }

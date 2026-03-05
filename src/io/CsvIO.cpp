@@ -4,7 +4,7 @@
 
 namespace magic {
 
-std::vector<std::string> CsvIO::parse_line(const std::string& line) {
+std::vector<std::string> CsvIO::parse_csv_line(const std::string& line) {
     std::vector<std::string> fields;
     std::string field;
     bool in_quotes = false;
@@ -47,7 +47,7 @@ void CsvIO::parse(const std::string& csv, Sheet& sheet) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() && stream.eof()) break;
 
-        auto fields = parse_line(line);
+        auto fields = parse_csv_line(line);
         for (int32_t col = 0; col < static_cast<int32_t>(fields.size()); ++col) {
             const auto& f = fields[col];
             if (f.empty()) continue;

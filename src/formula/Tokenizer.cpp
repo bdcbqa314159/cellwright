@@ -4,7 +4,7 @@
 
 namespace magic {
 
-static bool is_cell_ref_start(const std::string& s, size_t pos) {
+static bool looks_like_cell_ref(const std::string& s, size_t pos) {
     if (pos >= s.size() || !std::isalpha(static_cast<unsigned char>(s[pos])))
         return false;
     // Look for pattern: letters followed by digits
@@ -74,7 +74,7 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
             }
 
             // Check if it looks like a cell reference (letters + digits)
-            if (is_cell_ref_start(formula, start)) {
+            if (looks_like_cell_ref(formula, start)) {
                 // Verify the whole token is letters then digits
                 size_t k = 0;
                 while (k < text.size() && std::isalpha(static_cast<unsigned char>(text[k]))) ++k;

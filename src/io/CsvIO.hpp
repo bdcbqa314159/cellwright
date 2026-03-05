@@ -21,7 +21,7 @@ public:
 
 private:
     // Parse a single CSV line respecting quoted fields
-    static std::vector<std::string> parse_line(const std::string& line);
+    static std::vector<std::string> parse_csv_line(const std::string& line);
 };
 
 }  // namespace magic

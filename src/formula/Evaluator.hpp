@@ -40,8 +40,8 @@ private:
     Workbook* workbook_;
 
     // Scratch buffers reused per recursion depth to avoid repeated allocation
-    std::vector<std::vector<CellValue>> args_stack_;
-    size_t args_depth_ = 0;
+    std::vector<std::vector<CellValue>> args_pool_;
+    size_t pool_depth_ = 0;
 };
 
 }  // namespace magic

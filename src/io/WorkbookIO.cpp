@@ -92,7 +92,7 @@ std::string WorkbookIO::to_json(const Workbook& workbook) {
         out << "]}";
     }
 
-    out << "],\"active\":" << workbook.active_index() << "}";
+    out << "],\"active\":" << workbook.active_index() << ",\"version\":1}";
     return out.str();
 }
 

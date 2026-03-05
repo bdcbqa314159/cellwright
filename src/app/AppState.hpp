@@ -3,6 +3,7 @@
 #include "core/Command.hpp"
 #include "core/Clipboard.hpp"
 #include "core/CellFormat.hpp"
+#include "core/CellInputService.hpp"
 #include "formula/FunctionRegistry.hpp"
 #include "formula/DependencyGraph.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
@@ -21,6 +22,7 @@ struct AppState {
     Workbook workbook;
     FunctionRegistry function_registry;
     PluginManager plugin_manager{function_registry};
+    CellInputService cell_input{function_registry};
     MainWindow main_window;
     AsyncRecalcEngine async_recalc;
     Clipboard clipboard;

@@ -9,11 +9,25 @@ namespace magic {
 
 struct AppState;
 
+struct FileDialogState {
+    char path_buf[512] = {};
+    bool show_open = false;
+    bool show_save = false;
+    bool show_import_csv = false;
+    bool show_export_csv = false;
+};
+
 class MainWindow {
 public:
     void render(AppState& state);
 
     GridState& grid_state() { return grid_state_; }
+
+    // Whether user interaction is active (drags, formula mode, etc.)
+    bool is_interaction_active() const {
+        return grid_state_.drag_mode != CellDragMode::None ||
+               grid_state_.formula_dragging;
+    }
 
 private:
     void render_menu_bar(AppState& state);
@@ -23,6 +37,7 @@ private:
     FormulaBar formula_bar_;
     GridState grid_state_;
     ChartPanel chart_panel_;
+    FileDialogState file_dialog_;
 
     Theme theme_ = Theme::Dark;
     float zoom_ = 1.0f;
@@ -36,8 +51,8 @@ private:
     bool cached_has_range_ = false;
 
     // Cached plugin hash (avoid SHA-256 every frame while trust modal is open)
-    std::string cached_plugin_path_;
-    std::string cached_plugin_hash_;
+    std::string trust_modal_path_;
+    std::string trust_modal_hash_;
 };
 
 }  // namespace magic

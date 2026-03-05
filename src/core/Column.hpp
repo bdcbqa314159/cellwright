@@ -24,7 +24,7 @@ private:
     void ensure_row(int32_t row);
 
     std::vector<double> doubles_;                          // dense numeric
-    std::unordered_map<int32_t, CellValue> overrides_;     // sparse non-numeric
+    std::unordered_map<int32_t, CellValue> non_numeric_;   // sparse non-numeric
 };
 
 }  // namespace magic
