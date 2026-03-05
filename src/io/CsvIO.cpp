@@ -38,17 +38,23 @@ std::vector<std::string> CsvIO::parse_csv_line(const std::string& line) {
 }
 
 void CsvIO::parse(const std::string& csv, Sheet& sheet) {
+    static constexpr int32_t MAX_CSV_ROWS = 1048576;
+    static constexpr int32_t MAX_CSV_COLS = 16384;
+
     std::istringstream stream(csv);
     std::string line;
     int32_t row = 0;
 
     while (std::getline(stream, line)) {
+        if (row >= MAX_CSV_ROWS) break;
+
         // Strip trailing \r for Windows line endings
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() && stream.eof()) break;
 
         auto fields = parse_csv_line(line);
-        for (int32_t col = 0; col < static_cast<int32_t>(fields.size()); ++col) {
+        int32_t col_limit = std::min(static_cast<int32_t>(fields.size()), MAX_CSV_COLS);
+        for (int32_t col = 0; col < col_limit; ++col) {
             const auto& f = fields[col];
             if (f.empty()) continue;
 

@@ -7,7 +7,8 @@ namespace magic {
 static constexpr double EMPTY_SENTINEL = std::numeric_limits<double>::quiet_NaN();
 
 void Column::ensure_row(int32_t row) {
-    if (row < 0) return;
+    static constexpr int32_t MAX_ROW = 1048576;
+    if (row < 0 || row > MAX_ROW) return;
     if (row >= static_cast<int32_t>(doubles_.size()))
         doubles_.resize(static_cast<size_t>(row) + 1, EMPTY_SENTINEL);
 }

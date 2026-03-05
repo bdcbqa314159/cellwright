@@ -1,11 +1,14 @@
 #pragma once
 
+#include <string>
+
+#ifdef __APPLE__
+
 #include <CommonCrypto/CommonDigest.h>
 
 #include <fstream>
 #include <iomanip>
 #include <sstream>
-#include <string>
 
 namespace magic {
 
@@ -38,3 +41,14 @@ inline std::string sha256_of_file(const std::string& path) {
 }
 
 }  // namespace magic
+
+#else
+
+namespace magic {
+
+// Stub: SHA-256 not available on this platform
+inline std::string sha256_of_file(const std::string&) { return {}; }
+
+}  // namespace magic
+
+#endif

@@ -246,9 +246,9 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                         if (k == "name") {
                             name = r.read_string();
                         } else if (k == "cols") {
-                            cols = r.read_int();
+                            cols = std::min(r.read_int(), 16384);
                         } else if (k == "rows") {
-                            rows = r.read_int();
+                            rows = std::min(r.read_int(), 1048576);
                         } else if (k == "cells") {
                             r.expect('[');
                             while (r.peek() != ']') {

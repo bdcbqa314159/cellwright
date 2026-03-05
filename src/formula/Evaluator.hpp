@@ -35,9 +35,12 @@ private:
 
     Sheet* find_sheet(const std::string& name);
 
+    static constexpr int MAX_EVAL_DEPTH = 256;
+
     Sheet& sheet_;
     const FunctionRegistry& registry_;
     Workbook* workbook_;
+    int depth_ = 0;
 
     // Scratch buffers reused per recursion depth to avoid repeated allocation
     std::vector<std::vector<CellValue>> args_pool_;

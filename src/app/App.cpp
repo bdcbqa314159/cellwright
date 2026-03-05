@@ -17,6 +17,7 @@
 #include <implot.h>
 #include <pybind11/embed.h>
 
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 
@@ -84,7 +85,10 @@ void App::init_imgui() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // Load Roboto as the default font (replaces ImGui's tiny ProggyClean)
-    io.Fonts->AddFontFromFileTTF(IMGUI_FONT_DIR "/Roboto-Medium.ttf", 16.0f);
+    // Fall back to ImGui default if font file is missing
+    const char* font_path = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
+    if (std::ifstream(font_path).good())
+        io.Fonts->AddFontFromFileTTF(font_path, 16.0f);
 
     setup_style();
     apply_theme(Theme::Dark);

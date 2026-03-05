@@ -4,13 +4,19 @@
 #include <fstream>
 #include <iostream>
 
+#ifdef __APPLE__
+#include <spawn.h>
+#include <sys/wait.h>
+extern char** environ;
+#endif
+
 namespace magic {
 
 // ── Constructors ────────────────────────────────────────────────────────────
 
 PluginAllowlist::PluginAllowlist() {
     const char* home = std::getenv("HOME");
-    if (home) {
+    if (home && home[0] == '/') {
         json_path_ = std::filesystem::path(home) / ".magic_dashboard" / "trusted_plugins.json";
     }
     load();
@@ -51,16 +57,14 @@ void PluginAllowlist::revoke(const std::string& hash) {
 
 bool PluginAllowlist::verify_codesign(const std::string& path) {
 #ifdef __APPLE__
-    // Reject paths with shell metacharacters to prevent command injection
-    for (char ch : path) {
-        if (ch == '\'' || ch == '"' || ch == '\\' || ch == '$' || ch == '`'
-            || ch == '(' || ch == ')' || ch == ';' || ch == '&' || ch == '|'
-            || ch == '\n' || ch == '\r')
-            return false;
-    }
-    std::string cmd = "codesign -v '" + path + "' 2>/dev/null";
-    int status = std::system(cmd.c_str());
-    return status == 0;
+    const char* argv[] = {"codesign", "-v", path.c_str(), nullptr};
+    pid_t pid;
+    int status;
+    if (posix_spawn(&pid, "/usr/bin/codesign", nullptr, nullptr,
+                    const_cast<char**>(argv), environ) != 0)
+        return false;
+    waitpid(pid, &status, 0);
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 #else
     (void)path;
     return false;

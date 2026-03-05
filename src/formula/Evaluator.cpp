@@ -10,6 +10,15 @@ Evaluator::Evaluator(Sheet& sheet, const FunctionRegistry& registry, Workbook* w
     : sheet_(sheet), registry_(registry), workbook_(workbook) {}
 
 CellValue Evaluator::evaluate(const ASTNode& node) {
+    if (++depth_ > MAX_EVAL_DEPTH) {
+        --depth_;
+        return CellValue{CellError::VALUE};
+    }
+    struct DepthGuard {
+        int& d;
+        ~DepthGuard() { --d; }
+    } guard{depth_};
+
     return std::visit([this](const auto& v) -> CellValue {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, NumberNode>)      return eval_number(v);
@@ -153,11 +162,17 @@ std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& f
 }
 
 void Evaluator::expand_range_into(Sheet& s, const CellAddress& from, const CellAddress& to, std::vector<CellValue>& out) {
-    int32_t c1 = std::min(from.col, to.col);
+    int32_t c1 = std::max(std::min(from.col, to.col), int32_t{0});
     int32_t c2 = std::max(from.col, to.col);
-    int32_t r1 = std::min(from.row, to.row);
+    int32_t r1 = std::max(std::min(from.row, to.row), int32_t{0});
     int32_t r2 = std::max(from.row, to.row);
-    out.reserve(out.size() + static_cast<size_t>(c2 - c1 + 1) * static_cast<size_t>(r2 - r1 + 1));
+    static constexpr size_t MAX_RANGE_CELLS = 1'000'000;
+    size_t count = static_cast<size_t>(c2 - c1 + 1) * static_cast<size_t>(r2 - r1 + 1);
+    if (count > MAX_RANGE_CELLS) {
+        out.push_back(CellValue{CellError::VALUE});
+        return;
+    }
+    out.reserve(out.size() + count);
 
     for (int32_t c = c1; c <= c2; ++c) {
         for (int32_t r = r1; r <= r2; ++r) {

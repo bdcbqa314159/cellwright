@@ -32,7 +32,7 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             if (ImGui::MenuItem("Open...", "Ctrl+O")) {
                 file_dialog_.show_open = true;
-                std::strncpy(file_dialog_.path_buf, state.current_file.c_str(), sizeof(file_dialog_.path_buf) - 1);
+                snprintf(file_dialog_.path_buf, sizeof(file_dialog_.path_buf), "%s", state.current_file.c_str());
             }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {
                 if (!state.current_file.empty())
@@ -42,7 +42,7 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             if (ImGui::MenuItem("Save As...")) {
                 file_dialog_.show_save = true;
-                std::strncpy(file_dialog_.path_buf, state.current_file.c_str(), sizeof(file_dialog_.path_buf) - 1);
+                snprintf(file_dialog_.path_buf, sizeof(file_dialog_.path_buf), "%s", state.current_file.c_str());
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Import CSV...")) {
