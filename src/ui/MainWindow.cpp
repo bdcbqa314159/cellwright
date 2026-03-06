@@ -317,23 +317,26 @@ void MainWindow::handle_keyboard(AppState& state) {
             // If current cell is non-empty, move until we hit an empty cell (and return the last non-empty)
             // If current cell is empty, move until we hit a non-empty cell
             bool cur_empty = is_empty(s.get_value({col, row}));
+            int32_t max_col = std::max(0, std::min(s.col_count(), 256) - 1);
+            int32_t max_row = std::max(0, s.row_count() - 1);
             int32_t c = col + dc, r = row + dr;
             if (cur_empty) {
                 // Jump to first non-empty cell in direction
-                while (c >= 0 && r >= 0 && c < 256 && r < s.row_count()) {
+                while (c >= 0 && r >= 0 && c <= max_col && r <= max_row) {
                     if (!is_empty(s.get_value({c, r}))) return {c, r};
                     c += dc; r += dr;
                 }
                 // If nothing found, go to edge
-                return {std::max(0, col + dc * 255), std::max(0, row + dr * 255)};
+                return {std::clamp(dc > 0 ? max_col : 0, 0, max_col),
+                        std::clamp(dr > 0 ? max_row : 0, 0, max_row)};
             } else {
                 // Jump to last non-empty cell before an empty (or edge)
-                while (c >= 0 && r >= 0 && c < 256 && r < s.row_count()) {
+                while (c >= 0 && r >= 0 && c <= max_col && r <= max_row) {
                     if (is_empty(s.get_value({c, r}))) return {c - dc, r - dr};
                     c += dc; r += dr;
                 }
                 // Hit edge
-                return {std::clamp(c - dc, 0, 255), std::max(0, r - dr)};
+                return {std::clamp(c - dc, 0, max_col), std::clamp(r - dr, 0, max_row)};
             }
         };
 

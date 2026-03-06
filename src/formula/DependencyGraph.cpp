@@ -1,7 +1,7 @@
 #include "formula/DependencyGraph.hpp"
 #include <algorithm>
+#include <optional>
 #include <queue>
-#include <stdexcept>
 
 namespace magic {
 
@@ -125,9 +125,11 @@ void DependencyGraph::clear() {
     reverse_deps_.clear();
 }
 
-static CellAddress shift_addr(const CellAddress& addr, bool is_row, int32_t at, int32_t delta) {
+// Returns shifted address, or nullopt if the cell was at the deleted position
+static std::optional<CellAddress> shift_addr(const CellAddress& addr, bool is_row, int32_t at, int32_t delta) {
     CellAddress result = addr;
     int32_t& coord = is_row ? result.row : result.col;
+    if (delta < 0 && coord == at) return std::nullopt;  // deleted
     if (coord >= at) coord += delta;
     return result;
 }
@@ -137,13 +139,15 @@ static void shift_impl(
     std::unordered_map<CellAddress, std::unordered_set<CellAddress>>& reverse,
     bool is_row, int32_t at, int32_t delta)
 {
-    // Rebuild both maps with shifted addresses
+    // Rebuild both maps with shifted addresses, dropping deleted entries
     std::unordered_map<CellAddress, std::vector<CellAddress>> new_forward;
     for (auto& [cell, deps] : forward) {
-        CellAddress new_cell = shift_addr(cell, is_row, at, delta);
-        auto& new_deps = new_forward[new_cell];
+        auto new_cell = shift_addr(cell, is_row, at, delta);
+        if (!new_cell) continue;  // cell was at deleted position
+        auto& new_deps = new_forward[*new_cell];
         for (auto& dep : deps) {
-            new_deps.push_back(shift_addr(dep, is_row, at, delta));
+            auto new_dep = shift_addr(dep, is_row, at, delta);
+            if (new_dep) new_deps.push_back(*new_dep);
         }
     }
     forward = std::move(new_forward);

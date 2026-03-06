@@ -116,7 +116,6 @@ static std::string adjust_refs_impl(const std::string& formula, bool is_row, int
     try {
         auto tokens = Tokenizer::tokenize(formula);
         std::ostringstream out;
-        bool has_ref_error = false;
 
         for (const auto& tok : tokens) {
             if (tok.type == TokenType::CELLREF) {
@@ -124,8 +123,6 @@ static std::string adjust_refs_impl(const std::string& formula, bool is_row, int
                 if (addr) {
                     int32_t& coord = is_row ? addr->row : addr->col;
                     if (delta < 0 && coord == at) {
-                        // Reference to deleted row/col
-                        has_ref_error = true;
                         out << "#REF!";
                     } else if (coord >= at) {
                         coord += delta;

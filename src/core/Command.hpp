@@ -80,8 +80,9 @@ public:
     CellAddress cell() const override { return {0, row_}; }
 private:
     int32_t row_;
-    std::vector<CellValue> saved_values_;
-    std::unordered_map<int32_t, std::string> saved_formulas_;  // col → formula
+    std::vector<CellValue> saved_row_values_;                       // cells in deleted row
+    std::unordered_map<int32_t, std::string> saved_row_formulas_;   // col → formula (deleted row only)
+    std::unordered_map<CellAddress, std::string> saved_all_formulas_; // entire sheet formula snapshot
 };
 
 class InsertColumnCommand : public Command {
@@ -104,8 +105,9 @@ public:
     CellAddress cell() const override { return {col_, 0}; }
 private:
     int32_t col_;
-    std::vector<CellValue> saved_values_;
-    std::unordered_map<int32_t, std::string> saved_formulas_;  // row → formula
+    std::vector<CellValue> saved_col_values_;                       // cells in deleted column
+    std::unordered_map<int32_t, std::string> saved_col_formulas_;   // row → formula (deleted col only)
+    std::unordered_map<CellAddress, std::string> saved_all_formulas_; // entire sheet formula snapshot
 };
 
 // Undo/redo manager

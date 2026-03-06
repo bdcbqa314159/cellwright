@@ -1,18 +1,21 @@
 #include "ui/FindBar.hpp"
 #include "core/Sheet.hpp"
-#include "core/CellFormat.hpp"
 #include <imgui.h>
 #include <algorithm>
 #include <cctype>
 
 namespace magic {
 
+// Case-insensitive search. Returns iterator to match start, or haystack.end().
+static std::string::const_iterator icase_find(const std::string& haystack, const std::string& needle) {
+    return std::search(haystack.begin(), haystack.end(),
+                       needle.begin(), needle.end(),
+                       [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+}
+
 static bool icase_contains(const std::string& haystack, const std::string& needle) {
     if (needle.empty()) return false;
-    auto it = std::search(haystack.begin(), haystack.end(),
-                          needle.begin(), needle.end(),
-                          [](char a, char b) { return std::tolower(a) == std::tolower(b); });
-    return it != haystack.end();
+    return icase_find(haystack, needle) != haystack.end();
 }
 
 void FindBar::do_search(Sheet& sheet) {
@@ -102,11 +105,11 @@ void FindBar::render(Sheet& sheet) {
                 CellAddress addr = matches_[match_idx_];
                 CellValue val = sheet.get_value(addr);
                 std::string text = to_display_string(val);
-                // Simple text replacement in display value
                 std::string needle(search_buf_);
                 std::string replacement(replace_buf_);
-                auto pos = text.find(needle);
-                if (pos != std::string::npos) {
+                auto it = icase_find(text, needle);
+                if (it != text.end()) {
+                    auto pos = static_cast<size_t>(it - text.begin());
                     text.replace(pos, needle.size(), replacement);
                     sheet.set_value(addr, CellValue{text});
                     sheet.clear_formula(addr);
@@ -121,8 +124,9 @@ void FindBar::render(Sheet& sheet) {
             for (auto& addr : matches_) {
                 CellValue val = sheet.get_value(addr);
                 std::string text = to_display_string(val);
-                auto pos = text.find(needle);
-                if (pos != std::string::npos) {
+                auto it = icase_find(text, needle);
+                if (it != text.end()) {
+                    auto pos = static_cast<size_t>(it - text.begin());
                     text.replace(pos, needle.size(), replacement);
                     sheet.set_value(addr, CellValue{text});
                     sheet.clear_formula(addr);

@@ -28,6 +28,8 @@ public:
     const std::string& get_formula(const CellAddress& addr) const;
     void set_formula(const CellAddress& addr, const std::string& formula);
     void clear_formula(const CellAddress& addr);
+    const std::unordered_map<CellAddress, std::string>& all_formulas() const { return formulas_; }
+    void set_all_formulas(std::unordered_map<CellAddress, std::string> f) { formulas_ = std::move(f); ++value_generation_; }
 
     // Dirty tracking for recalculation
     void mark_dirty(const CellAddress& addr);

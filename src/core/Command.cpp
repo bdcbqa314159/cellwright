@@ -62,24 +62,27 @@ std::string InsertRowCommand::description() const { return "Insert Row " + std::
 // ── DeleteRowCommand ────────────────────────────────────────────────────
 
 DeleteRowCommand::DeleteRowCommand(int32_t row, Sheet& sheet) : row_(row) {
-    // Save all cell values and formulas in this row for undo
+    // Save cells in the deleted row
     for (int32_t c = 0; c < sheet.col_count(); ++c) {
-        saved_values_.push_back(sheet.get_value({c, row}));
+        saved_row_values_.push_back(sheet.get_value({c, row}));
         if (sheet.has_formula({c, row}))
-            saved_formulas_[c] = sheet.get_formula({c, row});
+            saved_row_formulas_[c] = sheet.get_formula({c, row});
     }
+    // Snapshot all formulas so undo can restore them exactly
+    // (delete_row adjusts formula text irreversibly, e.g. =A4 → #REF!)
+    saved_all_formulas_ = sheet.all_formulas();
 }
 
 void DeleteRowCommand::execute(Sheet& sheet) { sheet.delete_row(row_); }
 
 void DeleteRowCommand::undo(Sheet& sheet) {
     sheet.insert_row(row_);
-    for (int32_t c = 0; c < static_cast<int32_t>(saved_values_.size()); ++c) {
-        sheet.set_value({c, row_}, saved_values_[c]);
-        auto it = saved_formulas_.find(c);
-        if (it != saved_formulas_.end())
-            sheet.set_formula({c, row_}, it->second);
+    // Restore cells in the re-inserted row
+    for (int32_t c = 0; c < static_cast<int32_t>(saved_row_values_.size()); ++c) {
+        sheet.set_value({c, row_}, saved_row_values_[c]);
     }
+    // Restore the exact pre-delete formula map (overrides insert_row's adjustment)
+    sheet.set_all_formulas(saved_all_formulas_);
 }
 
 std::string DeleteRowCommand::description() const { return "Delete Row " + std::to_string(row_ + 1); }
@@ -93,24 +96,24 @@ std::string InsertColumnCommand::description() const { return "Insert Col " + Ce
 // ── DeleteColumnCommand ─────────────────────────────────────────────────
 
 DeleteColumnCommand::DeleteColumnCommand(int32_t col, Sheet& sheet) : col_(col) {
-    // Save all cell values and formulas in this column for undo
+    // Save cells in the deleted column
     for (int32_t r = 0; r < sheet.column(col).size(); ++r) {
-        saved_values_.push_back(sheet.get_value({col, r}));
-        if (sheet.has_formula({col, r}))
-            saved_formulas_[r] = sheet.get_formula({col, r});
+        saved_col_values_.push_back(sheet.get_value({col, r}));
     }
+    // Snapshot all formulas so undo can restore them exactly
+    saved_all_formulas_ = sheet.all_formulas();
 }
 
 void DeleteColumnCommand::execute(Sheet& sheet) { sheet.delete_column(col_); }
 
 void DeleteColumnCommand::undo(Sheet& sheet) {
     sheet.insert_column(col_);
-    for (int32_t r = 0; r < static_cast<int32_t>(saved_values_.size()); ++r) {
-        sheet.set_value({col_, r}, saved_values_[r]);
-        auto it = saved_formulas_.find(r);
-        if (it != saved_formulas_.end())
-            sheet.set_formula({col_, r}, it->second);
+    // Restore cells in the re-inserted column
+    for (int32_t r = 0; r < static_cast<int32_t>(saved_col_values_.size()); ++r) {
+        sheet.set_value({col_, r}, saved_col_values_[r]);
     }
+    // Restore the exact pre-delete formula map
+    sheet.set_all_formulas(saved_all_formulas_);
 }
 
 std::string DeleteColumnCommand::description() const { return "Delete Col " + CellAddress::col_to_letters(col_); }

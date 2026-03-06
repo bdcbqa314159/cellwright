@@ -28,6 +28,7 @@ private:
     bool editing_ = false;
     bool has_nav_target_ = false;
     bool focus_name_box_ = false;
+    bool name_box_active_ = false;
     CellAddress nav_target_{0, 0};
 };
 

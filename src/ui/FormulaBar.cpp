@@ -9,13 +9,17 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
     bool committed = false;
 
     // Clickable name box — editable InputText for Go-To navigation
-    std::string cell_label = selected.to_a1();
-    std::strncpy(name_buf_, cell_label.c_str(), sizeof(name_buf_) - 1);
-    name_buf_[sizeof(name_buf_) - 1] = '\0';
+    // Only overwrite buffer when the widget is not focused, so the user can type
     ImGui::SetNextItemWidth(60);
     if (focus_name_box_) {
         ImGui::SetKeyboardFocusHere();
         focus_name_box_ = false;
+        name_box_active_ = true;
+    }
+    if (!name_box_active_) {
+        std::string cell_label = selected.to_a1();
+        std::strncpy(name_buf_, cell_label.c_str(), sizeof(name_buf_) - 1);
+        name_buf_[sizeof(name_buf_) - 1] = '\0';
     }
     if (ImGui::InputText("##celladdr", name_buf_, sizeof(name_buf_),
                          ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -24,7 +28,9 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
             nav_target_ = *addr;
             has_nav_target_ = true;
         }
+        name_box_active_ = false;
     }
+    name_box_active_ = ImGui::IsItemActive();
     ImGui::SameLine();
 
     // Refresh buffer when selection changes (and not currently editing in cell)

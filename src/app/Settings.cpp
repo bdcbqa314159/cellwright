@@ -1,7 +1,6 @@
 #include "app/Settings.hpp"
 #include <algorithm>
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -66,31 +65,6 @@ bool Settings::save() const {
 }
 
 // Simple extraction helpers (avoids JSON library dependency)
-static std::string extract_string(const std::string& json, const std::string& key) {
-    auto pos = json.find("\"" + key + "\"");
-    if (pos == std::string::npos) return "";
-    pos = json.find(':', pos);
-    if (pos == std::string::npos) return "";
-    // Skip whitespace and opening quote
-    pos = json.find('"', pos + 1);
-    if (pos == std::string::npos) return "";
-    ++pos;
-    std::string result;
-    while (pos < json.size() && json[pos] != '"') {
-        if (json[pos] == '\\' && pos + 1 < json.size()) {
-            ++pos;
-            switch (json[pos]) {
-                case 'n': result += '\n'; break;
-                default: result += json[pos]; break;
-            }
-        } else {
-            result += json[pos];
-        }
-        ++pos;
-    }
-    return result;
-}
-
 static int extract_int(const std::string& json, const std::string& key, int def) {
     auto pos = json.find("\"" + key + "\"");
     if (pos == std::string::npos) return def;
@@ -132,9 +106,9 @@ bool Settings::load() {
 
     window_rect.x = extract_int(json, "window_x", -1);
     window_rect.y = extract_int(json, "window_y", -1);
-    window_rect.w = extract_int(json, "window_w", 1400);
-    window_rect.h = extract_int(json, "window_h", 900);
-    font_size = extract_float(json, "font_size", 16.0f);
+    window_rect.w = std::clamp(extract_int(json, "window_w", 1400), 200, 7680);
+    window_rect.h = std::clamp(extract_int(json, "window_h", 900), 150, 4320);
+    font_size = std::clamp(extract_float(json, "font_size", 16.0f), 8.0f, 48.0f);
 
     // Parse recent_files array
     recent_files_.clear();
