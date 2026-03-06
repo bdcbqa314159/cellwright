@@ -15,6 +15,7 @@ CellValue Sheet::get_value(const CellAddress& addr) const {
 
 void Sheet::set_value(const CellAddress& addr, const CellValue& val) {
     if (addr.col < 0 || addr.row < 0) return;
+    if (addr.col >= MAX_COL || addr.row >= MAX_ROW) return;
     while (addr.col >= col_count()) columns_.emplace_back();
     columns_[addr.col].set(addr.row, val);
     if (addr.row >= row_count_) row_count_ = addr.row + 1;
@@ -23,7 +24,7 @@ void Sheet::set_value(const CellAddress& addr, const CellValue& val) {
 }
 
 bool Sheet::has_formula(const CellAddress& addr) const {
-    return formulas_.count(addr) > 0;
+    return formulas_.contains(addr);
 }
 
 const std::string& Sheet::get_formula(const CellAddress& addr) const {
@@ -125,7 +126,7 @@ void Sheet::delete_column(int32_t at) {
 }
 
 Column& Sheet::column(int32_t col) {
-    if (col < 0) { static Column empty; return empty; }
+    if (col < 0 || col >= MAX_COL) { static Column empty; return empty; }
     while (col >= col_count()) columns_.emplace_back();
     return columns_[col];
 }

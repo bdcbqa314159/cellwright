@@ -12,6 +12,9 @@ namespace magic {
 
 class Sheet {
 public:
+    static constexpr int32_t MAX_COL = 16384;
+    static constexpr int32_t MAX_ROW = 1048576;
+
     explicit Sheet(const std::string& name = "Sheet1", int32_t cols = 26, int32_t rows = 1000);
 
     const std::string& name() const { return name_; }

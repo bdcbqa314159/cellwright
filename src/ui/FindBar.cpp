@@ -5,13 +5,17 @@
 #include <algorithm>
 #include <cctype>
 
+
 namespace magic {
 
 // Case-insensitive search. Returns iterator to match start, or haystack.end().
 static std::string::const_iterator icase_find(const std::string& haystack, const std::string& needle) {
     return std::search(haystack.begin(), haystack.end(),
                        needle.begin(), needle.end(),
-                       [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+                       [](char a, char b) {
+                           return std::tolower(static_cast<unsigned char>(a)) ==
+                                  std::tolower(static_cast<unsigned char>(b));
+                       });
 }
 
 static bool icase_contains(const std::string& haystack, const std::string& needle) {
@@ -110,7 +114,7 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
                 std::string replacement(replace_buf_);
                 auto it = icase_find(text, needle);
                 if (it != text.end()) {
-                    auto pos = static_cast<size_t>(it - text.begin());
+                    auto pos = static_cast<size_t>(it - text.cbegin());
                     text.replace(pos, needle.size(), replacement);
                     CellValue new_val{text};
                     if (undo) {
@@ -134,7 +138,7 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
                 std::string text = to_display_string(val);
                 auto it = icase_find(text, needle);
                 if (it != text.end()) {
-                    auto pos = static_cast<size_t>(it - text.begin());
+                    auto pos = static_cast<size_t>(it - text.cbegin());
                     text.replace(pos, needle.size(), replacement);
                     CellValue new_val{text};
                     if (undo) {

@@ -18,8 +18,7 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
     }
     if (!name_box_active_) {
         std::string cell_label = selected.to_a1();
-        std::strncpy(name_buf_, cell_label.c_str(), sizeof(name_buf_) - 1);
-        name_buf_[sizeof(name_buf_) - 1] = '\0';
+        std::snprintf(name_buf_, sizeof(name_buf_), "%s", cell_label.c_str());
     }
     if (ImGui::InputText("##celladdr", name_buf_, sizeof(name_buf_),
                          ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -42,8 +41,7 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
         } else {
             content = to_display_string(sheet.get_value(selected));
         }
-        std::strncpy(buf_, content.c_str(), sizeof(buf_) - 1);
-        buf_[sizeof(buf_) - 1] = '\0';
+        std::snprintf(buf_, sizeof(buf_), "%s", content.c_str());
     }
 
     ImGui::SetNextItemWidth(-1);

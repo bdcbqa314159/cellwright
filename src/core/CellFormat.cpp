@@ -73,7 +73,7 @@ void FormatMap::clear(const CellAddress& addr) {
 }
 
 bool FormatMap::has(const CellAddress& addr) const {
-    return formats_.count(addr) > 0;
+    return formats_.contains(addr);
 }
 
 void FormatMap::shift_rows(int32_t at, int32_t delta) {

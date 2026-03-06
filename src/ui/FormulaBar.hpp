@@ -23,7 +23,7 @@ public:
 
 private:
     char buf_[1024] = {};
-    char name_buf_[16] = {};
+    char name_buf_[32] = {};
     CellAddress last_selected_{-1, -1};
     bool editing_ = false;
     bool has_nav_target_ = false;

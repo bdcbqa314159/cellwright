@@ -50,10 +50,10 @@ static std::unordered_map<CellAddress, int> build_ref_colors(const char* buf) {
                 tokens[i + 2].type == TokenType::CELLREF) {
                 auto to = CellAddress::from_a1(tokens[i + 2].text);
                 if (to) {
-                    int c1 = std::min(from->col, to->col), c2 = std::max(from->col, to->col);
-                    int r1 = std::min(from->row, to->row), r2 = std::max(from->row, to->row);
-                    for (int c = c1; c <= c2; ++c)
-                        for (int r = r1; r <= r2; ++r)
+                    int32_t c1 = std::min(from->col, to->col), c2 = std::max(from->col, to->col);
+                    int32_t r1 = std::min(from->row, to->row), r2 = std::max(from->row, to->row);
+                    for (int32_t c = c1; c <= c2; ++c)
+                        for (int32_t r = r1; r <= r2; ++r)
                             colors[{c, r}] = color_idx;
                 }
                 i += 2; // skip colon + second cellref
