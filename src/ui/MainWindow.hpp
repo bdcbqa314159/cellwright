@@ -38,6 +38,8 @@ public:
 private:
     void render_menu_bar(AppState& state);
     void handle_keyboard(AppState& state);
+    void handle_shortcuts(AppState& state);
+    void handle_navigation(AppState& state);
 
     SpreadsheetGrid grid_;
     FormulaBar formula_bar_;

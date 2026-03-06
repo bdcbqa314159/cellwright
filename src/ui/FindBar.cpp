@@ -1,5 +1,6 @@
 #include "ui/FindBar.hpp"
 #include "core/Sheet.hpp"
+#include "core/Command.hpp"
 #include <imgui.h>
 #include <algorithm>
 #include <cctype>
@@ -61,7 +62,7 @@ void FindBar::find_prev() {
     has_nav_ = true;
 }
 
-void FindBar::render(Sheet& sheet) {
+void FindBar::render(Sheet& sheet, UndoManager* undo) {
     if (!visible_) return;
 
     ImGui::PushID("FindBar");
@@ -111,8 +112,15 @@ void FindBar::render(Sheet& sheet) {
                 if (it != text.end()) {
                     auto pos = static_cast<size_t>(it - text.begin());
                     text.replace(pos, needle.size(), replacement);
-                    sheet.set_value(addr, CellValue{text});
-                    sheet.clear_formula(addr);
+                    CellValue new_val{text};
+                    if (undo) {
+                        std::string old_formula = sheet.has_formula(addr) ? sheet.get_formula(addr) : "";
+                        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, val, old_formula);
+                        undo->execute(std::move(cmd), sheet);
+                    } else {
+                        sheet.set_value(addr, new_val);
+                        sheet.clear_formula(addr);
+                    }
                 }
                 do_search(sheet);
             }
@@ -128,8 +136,15 @@ void FindBar::render(Sheet& sheet) {
                 if (it != text.end()) {
                     auto pos = static_cast<size_t>(it - text.begin());
                     text.replace(pos, needle.size(), replacement);
-                    sheet.set_value(addr, CellValue{text});
-                    sheet.clear_formula(addr);
+                    CellValue new_val{text};
+                    if (undo) {
+                        std::string old_formula = sheet.has_formula(addr) ? sheet.get_formula(addr) : "";
+                        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, val, old_formula);
+                        undo->execute(std::move(cmd), sheet);
+                    } else {
+                        sheet.set_value(addr, new_val);
+                        sheet.clear_formula(addr);
+                    }
                 }
             }
             do_search(sheet);

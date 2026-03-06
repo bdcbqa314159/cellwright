@@ -38,13 +38,6 @@ public:
     static std::string adjust_references(const std::string& formula,
                                           int32_t dcol, int32_t drow);
 
-    // Adjust formula references for row/column insert/delete operations.
-    // Returns adjusted formula, or "#REF!" if a reference was deleted.
-    static std::string adjust_for_insert_row(const std::string& formula, int32_t at);
-    static std::string adjust_for_delete_row(const std::string& formula, int32_t at);
-    static std::string adjust_for_insert_col(const std::string& formula, int32_t at);
-    static std::string adjust_for_delete_col(const std::string& formula, int32_t at);
-
 private:
     std::vector<ClipboardCell> cells_;
     CellAddress origin_;

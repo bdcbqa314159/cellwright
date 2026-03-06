@@ -29,6 +29,8 @@ public:
     void set_formula(const CellAddress& addr, const std::string& formula);
     void clear_formula(const CellAddress& addr);
     const std::unordered_map<CellAddress, std::string>& all_formulas() const { return formulas_; }
+    // Replace the entire formula map (used by undo to restore pre-delete state).
+    // Caller must ensure formula keys are consistent with current row/column layout.
     void set_all_formulas(std::unordered_map<CellAddress, std::string> f) { formulas_ = std::move(f); ++value_generation_; }
 
     // Dirty tracking for recalculation

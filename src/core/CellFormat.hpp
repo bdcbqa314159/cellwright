@@ -35,6 +35,7 @@ public:
     void clear(const CellAddress& addr);
     bool has(const CellAddress& addr) const;
 
+    // Shift format entries for row/column insert (delta=+1) or delete (delta=-1).
     void shift_rows(int32_t at, int32_t delta);
     void shift_cols(int32_t at, int32_t delta);
 

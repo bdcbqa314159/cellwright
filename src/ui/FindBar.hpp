@@ -6,10 +6,11 @@
 namespace magic {
 
 class Sheet;
+class UndoManager;
 
 class FindBar {
 public:
-    void render(Sheet& sheet);
+    void render(Sheet& sheet, UndoManager* undo = nullptr);
 
     bool is_visible() const { return visible_; }
     void show_find() { visible_ = true; show_replace_ = false; }

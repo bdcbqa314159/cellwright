@@ -1,5 +1,5 @@
 #include "core/Sheet.hpp"
-#include "core/Clipboard.hpp"
+#include "core/FormulaAdjust.hpp"
 
 namespace magic {
 
@@ -59,7 +59,7 @@ void Sheet::insert_row(int32_t at) {
     // Shift formula keys and adjust formula text references
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
-        std::string adjusted = Clipboard::adjust_for_insert_row(formula, at);
+        std::string adjusted = adjust_formula_for_insert_row(formula, at);
         if (addr.row >= at)
             shifted[{addr.col, addr.row + 1}] = std::move(adjusted);
         else
@@ -79,7 +79,7 @@ void Sheet::delete_row(int32_t at) {
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
         if (addr.row == at) continue;  // deleted
-        std::string adjusted = Clipboard::adjust_for_delete_row(formula, at);
+        std::string adjusted = adjust_formula_for_delete_row(formula, at);
         if (addr.row > at)
             shifted[{addr.col, addr.row - 1}] = std::move(adjusted);
         else
@@ -96,7 +96,7 @@ void Sheet::insert_column(int32_t at) {
     // Shift formula keys and adjust formula text references
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
-        std::string adjusted = Clipboard::adjust_for_insert_col(formula, at);
+        std::string adjusted = adjust_formula_for_insert_col(formula, at);
         if (addr.col >= at)
             shifted[{addr.col + 1, addr.row}] = std::move(adjusted);
         else
@@ -114,7 +114,7 @@ void Sheet::delete_column(int32_t at) {
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
         if (addr.col == at) continue;  // deleted
-        std::string adjusted = Clipboard::adjust_for_delete_col(formula, at);
+        std::string adjusted = adjust_formula_for_delete_col(formula, at);
         if (addr.col > at)
             shifted[{addr.col - 1, addr.row}] = std::move(adjusted);
         else

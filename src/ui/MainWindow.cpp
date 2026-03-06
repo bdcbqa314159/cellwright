@@ -249,13 +249,16 @@ void MainWindow::render_menu_bar(AppState& state) {
 // ── Keyboard shortcuts ──────────────────────────────────────────────────────
 
 void MainWindow::handle_keyboard(AppState& state) {
+    if (ImGui::GetIO().WantTextInput) return;
+    handle_shortcuts(state);
+    handle_navigation(state);
+}
+
+void MainWindow::handle_shortcuts(AppState& state) {
     ImGuiIO& io = ImGui::GetIO();
     bool ctrl = io.KeyCtrl;
     auto& ci = state.cell_input;
     auto& as = state.active_state();
-
-    // Don't handle shortcuts when typing in an input field
-    if (ImGui::GetIO().WantTextInput) return;
 
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
         auto& sheet = state.workbook.active_sheet();
@@ -307,164 +310,162 @@ void MainWindow::handle_keyboard(AppState& state) {
     if (ImGui::IsKeyPressed(ImGuiKey_Escape) && find_bar_.is_visible()) {
         find_bar_.hide();
     }
+}
 
-    // When not editing a cell
-    if (!grid_state_.editor.is_editing()) {
-        bool shift = io.KeyShift;
+void MainWindow::handle_navigation(AppState& state) {
+    if (grid_state_.editor.is_editing()) return;
 
-        // Jump to data boundary for Ctrl+Arrow navigation
-        auto find_data_boundary = [&](const Sheet& s, int32_t col, int32_t row, int dc, int dr) -> CellAddress {
-            // If current cell is non-empty, move until we hit an empty cell (and return the last non-empty)
-            // If current cell is empty, move until we hit a non-empty cell
-            bool cur_empty = is_empty(s.get_value({col, row}));
-            int32_t max_col = std::max(0, std::min(s.col_count(), 256) - 1);
-            int32_t max_row = std::max(0, s.row_count() - 1);
-            int32_t c = col + dc, r = row + dr;
-            if (cur_empty) {
-                // Jump to first non-empty cell in direction
-                while (c >= 0 && r >= 0 && c <= max_col && r <= max_row) {
-                    if (!is_empty(s.get_value({c, r}))) return {c, r};
-                    c += dc; r += dr;
-                }
-                // If nothing found, go to edge
-                return {std::clamp(dc > 0 ? max_col : 0, 0, max_col),
-                        std::clamp(dr > 0 ? max_row : 0, 0, max_row)};
-            } else {
-                // Jump to last non-empty cell before an empty (or edge)
-                while (c >= 0 && r >= 0 && c <= max_col && r <= max_row) {
-                    if (is_empty(s.get_value({c, r}))) return {c - dc, r - dr};
-                    c += dc; r += dr;
-                }
-                // Hit edge
-                return {std::clamp(c - dc, 0, max_col), std::clamp(r - dr, 0, max_row)};
+    ImGuiIO& io = ImGui::GetIO();
+    bool ctrl = io.KeyCtrl;
+    bool shift = io.KeyShift;
+    auto& ci = state.cell_input;
+    auto& as = state.active_state();
+
+    // Jump to data boundary for Ctrl+Arrow navigation
+    auto find_data_boundary = [&](const Sheet& s, int32_t col, int32_t row, int dc, int dr) -> CellAddress {
+        bool cur_empty = is_empty(s.get_value({col, row}));
+        int32_t max_col = std::max(0, std::min(s.col_count(), 256) - 1);
+        int32_t max_row = std::max(0, s.row_count() - 1);
+        int32_t c = col + dc, r = row + dr;
+        if (cur_empty) {
+            while (c >= 0 && r >= 0 && c <= max_col && r <= max_row) {
+                if (!is_empty(s.get_value({c, r}))) return {c, r};
+                c += dc; r += dr;
             }
-        };
-
-        // Arrow key navigation (Shift extends selection)
-        auto move = [&](int dc, int dr) {
-            if (!shift) {
-                grid_state_.has_range_selection = false;
-                grid_state_.sel_anchor = grid_state_.selected;
-            } else if (!grid_state_.has_range_selection) {
-                grid_state_.has_range_selection = true;
-                grid_state_.sel_anchor = grid_state_.selected;
+            return {std::clamp(dc > 0 ? max_col : 0, 0, max_col),
+                    std::clamp(dr > 0 ? max_row : 0, 0, max_row)};
+        } else {
+            while (c >= 0 && r >= 0 && c <= max_col && r <= max_row) {
+                if (is_empty(s.get_value({c, r}))) return {c - dc, r - dr};
+                c += dc; r += dr;
             }
-            if (ctrl) {
-                auto& s = state.workbook.active_sheet();
-                auto dest = find_data_boundary(s, grid_state_.selected.col, grid_state_.selected.row, dc, dr);
-                grid_state_.selected = dest;
-            } else {
-                grid_state_.selected.col = std::max(0, grid_state_.selected.col + dc);
-                grid_state_.selected.row = std::max(0, grid_state_.selected.row + dr);
-            }
-        };
+            return {std::clamp(c - dc, 0, max_col), std::clamp(r - dr, 0, max_row)};
+        }
+    };
 
-        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))    move(0, -1);
-        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))   move(0, 1);
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))   move(-1, 0);
-        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))  move(1, 0);
-        if (ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+    // Arrow key navigation (Shift extends selection)
+    auto move_cursor = [&](int dc, int dr) {
+        if (!shift) {
             grid_state_.has_range_selection = false;
-            grid_state_.selected.col++;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-            grid_state_.has_range_selection = false;
-            grid_state_.selected.row++;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
-            auto& sheet = state.workbook.active_sheet();
-            if (grid_state_.has_range_selection) {
-                auto smin = grid_state_.sel_min();
-                auto smax = grid_state_.sel_max();
-                std::unordered_set<CellAddress> changed;
-                for (int32_t c = smin.col; c <= smax.col; ++c) {
-                    for (int32_t r = smin.row; r <= smax.row; ++r) {
-                        CellAddress addr{c, r};
-                        ci.process_no_recalc("", sheet, addr,
-                                             as.undo_manager, as.format_map, as.dep_graph, state.workbook);
-                        changed.insert(addr);
-                    }
-                }
-                ci.batch_recalc(sheet, changed, as.dep_graph, &state.workbook);
-            } else {
-                ci.process("", sheet, grid_state_.selected,
-                           as.undo_manager, as.format_map, as.dep_graph, state.workbook);
-            }
-        }
-
-        // Ctrl+Home → go to A1, Ctrl+End → go to last used cell
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Home)) {
-            grid_state_.selected = {0, 0};
             grid_state_.sel_anchor = grid_state_.selected;
-            grid_state_.has_range_selection = false;
+        } else if (!grid_state_.has_range_selection) {
+            grid_state_.has_range_selection = true;
+            grid_state_.sel_anchor = grid_state_.selected;
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_End)) {
+        if (ctrl) {
             auto& s = state.workbook.active_sheet();
-            int32_t max_col = 0, max_row = 0;
-            for (int32_t c = 0; c < s.col_count(); ++c) {
-                int32_t sz = s.column(c).size();
-                if (sz > 0) {
-                    max_col = std::max(max_col, c);
-                    max_row = std::max(max_row, sz - 1);
+            auto dest = find_data_boundary(s, grid_state_.selected.col, grid_state_.selected.row, dc, dr);
+            grid_state_.selected = dest;
+        } else {
+            grid_state_.selected.col = std::max(0, grid_state_.selected.col + dc);
+            grid_state_.selected.row = std::max(0, grid_state_.selected.row + dr);
+        }
+    };
+
+    if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))    move_cursor(0, -1);
+    if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))   move_cursor(0, 1);
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))   move_cursor(-1, 0);
+    if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))  move_cursor(1, 0);
+    if (ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+        grid_state_.has_range_selection = false;
+        grid_state_.selected.col++;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+        grid_state_.has_range_selection = false;
+        grid_state_.selected.row++;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+        auto& sheet = state.workbook.active_sheet();
+        if (grid_state_.has_range_selection) {
+            auto smin = grid_state_.sel_min();
+            auto smax = grid_state_.sel_max();
+            std::unordered_set<CellAddress> changed;
+            for (int32_t c = smin.col; c <= smax.col; ++c) {
+                for (int32_t r = smin.row; r <= smax.row; ++r) {
+                    CellAddress addr{c, r};
+                    ci.process_no_recalc("", sheet, addr,
+                                         as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                    changed.insert(addr);
                 }
             }
-            grid_state_.selected = {max_col, max_row};
-            grid_state_.sel_anchor = grid_state_.selected;
-            grid_state_.has_range_selection = false;
+            ci.batch_recalc(sheet, changed, as.dep_graph, &state.workbook);
+        } else {
+            ci.process("", sheet, grid_state_.selected,
+                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
         }
+    }
 
-        // Page Up / Page Down
-        if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
-            int visible_rows = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().y / ImGui::GetTextLineHeightWithSpacing()));
-            grid_state_.selected.row = std::max(0, grid_state_.selected.row - visible_rows);
-            grid_state_.sel_anchor = grid_state_.selected;
-            grid_state_.has_range_selection = false;
-        }
-        if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-            int visible_rows = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().y / ImGui::GetTextLineHeightWithSpacing()));
-            grid_state_.selected.row += visible_rows;
-            grid_state_.sel_anchor = grid_state_.selected;
-            grid_state_.has_range_selection = false;
-        }
-
-        // Ctrl+PgUp / Ctrl+PgDn — switch sheet tabs
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
-            int idx = state.workbook.active_index();
-            if (idx > 0) {
-                state.workbook.set_active(idx - 1);
-                state.ensure_sheet_states();
+    // Ctrl+Home → go to A1, Ctrl+End → go to last used cell
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Home)) {
+        grid_state_.selected = {0, 0};
+        grid_state_.sel_anchor = grid_state_.selected;
+        grid_state_.has_range_selection = false;
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_End)) {
+        auto& s = state.workbook.active_sheet();
+        int32_t max_col = 0, max_row = 0;
+        for (int32_t c = 0; c < s.col_count(); ++c) {
+            int32_t sz = s.column(c).size();
+            if (sz > 0) {
+                max_col = std::max(max_col, c);
+                max_row = std::max(max_row, sz - 1);
             }
         }
-        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
-            int idx = state.workbook.active_index();
-            if (idx + 1 < state.workbook.sheet_count()) {
-                state.workbook.set_active(idx + 1);
-                state.ensure_sheet_states();
-            }
-        }
+        grid_state_.selected = {max_col, max_row};
+        grid_state_.sel_anchor = grid_state_.selected;
+        grid_state_.has_range_selection = false;
+    }
 
-        // F2 to edit current cell
-        if (ImGui::IsKeyPressed(ImGuiKey_F2)) {
-            auto& sheet = state.workbook.active_sheet();
-            std::string initial;
-            if (sheet.has_formula(grid_state_.selected))
-                initial = "=" + sheet.get_formula(grid_state_.selected);
-            else
-                initial = to_display_string(sheet.get_value(grid_state_.selected));
-            grid_state_.editor.begin_edit(grid_state_.selected, initial);
-        }
+    // Page Up / Page Down
+    if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+        int visible_rows = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().y / ImGui::GetTextLineHeightWithSpacing()));
+        grid_state_.selected.row = std::max(0, grid_state_.selected.row - visible_rows);
+        grid_state_.sel_anchor = grid_state_.selected;
+        grid_state_.has_range_selection = false;
+    }
+    if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+        int visible_rows = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().y / ImGui::GetTextLineHeightWithSpacing()));
+        grid_state_.selected.row += visible_rows;
+        grid_state_.sel_anchor = grid_state_.selected;
+        grid_state_.has_range_selection = false;
+    }
 
-        // Start typing on selected cell -> begin editing
-        // Seed buffer with first char (InputText won't process queue on activation frame)
-        if (!ctrl && !io.KeyAlt) {
-            ImGuiIO& input_io = ImGui::GetIO();
-            if (input_io.InputQueueCharacters.Size > 0) {
-                ImWchar wch = input_io.InputQueueCharacters[0];
-                if (wch >= 32 && wch < 127) {
-                    std::string seed(1, static_cast<char>(wch));
-                    input_io.InputQueueCharacters.erase(input_io.InputQueueCharacters.Data);
-                    grid_state_.editor.begin_edit(grid_state_.selected, seed, false);
-                }
+    // Ctrl+PgUp / Ctrl+PgDn — switch sheet tabs
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+        int idx = state.workbook.active_index();
+        if (idx > 0) {
+            state.workbook.set_active(idx - 1);
+            state.ensure_sheet_states();
+        }
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+        int idx = state.workbook.active_index();
+        if (idx + 1 < state.workbook.sheet_count()) {
+            state.workbook.set_active(idx + 1);
+            state.ensure_sheet_states();
+        }
+    }
+
+    // F2 to edit current cell
+    if (ImGui::IsKeyPressed(ImGuiKey_F2)) {
+        auto& sheet = state.workbook.active_sheet();
+        std::string initial;
+        if (sheet.has_formula(grid_state_.selected))
+            initial = "=" + sheet.get_formula(grid_state_.selected);
+        else
+            initial = to_display_string(sheet.get_value(grid_state_.selected));
+        grid_state_.editor.begin_edit(grid_state_.selected, initial);
+    }
+
+    // Start typing on selected cell -> begin editing
+    if (!ctrl && !io.KeyAlt) {
+        ImGuiIO& input_io = ImGui::GetIO();
+        if (input_io.InputQueueCharacters.Size > 0) {
+            ImWchar wch = input_io.InputQueueCharacters[0];
+            if (wch >= 32 && wch < 127) {
+                std::string seed(1, static_cast<char>(wch));
+                input_io.InputQueueCharacters.erase(input_io.InputQueueCharacters.Data);
+                grid_state_.editor.begin_edit(grid_state_.selected, seed, false);
             }
         }
     }
@@ -531,7 +532,7 @@ void MainWindow::render(AppState& state) {
     }
 
     // Find bar (below formula bar)
-    find_bar_.render(sheet);
+    find_bar_.render(sheet, &as.undo_manager);
     if (find_bar_.has_nav_target()) {
         grid_state_.selected = find_bar_.consume_nav_target();
         grid_state_.sel_anchor = grid_state_.selected;

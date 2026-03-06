@@ -22,6 +22,7 @@ void Settings::add_recent_file(const std::string& path) {
     // Keep max 10
     if (recent_files_.size() > 10)
         recent_files_.resize(10);
+    save();
 }
 
 // Minimal JSON parser/writer (no dependencies needed)

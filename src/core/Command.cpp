@@ -70,7 +70,7 @@ DeleteRowCommand::DeleteRowCommand(int32_t row, Sheet& sheet) : row_(row) {
     }
     // Snapshot all formulas so undo can restore them exactly
     // (delete_row adjusts formula text irreversibly, e.g. =A4 → #REF!)
-    saved_all_formulas_ = sheet.all_formulas();
+    pre_delete_formulas_ = sheet.all_formulas();
 }
 
 void DeleteRowCommand::execute(Sheet& sheet) { sheet.delete_row(row_); }
@@ -82,7 +82,7 @@ void DeleteRowCommand::undo(Sheet& sheet) {
         sheet.set_value({c, row_}, saved_row_values_[c]);
     }
     // Restore the exact pre-delete formula map (overrides insert_row's adjustment)
-    sheet.set_all_formulas(saved_all_formulas_);
+    sheet.set_all_formulas(pre_delete_formulas_);
 }
 
 std::string DeleteRowCommand::description() const { return "Delete Row " + std::to_string(row_ + 1); }
@@ -101,7 +101,7 @@ DeleteColumnCommand::DeleteColumnCommand(int32_t col, Sheet& sheet) : col_(col) 
         saved_col_values_.push_back(sheet.get_value({col, r}));
     }
     // Snapshot all formulas so undo can restore them exactly
-    saved_all_formulas_ = sheet.all_formulas();
+    pre_delete_formulas_ = sheet.all_formulas();
 }
 
 void DeleteColumnCommand::execute(Sheet& sheet) { sheet.delete_column(col_); }
@@ -113,7 +113,7 @@ void DeleteColumnCommand::undo(Sheet& sheet) {
         sheet.set_value({col_, r}, saved_col_values_[r]);
     }
     // Restore the exact pre-delete formula map
-    sheet.set_all_formulas(saved_all_formulas_);
+    sheet.set_all_formulas(pre_delete_formulas_);
 }
 
 std::string DeleteColumnCommand::description() const { return "Delete Col " + CellAddress::col_to_letters(col_); }
