@@ -35,6 +35,9 @@ public:
     void clear(const CellAddress& addr);
     bool has(const CellAddress& addr) const;
 
+    void shift_rows(int32_t at, int32_t delta);
+    void shift_cols(int32_t at, int32_t delta);
+
 private:
     std::unordered_map<CellAddress, CellFormat> formats_;
 };

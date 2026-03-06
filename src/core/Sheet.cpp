@@ -1,4 +1,5 @@
 #include "core/Sheet.hpp"
+#include "core/Clipboard.hpp"
 
 namespace magic {
 
@@ -47,6 +48,80 @@ void Sheet::mark_dirty(const CellAddress& addr) {
 
 void Sheet::clear_dirty() {
     dirty_.clear();
+}
+
+void Sheet::insert_row(int32_t at) {
+    if (at < 0) return;
+    for (auto& col : columns_)
+        col.insert_row(at);
+    ++row_count_;
+
+    // Shift formula keys and adjust formula text references
+    std::unordered_map<CellAddress, std::string> shifted;
+    for (auto& [addr, formula] : formulas_) {
+        std::string adjusted = Clipboard::adjust_for_insert_row(formula, at);
+        if (addr.row >= at)
+            shifted[{addr.col, addr.row + 1}] = std::move(adjusted);
+        else
+            shifted[addr] = std::move(adjusted);
+    }
+    formulas_ = std::move(shifted);
+    ++value_generation_;
+}
+
+void Sheet::delete_row(int32_t at) {
+    if (at < 0) return;
+    for (auto& col : columns_)
+        col.delete_row(at);
+    if (row_count_ > 0) --row_count_;
+
+    // Remove formulas at deleted row, shift keys and adjust formula text
+    std::unordered_map<CellAddress, std::string> shifted;
+    for (auto& [addr, formula] : formulas_) {
+        if (addr.row == at) continue;  // deleted
+        std::string adjusted = Clipboard::adjust_for_delete_row(formula, at);
+        if (addr.row > at)
+            shifted[{addr.col, addr.row - 1}] = std::move(adjusted);
+        else
+            shifted[addr] = std::move(adjusted);
+    }
+    formulas_ = std::move(shifted);
+    ++value_generation_;
+}
+
+void Sheet::insert_column(int32_t at) {
+    if (at < 0 || at > col_count()) return;
+    columns_.insert(columns_.begin() + at, Column{});
+
+    // Shift formula keys and adjust formula text references
+    std::unordered_map<CellAddress, std::string> shifted;
+    for (auto& [addr, formula] : formulas_) {
+        std::string adjusted = Clipboard::adjust_for_insert_col(formula, at);
+        if (addr.col >= at)
+            shifted[{addr.col + 1, addr.row}] = std::move(adjusted);
+        else
+            shifted[addr] = std::move(adjusted);
+    }
+    formulas_ = std::move(shifted);
+    ++value_generation_;
+}
+
+void Sheet::delete_column(int32_t at) {
+    if (at < 0 || at >= col_count()) return;
+    columns_.erase(columns_.begin() + at);
+
+    // Remove formulas at deleted column, shift keys and adjust formula text
+    std::unordered_map<CellAddress, std::string> shifted;
+    for (auto& [addr, formula] : formulas_) {
+        if (addr.col == at) continue;  // deleted
+        std::string adjusted = Clipboard::adjust_for_delete_col(formula, at);
+        if (addr.col > at)
+            shifted[{addr.col - 1, addr.row}] = std::move(adjusted);
+        else
+            shifted[addr] = std::move(adjusted);
+    }
+    formulas_ = std::move(shifted);
+    ++value_generation_;
 }
 
 Column& Sheet::column(int32_t col) {

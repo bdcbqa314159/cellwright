@@ -90,7 +90,7 @@ static CellZone detect_zone(const ImVec2& mouse, const ImVec2& rmin, const ImVec
 
 bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& formats) {
     bool committed = false;
-    int num_cols = std::min(sheet.col_count(), VISIBLE_COLS);
+    int num_cols = std::min(std::max(sheet.col_count(), 26), 256);
     int num_rows = sheet.row_count();
 
     if (num_rows < 100) num_rows = 100;
@@ -138,10 +138,14 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
 
     ImGui::TableSetupScrollFreeze(1, 1);
 
+    // Ensure col_widths_ vector is big enough
+    if (static_cast<int>(col_widths_.size()) < num_cols)
+        col_widths_.resize(num_cols, DEFAULT_COL_WIDTH);
+
     ImGui::TableSetupColumn("##rownum", ImGuiTableColumnFlags_WidthFixed, ROW_NUM_WIDTH);
     for (int c = 0; c < num_cols; ++c) {
         ImGui::TableSetupColumn(CellAddress::col_to_letters(c).c_str(),
-                                ImGuiTableColumnFlags_WidthFixed, COL_WIDTH);
+                                ImGuiTableColumnFlags_WidthFixed, col_widths_[c]);
     }
     ImGui::TableHeadersRow();
 
@@ -206,7 +210,20 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 ImGui::TableSetColumnIndex(col + 1);
 
                 CellAddress addr{col, row};
-                ImGui::PushID(row * VISIBLE_COLS + col);
+                ImGui::PushID(row * num_cols + col);
+
+                // Highlight find/search matches
+                if (state.find_matches) {
+                    for (int fi = 0; fi < static_cast<int>(state.find_matches->size()); ++fi) {
+                        if ((*state.find_matches)[fi] == addr) {
+                            ImU32 match_color = (fi == state.find_match_index)
+                                ? IM_COL32(255, 200, 0, 100)   // current match
+                                : IM_COL32(255, 255, 0, 50);   // other matches
+                            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, match_color);
+                            break;
+                        }
+                    }
+                }
 
                 // Highlight cells referenced by the formula being edited
                 auto ref_it = ref_colors.find(addr);
@@ -236,9 +253,14 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
 
                 if (is_editing) {
                     ImGui::SetNextItemWidth(-1);
+                    ImVec2 edit_min = ImGui::GetCursorScreenPos();
                     if (state.editor.render()) {
                         committed = true;
                     }
+                    // Green border for in-cell editing (distinct from blue selection)
+                    ImVec2 edit_max = ImGui::GetItemRectMax();
+                    ImGui::GetWindowDrawList()->AddRect(
+                        edit_min, edit_max, IM_COL32(0, 180, 0, 255), 0.0f, 0, 2.0f);
                 } else {
                     CellValue val = sheet.get_value(addr);
                     CellFormat fmt = formats.get(addr);
@@ -247,15 +269,39 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     // Capture cell top-left before any cursor adjustments
                     ImVec2 cell_min = ImGui::GetCursorScreenPos();
 
-                    // Right-align numbers
-                    if (is_number(val)) {
-                        float w = ImGui::CalcTextSize(display.c_str()).x;
-                        float avail = ImGui::GetContentRegionAvail().x;
-                        if (w < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + avail - w);
+                    // Truncate text with ellipsis if it overflows cell width
+                    float avail = ImGui::GetContentRegionAvail().x;
+                    float text_w = ImGui::CalcTextSize(display.c_str()).x;
+                    bool truncated = false;
+                    if (text_w > avail && avail > 0 && !display.empty()) {
+                        truncated = true;
+                        float ellipsis_w = ImGui::CalcTextSize("...").x;
+                        if (avail > ellipsis_w) {
+                            // Binary search for how many chars fit
+                            size_t lo = 0, hi = display.size();
+                            while (lo < hi) {
+                                size_t mid = (lo + hi + 1) / 2;
+                                if (ImGui::CalcTextSize(display.c_str(), display.c_str() + mid).x + ellipsis_w <= avail)
+                                    lo = mid;
+                                else
+                                    hi = mid - 1;
+                            }
+                            if (lo > 0)
+                                display = display.substr(0, lo) + "...";
+                        }
+                        text_w = ImGui::CalcTextSize(display.c_str()).x;
                     }
 
-                    // Color errors red
-                    if (is_error(val)) ImGui::PushStyleColor(ImGuiCol_Text, error_text_color);
+                    // Right-align numbers
+                    if (is_number(val)) {
+                        if (text_w < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + avail - text_w);
+                    }
+
+                    // Color errors red (text + light background tint)
+                    if (is_error(val)) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, error_text_color);
+                        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(255, 0, 0, 25));
+                    }
 
                     if (ImGui::Selectable(display.empty() ? "##empty" : display.c_str(),
                                           is_selected,
@@ -278,10 +324,32 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                         }
                     }
 
-                    // Tooltip for date cells
-                    if (ImGui::IsItemHovered() && fmt.type == FormatType::DATE
-                        && !fmt.date_input_hint.empty()) {
-                        ImGui::SetTooltip("%s", fmt.date_input_hint.c_str());
+                    // Right-click context menu
+                    if (ImGui::BeginPopupContextItem("##cellctx")) {
+                        if (ImGui::MenuItem("Cut"))   state.context_action = ContextAction::Cut;
+                        if (ImGui::MenuItem("Copy"))  state.context_action = ContextAction::Copy;
+                        if (ImGui::MenuItem("Paste")) state.context_action = ContextAction::Paste;
+                        if (ImGui::MenuItem("Clear")) state.context_action = ContextAction::Clear;
+                        ImGui::Separator();
+                        if (ImGui::MenuItem("Insert Row"))    state.context_action = ContextAction::InsertRow;
+                        if (ImGui::MenuItem("Insert Column")) state.context_action = ContextAction::InsertCol;
+                        if (ImGui::MenuItem("Delete Row"))    state.context_action = ContextAction::DeleteRow;
+                        if (ImGui::MenuItem("Delete Column")) state.context_action = ContextAction::DeleteCol;
+                        ImGui::EndPopup();
+                    }
+
+                    // Tooltip for date cells, truncated cells, and formula cells
+                    if (ImGui::IsItemHovered()) {
+                        if (fmt.type == FormatType::DATE && !fmt.date_input_hint.empty()) {
+                            ImGui::SetTooltip("%s", fmt.date_input_hint.c_str());
+                        } else if (sheet.has_formula(addr)) {
+                            std::string full = format_value(val, fmt);
+                            ImGui::SetTooltip("=%s\n%s", sheet.get_formula(addr).c_str(), full.c_str());
+                        } else if (truncated) {
+                            // Show full untruncated text
+                            std::string full = format_value(val, fmt);
+                            ImGui::SetTooltip("%s", full.c_str());
+                        }
                     }
 
                     // Capture selected cell rect using full cell bounds

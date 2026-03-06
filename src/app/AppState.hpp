@@ -9,6 +9,7 @@
 #include "formula/DependencyGraph.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
 #include "plugin/PluginManager.hpp"
+#include "app/Settings.hpp"
 #include "ui/MainWindow.hpp"
 #include "ui/ToastManager.hpp"
 
@@ -30,8 +31,10 @@ struct AppState {
     Clipboard clipboard;
     ToastManager toasts;
     DuckDBEngine duckdb_engine;
+    Settings settings;
     std::string current_file;  // path to current .magic file (empty = untitled)
     std::string pending_plugin_path;  // set by DropHandler when untrusted; cleared by modal
+    bool font_rebuild_needed = false;  // set by UI when font size changes
 
     // Per-sheet state (indexed by sheet index, kept in sync with workbook)
     std::vector<PerSheetState> sheet_states{1};

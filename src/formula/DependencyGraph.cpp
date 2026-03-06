@@ -125,4 +125,44 @@ void DependencyGraph::clear() {
     reverse_deps_.clear();
 }
 
+static CellAddress shift_addr(const CellAddress& addr, bool is_row, int32_t at, int32_t delta) {
+    CellAddress result = addr;
+    int32_t& coord = is_row ? result.row : result.col;
+    if (coord >= at) coord += delta;
+    return result;
+}
+
+static void shift_impl(
+    std::unordered_map<CellAddress, std::vector<CellAddress>>& forward,
+    std::unordered_map<CellAddress, std::unordered_set<CellAddress>>& reverse,
+    bool is_row, int32_t at, int32_t delta)
+{
+    // Rebuild both maps with shifted addresses
+    std::unordered_map<CellAddress, std::vector<CellAddress>> new_forward;
+    for (auto& [cell, deps] : forward) {
+        CellAddress new_cell = shift_addr(cell, is_row, at, delta);
+        auto& new_deps = new_forward[new_cell];
+        for (auto& dep : deps) {
+            new_deps.push_back(shift_addr(dep, is_row, at, delta));
+        }
+    }
+    forward = std::move(new_forward);
+
+    // Rebuild reverse from forward
+    reverse.clear();
+    for (auto& [cell, deps] : forward) {
+        for (auto& dep : deps) {
+            reverse[dep].insert(cell);
+        }
+    }
+}
+
+void DependencyGraph::shift_rows(int32_t at, int32_t delta) {
+    shift_impl(forward_deps_, reverse_deps_, true, at, delta);
+}
+
+void DependencyGraph::shift_cols(int32_t at, int32_t delta) {
+    shift_impl(forward_deps_, reverse_deps_, false, at, delta);
+}
+
 }  // namespace magic

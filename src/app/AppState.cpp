@@ -9,6 +9,7 @@ bool AppState::open_file(const std::string& path) {
         sheet_states.clear();
         sheet_states.resize(workbook.sheet_count());
         mark_saved();
+        settings.add_recent_file(path);
         return true;
     }
     return false;

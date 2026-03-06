@@ -12,6 +12,7 @@ class FormatMap;
 
 enum class CellZone { None, Interior, Edge, FillHandle };
 enum class CellDragMode { None, Move, Select, Fill };
+enum class ContextAction { None, Cut, Copy, Paste, Clear, InsertRow, InsertCol, DeleteRow, DeleteCol };
 
 struct GridState {
     CellAddress selected{0, 0};
@@ -39,6 +40,13 @@ struct GridState {
     ImVec2 selected_rect_min{0, 0};
     ImVec2 selected_rect_max{0, 0};
 
+    // Context menu action (set by grid, consumed by MainWindow)
+    ContextAction context_action = ContextAction::None;
+
+    // Find match highlighting (set by MainWindow each frame)
+    const std::vector<CellAddress>* find_matches = nullptr;
+    int find_match_index = -1;
+
     // Cell interaction drag state
     CellDragMode drag_mode = CellDragMode::None;
     CellAddress drag_source{0, 0};
@@ -62,9 +70,10 @@ public:
     bool render(Sheet& sheet, GridState& state, const FormatMap& formats);
 
 private:
-    static constexpr int VISIBLE_COLS = 26;
-    static constexpr float COL_WIDTH = 80.0f;
+    static constexpr float DEFAULT_COL_WIDTH = 80.0f;
     static constexpr float ROW_NUM_WIDTH = 50.0f;
+
+    std::vector<float> col_widths_;  // persisted column widths
 };
 
 }  // namespace magic

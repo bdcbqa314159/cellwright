@@ -76,4 +76,28 @@ bool FormatMap::has(const CellAddress& addr) const {
     return formats_.count(addr) > 0;
 }
 
+void FormatMap::shift_rows(int32_t at, int32_t delta) {
+    std::unordered_map<CellAddress, CellFormat> shifted;
+    for (auto& [addr, fmt] : formats_) {
+        if (delta < 0 && addr.row == at) continue;  // deleted
+        if (addr.row >= at)
+            shifted[{addr.col, addr.row + delta}] = std::move(fmt);
+        else
+            shifted[addr] = std::move(fmt);
+    }
+    formats_ = std::move(shifted);
+}
+
+void FormatMap::shift_cols(int32_t at, int32_t delta) {
+    std::unordered_map<CellAddress, CellFormat> shifted;
+    for (auto& [addr, fmt] : formats_) {
+        if (delta < 0 && addr.col == at) continue;  // deleted
+        if (addr.col >= at)
+            shifted[{addr.col + delta, addr.row}] = std::move(fmt);
+        else
+            shifted[addr] = std::move(fmt);
+    }
+    formats_ = std::move(shifted);
+}
+
 }  // namespace magic

@@ -9,7 +9,7 @@ namespace magic {
 class App {
 public:
     App();
-    void run();
+    void run(int argc = 0, char** argv = nullptr);
 
 private:
     void init_window();

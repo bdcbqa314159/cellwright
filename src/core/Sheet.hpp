@@ -34,6 +34,12 @@ public:
     const std::unordered_set<CellAddress>& dirty_cells() const { return dirty_; }
     void clear_dirty();
 
+    // Row/column insertion and deletion
+    void insert_row(int32_t at);
+    void delete_row(int32_t at);
+    void insert_column(int32_t at);
+    void delete_column(int32_t at);
+
     Column& column(int32_t col);
     const Column& column(int32_t col) const;
 

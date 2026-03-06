@@ -8,10 +8,23 @@ namespace magic {
 bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_editing) {
     bool committed = false;
 
+    // Clickable name box — editable InputText for Go-To navigation
     std::string cell_label = selected.to_a1();
+    std::strncpy(name_buf_, cell_label.c_str(), sizeof(name_buf_) - 1);
+    name_buf_[sizeof(name_buf_) - 1] = '\0';
     ImGui::SetNextItemWidth(60);
-    ImGui::InputText("##celladdr", cell_label.data(), cell_label.size(),
-                     ImGuiInputTextFlags_ReadOnly);
+    if (focus_name_box_) {
+        ImGui::SetKeyboardFocusHere();
+        focus_name_box_ = false;
+    }
+    if (ImGui::InputText("##celladdr", name_buf_, sizeof(name_buf_),
+                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+        auto addr = CellAddress::from_a1(std::string(name_buf_));
+        if (addr) {
+            nav_target_ = *addr;
+            has_nav_target_ = true;
+        }
+    }
     ImGui::SameLine();
 
     // Refresh buffer when selection changes (and not currently editing in cell)

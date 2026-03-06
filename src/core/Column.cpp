@@ -54,6 +54,43 @@ int32_t Column::size() const {
     return static_cast<int32_t>(doubles_.size());
 }
 
+void Column::insert_row(int32_t at) {
+    if (at < 0) return;
+    // Insert NaN at position in doubles_
+    if (at < static_cast<int32_t>(doubles_.size()))
+        doubles_.insert(doubles_.begin() + at, EMPTY_SENTINEL);
+    else
+        ensure_row(at);
+
+    // Shift non_numeric_ keys >= at
+    std::unordered_map<int32_t, CellValue> shifted;
+    for (auto& [row, val] : non_numeric_) {
+        if (row >= at)
+            shifted[row + 1] = std::move(val);
+        else
+            shifted[row] = std::move(val);
+    }
+    non_numeric_ = std::move(shifted);
+}
+
+void Column::delete_row(int32_t at) {
+    if (at < 0) return;
+    // Remove from doubles_
+    if (at < static_cast<int32_t>(doubles_.size()))
+        doubles_.erase(doubles_.begin() + at);
+
+    // Remove from non_numeric_ and shift keys > at
+    non_numeric_.erase(at);
+    std::unordered_map<int32_t, CellValue> shifted;
+    for (auto& [row, val] : non_numeric_) {
+        if (row > at)
+            shifted[row - 1] = std::move(val);
+        else
+            shifted[row] = std::move(val);
+    }
+    non_numeric_ = std::move(shifted);
+}
+
 bool Column::has_non_numeric_in_range(int32_t from, int32_t to) const {
     for (const auto& [row, _] : non_numeric_) {
         if (row >= from && row < to) return true;

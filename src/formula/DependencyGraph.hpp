@@ -29,6 +29,10 @@ public:
 
     void clear();
 
+    // Shift cell addresses in the graph for row/column insert/delete
+    void shift_rows(int32_t at, int32_t delta);
+    void shift_cols(int32_t at, int32_t delta);
+
 private:
     // cell → cells it references
     std::unordered_map<CellAddress, std::vector<CellAddress>> forward_deps_;

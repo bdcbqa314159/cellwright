@@ -9,16 +9,26 @@ class FunctionRegistry;
 class FormulaBar {
 public:
     // Render the formula bar. Returns true if the user committed a new value.
+    // nav_target is set when user navigates via the name box.
     bool render(Sheet& sheet, const CellAddress& selected, bool cell_editing = false);
     const char* buffer() const { return buf_; }
     bool is_editing() const { return editing_; }
     bool is_formula_mode() const { return editing_ && buf_[0] == '='; }
     void force_refresh() { last_selected_ = {-1, -1}; }
 
+    // Name box navigation: set to target cell after Enter in name box
+    bool has_nav_target() const { return has_nav_target_; }
+    CellAddress consume_nav_target() { has_nav_target_ = false; return nav_target_; }
+    void focus_name_box() { focus_name_box_ = true; }
+
 private:
     char buf_[1024] = {};
+    char name_buf_[16] = {};
     CellAddress last_selected_{-1, -1};
     bool editing_ = false;
+    bool has_nav_target_ = false;
+    bool focus_name_box_ = false;
+    CellAddress nav_target_{0, 0};
 };
 
 }  // namespace magic

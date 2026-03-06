@@ -1,6 +1,7 @@
 #pragma once
 #include "ui/SpreadsheetGrid.hpp"
 #include "ui/FormulaBar.hpp"
+#include "ui/FindBar.hpp"
 #include "ui/ChartPanel.hpp"
 #include "ui/SqlPanel.hpp"
 #include "ui/StyleSetup.hpp"
@@ -42,6 +43,7 @@ private:
     FormulaBar formula_bar_;
     GridState grid_state_;
     ChartPanel chart_panel_;
+    FindBar find_bar_;
     SqlPanel sql_panel_;
     FileDialogState file_dialog_;
 

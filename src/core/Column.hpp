@@ -15,6 +15,10 @@ public:
     void clear(int32_t row);
     int32_t size() const;
 
+    // Row insert/delete (shifts all data at or after position)
+    void insert_row(int32_t at);
+    void delete_row(int32_t at);
+
     // Fast-path aggregates over contiguous doubles (SIMD-accelerated when possible).
     // All use half-open interval [from, to) — i.e. 'from' inclusive, 'to' exclusive.
     [[nodiscard]] double sum(int32_t from, int32_t to) const;

@@ -33,11 +33,14 @@ namespace magic {
 
 App::App() = default;
 
-void App::run() {
+void App::run(int argc, char** argv) {
     pybind11::scoped_interpreter guard{};
+    state_.settings.load();
     init_window();
     init_imgui();
     init_builtins();
+    if (argc > 1 && argv && argv[1])
+        (void)state_.open_file(argv[1]);
     main_loop();
     shutdown();
 }
@@ -59,11 +62,14 @@ void App::init_window() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #endif
 
-    window_ = glfwCreateWindow(1400, 900, "Magic Dashboard", nullptr, nullptr);
+    auto& wr = state_.settings.window_rect;
+    window_ = glfwCreateWindow(wr.w, wr.h, "Magic Dashboard", nullptr, nullptr);
     if (!window_) {
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
     }
+    if (wr.x >= 0 && wr.y >= 0)
+        glfwSetWindowPos(window_, wr.x, wr.y);
 
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);  // vsync
@@ -100,7 +106,7 @@ void App::init_imgui() {
     // Fall back to ImGui default if font file is missing
     const char* font_path = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
     if (std::ifstream(font_path).good())
-        io.Fonts->AddFontFromFileTTF(font_path, 16.0f);
+        io.Fonts->AddFontFromFileTTF(font_path, state_.settings.font_size);
 
     setup_style();
     apply_theme(Theme::Dark);
@@ -131,6 +137,19 @@ void App::main_loop() {
         // Poll hot-reloadable plugins for changes
         if (int n = state_.plugin_manager.poll_reloads(); n > 0)
             state_.toasts.show("Plugin reloaded");
+
+        // Rebuild font atlas if font size changed
+        if (state_.font_rebuild_needed) {
+            state_.font_rebuild_needed = false;
+            ImGuiIO& font_io = ImGui::GetIO();
+            font_io.Fonts->Clear();
+            const char* fp = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
+            if (std::ifstream(fp).good())
+                font_io.Fonts->AddFontFromFileTTF(fp, state_.settings.font_size);
+            else
+                font_io.Fonts->AddFontDefault();
+            font_io.Fonts->Build();
+        }
 
         state_.main_window.render(state_);
 
@@ -176,6 +195,14 @@ void App::main_loop() {
 }
 
 void App::shutdown() {
+    // Save window position/size to settings
+    if (window_) {
+        auto& wr = state_.settings.window_rect;
+        glfwGetWindowPos(window_, &wr.x, &wr.y);
+        glfwGetWindowSize(window_, &wr.w, &wr.h);
+    }
+    state_.settings.save();
+
     DropHandler::uninstall();
     state_.function_registry.clear();
 

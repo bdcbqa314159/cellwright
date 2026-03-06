@@ -9,6 +9,7 @@
 #include <imgui.h>
 #include <cstring>
 #include <algorithm>
+#include <filesystem>
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -49,6 +50,22 @@ void MainWindow::render_menu_bar(AppState& state) {
                 snprintf(file_dialog_.path_buf, sizeof(file_dialog_.path_buf), "%s", state.current_file.c_str());
             }
             ImGui::Separator();
+            if (ImGui::BeginMenu("Recent Files")) {
+                auto& recent = state.settings.recent_files();
+                if (recent.empty()) {
+                    ImGui::MenuItem("(none)", nullptr, false, false);
+                } else {
+                    for (const auto& path : recent) {
+                        auto fname = std::filesystem::path(path).filename().string();
+                        if (ImGui::MenuItem(fname.c_str())) {
+                            if (!state.open_file(path))
+                                state.toasts.show("Failed to open file");
+                        }
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::Separator();
             if (ImGui::MenuItem("Import CSV...")) {
                 file_dialog_.show_import_csv = true;
                 file_dialog_.path_buf[0] = '\0';
@@ -61,13 +78,20 @@ void MainWindow::render_menu_bar(AppState& state) {
         }
 
         if (ImGui::BeginMenu("Edit")) {
-            if (ImGui::MenuItem("Undo", "Ctrl+Z", false, as.undo_manager.can_undo())) {
+            std::string undo_label = "Undo";
+            if (as.undo_manager.can_undo())
+                undo_label += " " + as.undo_manager.peek_undo_desc();
+            std::string redo_label = "Redo";
+            if (as.undo_manager.can_redo())
+                redo_label += " " + as.undo_manager.peek_redo_desc();
+
+            if (ImGui::MenuItem(undo_label.c_str(), "Ctrl+Z", false, as.undo_manager.can_undo())) {
                 auto& sheet = state.workbook.active_sheet();
                 as.undo_manager.undo(sheet);
                 if (auto cell = as.undo_manager.last_affected())
                     ci.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
             }
-            if (ImGui::MenuItem("Redo", "Ctrl+Y", false, as.undo_manager.can_redo())) {
+            if (ImGui::MenuItem(redo_label.c_str(), "Ctrl+Y", false, as.undo_manager.can_redo())) {
                 auto& sheet = state.workbook.active_sheet();
                 as.undo_manager.redo(sheet);
                 if (auto cell = as.undo_manager.last_affected())
@@ -149,6 +173,20 @@ void MainWindow::render_menu_bar(AppState& state) {
                 }
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("Font Size")) {
+                static constexpr float sizes[] = {12.0f, 14.0f, 16.0f, 18.0f, 20.0f, 24.0f};
+                for (float sz : sizes) {
+                    char label[16];
+                    snprintf(label, sizeof(label), "%.0fpt", sz);
+                    if (ImGui::MenuItem(label, nullptr, state.settings.font_size == sz)) {
+                        if (state.settings.font_size != sz) {
+                            state.settings.font_size = sz;
+                            state.font_rebuild_needed = true;
+                        }
+                    }
+                }
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
 
@@ -175,28 +213,36 @@ void MainWindow::render_menu_bar(AppState& state) {
     };
 
     file_popup("Open File", file_dialog_.show_open, [&](const std::string& path) {
-        (void)state.open_file(path);
+        if (!state.open_file(path))
+            state.toasts.show("Failed to open file");
     });
 
     file_popup("Save File", file_dialog_.show_save, [&](const std::string& path) {
         if (WorkbookIO::save(path, state.workbook)) {
             state.current_file = path;
             state.mark_saved();
+            state.settings.add_recent_file(path);
             state.toasts.show("Saved");
         }
     });
 
     file_popup("Import CSV", file_dialog_.show_import_csv, [&](const std::string& path) {
         auto& sheet = state.workbook.active_sheet();
-        CsvIO::import_file(path, sheet);
-        as.dep_graph.clear();
-        as.format_map = FormatMap{};
-        as.undo_manager.clear();
-        state.toasts.show("CSV imported");
+        if (CsvIO::import_file(path, sheet)) {
+            as.dep_graph.clear();
+            as.format_map = FormatMap{};
+            as.undo_manager.clear();
+            state.toasts.show("CSV imported");
+        } else {
+            state.toasts.show("Failed to import CSV");
+        }
     });
 
     file_popup("Export CSV", file_dialog_.show_export_csv, [&](const std::string& path) {
-        CsvIO::export_file(path, state.workbook.active_sheet());
+        if (CsvIO::export_file(path, state.workbook.active_sheet()))
+            state.toasts.show("CSV exported");
+        else
+            state.toasts.show("Failed to export CSV");
     });
 }
 
@@ -249,10 +295,47 @@ void MainWindow::handle_keyboard(AppState& state) {
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
         file_dialog_.show_open = true;
     }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_G)) {
+        formula_bar_.focus_name_box();
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_F)) {
+        find_bar_.show_find();
+    }
+    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_H)) {
+        find_bar_.show_replace();
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape) && find_bar_.is_visible()) {
+        find_bar_.hide();
+    }
 
     // When not editing a cell
     if (!grid_state_.editor.is_editing()) {
         bool shift = io.KeyShift;
+
+        // Jump to data boundary for Ctrl+Arrow navigation
+        auto find_data_boundary = [&](const Sheet& s, int32_t col, int32_t row, int dc, int dr) -> CellAddress {
+            // If current cell is non-empty, move until we hit an empty cell (and return the last non-empty)
+            // If current cell is empty, move until we hit a non-empty cell
+            bool cur_empty = is_empty(s.get_value({col, row}));
+            int32_t c = col + dc, r = row + dr;
+            if (cur_empty) {
+                // Jump to first non-empty cell in direction
+                while (c >= 0 && r >= 0 && c < 256 && r < s.row_count()) {
+                    if (!is_empty(s.get_value({c, r}))) return {c, r};
+                    c += dc; r += dr;
+                }
+                // If nothing found, go to edge
+                return {std::max(0, col + dc * 255), std::max(0, row + dr * 255)};
+            } else {
+                // Jump to last non-empty cell before an empty (or edge)
+                while (c >= 0 && r >= 0 && c < 256 && r < s.row_count()) {
+                    if (is_empty(s.get_value({c, r}))) return {c - dc, r - dr};
+                    c += dc; r += dr;
+                }
+                // Hit edge
+                return {std::clamp(c - dc, 0, 255), std::max(0, r - dr)};
+            }
+        };
 
         // Arrow key navigation (Shift extends selection)
         auto move = [&](int dc, int dr) {
@@ -263,8 +346,14 @@ void MainWindow::handle_keyboard(AppState& state) {
                 grid_state_.has_range_selection = true;
                 grid_state_.sel_anchor = grid_state_.selected;
             }
-            grid_state_.selected.col = std::max(0, grid_state_.selected.col + dc);
-            grid_state_.selected.row = std::max(0, grid_state_.selected.row + dr);
+            if (ctrl) {
+                auto& s = state.workbook.active_sheet();
+                auto dest = find_data_boundary(s, grid_state_.selected.col, grid_state_.selected.row, dc, dr);
+                grid_state_.selected = dest;
+            } else {
+                grid_state_.selected.col = std::max(0, grid_state_.selected.col + dc);
+                grid_state_.selected.row = std::max(0, grid_state_.selected.row + dr);
+            }
         };
 
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))    move(0, -1);
@@ -297,6 +386,57 @@ void MainWindow::handle_keyboard(AppState& state) {
             } else {
                 ci.process("", sheet, grid_state_.selected,
                            as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+            }
+        }
+
+        // Ctrl+Home → go to A1, Ctrl+End → go to last used cell
+        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Home)) {
+            grid_state_.selected = {0, 0};
+            grid_state_.sel_anchor = grid_state_.selected;
+            grid_state_.has_range_selection = false;
+        }
+        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_End)) {
+            auto& s = state.workbook.active_sheet();
+            int32_t max_col = 0, max_row = 0;
+            for (int32_t c = 0; c < s.col_count(); ++c) {
+                int32_t sz = s.column(c).size();
+                if (sz > 0) {
+                    max_col = std::max(max_col, c);
+                    max_row = std::max(max_row, sz - 1);
+                }
+            }
+            grid_state_.selected = {max_col, max_row};
+            grid_state_.sel_anchor = grid_state_.selected;
+            grid_state_.has_range_selection = false;
+        }
+
+        // Page Up / Page Down
+        if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+            int visible_rows = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().y / ImGui::GetTextLineHeightWithSpacing()));
+            grid_state_.selected.row = std::max(0, grid_state_.selected.row - visible_rows);
+            grid_state_.sel_anchor = grid_state_.selected;
+            grid_state_.has_range_selection = false;
+        }
+        if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+            int visible_rows = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().y / ImGui::GetTextLineHeightWithSpacing()));
+            grid_state_.selected.row += visible_rows;
+            grid_state_.sel_anchor = grid_state_.selected;
+            grid_state_.has_range_selection = false;
+        }
+
+        // Ctrl+PgUp / Ctrl+PgDn — switch sheet tabs
+        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_PageUp)) {
+            int idx = state.workbook.active_index();
+            if (idx > 0) {
+                state.workbook.set_active(idx - 1);
+                state.ensure_sheet_states();
+            }
+        }
+        if (ctrl && ImGui::IsKeyPressed(ImGuiKey_PageDown)) {
+            int idx = state.workbook.active_index();
+            if (idx + 1 < state.workbook.sheet_count()) {
+                state.workbook.set_active(idx + 1);
+                state.ensure_sheet_states();
             }
         }
 
@@ -381,6 +521,19 @@ void MainWindow::render(AppState& state) {
         ci.process(formula_bar_.buffer(), sheet, grid_state_.selected,
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
+    if (formula_bar_.has_nav_target()) {
+        grid_state_.selected = formula_bar_.consume_nav_target();
+        grid_state_.sel_anchor = grid_state_.selected;
+        grid_state_.has_range_selection = false;
+    }
+
+    // Find bar (below formula bar)
+    find_bar_.render(sheet);
+    if (find_bar_.has_nav_target()) {
+        grid_state_.selected = find_bar_.consume_nav_target();
+        grid_state_.sel_anchor = grid_state_.selected;
+        grid_state_.has_range_selection = false;
+    }
 
     ImGui::Separator();
 
@@ -388,12 +541,87 @@ void MainWindow::render(AppState& state) {
     grid_state_.formula_bar_buf = formula_bar_.is_formula_mode()
         ? formula_bar_.buffer() : nullptr;
     grid_state_.dark_theme = (theme_ == Theme::Dark);
+    grid_state_.find_matches = find_bar_.is_visible() ? &find_bar_.matches() : nullptr;
+    grid_state_.find_match_index = find_bar_.current_match_index();
+
+    // Splash / empty state hint
+    bool show_splash = state.current_file.empty() && !state.is_dirty();
+    if (show_splash) {
+        // Check if all cells are empty
+        bool all_empty = true;
+        for (int32_t c = 0; c < sheet.col_count() && all_empty; ++c) {
+            if (sheet.column(c).size() > 0)
+                all_empty = false;
+        }
+        if (all_empty) {
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            ImVec2 text_size = ImGui::CalcTextSize("Start typing, or open a file with Ctrl+O");
+            ImGui::SetCursorPos(ImVec2(
+                ImGui::GetCursorPosX() + (avail.x - text_size.x) * 0.5f,
+                ImGui::GetCursorPosY() + avail.y * 0.35f));
+            ImGui::TextDisabled("Start typing, or open a file with Ctrl+O");
+        }
+    }
 
     // Spreadsheet grid
     if (grid_.render(sheet, grid_state_, as.format_map)) {
         ci.process(grid_state_.editor.buffer(), sheet,
                    grid_state_.editor.editing_cell(),
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+    }
+
+    // Handle context menu actions
+    if (grid_state_.context_action != ContextAction::None) {
+        auto action = grid_state_.context_action;
+        grid_state_.context_action = ContextAction::None;
+        switch (action) {
+            case ContextAction::Cut:
+                ci.cut(state.clipboard, sheet, grid_state_.selected,
+                       grid_state_.has_range_selection, grid_state_.sel_min(), grid_state_.sel_max());
+                break;
+            case ContextAction::Copy:
+                ci.copy(state.clipboard, sheet, grid_state_.selected,
+                        grid_state_.has_range_selection, grid_state_.sel_min(), grid_state_.sel_max());
+                break;
+            case ContextAction::Paste:
+                if (state.clipboard.has_data())
+                    ci.paste(state.clipboard, sheet, grid_state_.selected,
+                             as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                break;
+            case ContextAction::Clear:
+                ci.process("", sheet, grid_state_.selected,
+                           as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                break;
+            case ContextAction::InsertRow: {
+                auto cmd = std::make_unique<InsertRowCommand>(grid_state_.selected.row);
+                as.undo_manager.execute(std::move(cmd), sheet);
+                as.dep_graph.shift_rows(grid_state_.selected.row, 1);
+                as.format_map.shift_rows(grid_state_.selected.row, 1);
+                break;
+            }
+            case ContextAction::InsertCol: {
+                auto cmd = std::make_unique<InsertColumnCommand>(grid_state_.selected.col);
+                as.undo_manager.execute(std::move(cmd), sheet);
+                as.dep_graph.shift_cols(grid_state_.selected.col, 1);
+                as.format_map.shift_cols(grid_state_.selected.col, 1);
+                break;
+            }
+            case ContextAction::DeleteRow: {
+                auto cmd = std::make_unique<DeleteRowCommand>(grid_state_.selected.row, sheet);
+                as.undo_manager.execute(std::move(cmd), sheet);
+                as.dep_graph.shift_rows(grid_state_.selected.row, -1);
+                as.format_map.shift_rows(grid_state_.selected.row, -1);
+                break;
+            }
+            case ContextAction::DeleteCol: {
+                auto cmd = std::make_unique<DeleteColumnCommand>(grid_state_.selected.col, sheet);
+                as.undo_manager.execute(std::move(cmd), sheet);
+                as.dep_graph.shift_cols(grid_state_.selected.col, -1);
+                as.format_map.shift_cols(grid_state_.selected.col, -1);
+                break;
+            }
+            default: break;
+        }
     }
 
     // Handle cell drag completions (move / fill)

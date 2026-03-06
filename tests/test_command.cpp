@@ -42,6 +42,29 @@ TEST(UndoManager, FormulaUndoRedo) {
     EXPECT_TRUE(is_empty(sheet.get_value({1, 0})));
 }
 
+TEST(UndoManager, PeekUndoRedoDesc) {
+    Sheet sheet("Test");
+    UndoManager mgr;
+
+    EXPECT_EQ(mgr.peek_undo_desc(), "");
+    EXPECT_EQ(mgr.peek_redo_desc(), "");
+
+    auto cmd = std::make_unique<SetValueCommand>(
+        CellAddress{0, 0}, CellValue{42.0}, CellValue{}, "");
+    mgr.execute(std::move(cmd), sheet);
+
+    EXPECT_EQ(mgr.peek_undo_desc(), "Set A1");
+    EXPECT_EQ(mgr.peek_redo_desc(), "");
+
+    mgr.undo(sheet);
+    EXPECT_EQ(mgr.peek_undo_desc(), "");
+    EXPECT_EQ(mgr.peek_redo_desc(), "Set A1");
+
+    mgr.redo(sheet);
+    EXPECT_EQ(mgr.peek_undo_desc(), "Set A1");
+    EXPECT_EQ(mgr.peek_redo_desc(), "");
+}
+
 TEST(UndoManager, MultipleUndos) {
     Sheet sheet("Test");
     UndoManager mgr;
