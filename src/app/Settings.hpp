@@ -10,7 +10,7 @@ struct WindowRect {
 
 class Settings {
 public:
-    // Load from ~/.magic_dashboard.json. Returns false if file not found.
+    // Load from ~/.cellwright.json. Returns false if file not found.
     bool load();
     bool save() const;
 

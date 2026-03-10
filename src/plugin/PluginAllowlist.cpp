@@ -17,7 +17,7 @@ namespace magic {
 PluginAllowlist::PluginAllowlist() {
     const char* home = std::getenv("HOME");
     if (home && home[0] == '/') {
-        json_path_ = std::filesystem::path(home) / ".magic_dashboard" / "trusted_plugins.json";
+        json_path_ = std::filesystem::path(home) / ".cellwright" / "trusted_plugins.json";
     }
     load();
 }

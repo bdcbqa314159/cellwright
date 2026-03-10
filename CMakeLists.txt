@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(magic_dashboard LANGUAGES CXX)
+project(cellwright LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,23 +23,23 @@ file(GLOB_RECURSE DASHBOARD_SOURCES
     src/ui/*.cpp
 )
 
-add_executable(magic_dashboard ${DASHBOARD_SOURCES})
+add_executable(cellwright ${DASHBOARD_SOURCES})
 
-target_include_directories(magic_dashboard PRIVATE
+target_include_directories(cellwright PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Expose ImGui's bundled font directory so we can load Roboto at runtime
-target_compile_definitions(magic_dashboard PRIVATE
+target_compile_definitions(cellwright PRIVATE
     IMGUI_FONT_DIR="${imgui_SOURCE_DIR}/misc/fonts"
 )
 
 # SIMD flags for x86_64 (ARM NEON is auto-enabled on Apple Silicon)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    target_compile_options(magic_dashboard PRIVATE -mavx2 -mfma)
+    target_compile_options(cellwright PRIVATE -mavx2 -mfma)
 endif()
 
-target_link_libraries(magic_dashboard PRIVATE
+target_link_libraries(cellwright PRIVATE
     plugin_arch
     imgui_glfw_opengl3
     implot_lib
@@ -49,14 +49,14 @@ target_link_libraries(magic_dashboard PRIVATE
 )
 
 if(APPLE)
-    target_link_libraries(magic_dashboard PRIVATE
+    target_link_libraries(cellwright PRIVATE
         "-framework OpenGL"
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
     )
 elseif(UNIX)
-    target_link_libraries(magic_dashboard PRIVATE GL dl)
+    target_link_libraries(cellwright PRIVATE GL dl)
 endif()
 
 # ── Plugins ──────────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ namespace magic {
 
 class PluginAllowlist {
 public:
-    PluginAllowlist();                                          // ~/.magic_dashboard/trusted_plugins.json
+    PluginAllowlist();                                          // ~/.cellwright/trusted_plugins.json
     explicit PluginAllowlist(std::filesystem::path json_path);  // testable
 
     // Deprecated: prefer free function sha256_of_file() from util/Sha256.hpp.

@@ -1,5 +1,5 @@
 """
-Bond pricing plugin for Magic Dashboard (Python version).
+Bond pricing plugin for CellWright (Python version).
 
 Mirrors the C++ BondPlugin: create bond handles, query price/ytm/coupon/duration.
 """

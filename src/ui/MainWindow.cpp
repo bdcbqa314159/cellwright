@@ -485,7 +485,7 @@ void MainWindow::render(AppState& state) {
                                      ImGuiWindowFlags_NoBringToFrontOnFocus |
                                      ImGuiWindowFlags_MenuBar;
 
-    ImGui::Begin("Magic Dashboard", nullptr, window_flags);
+    ImGui::Begin("CellWright", nullptr, window_flags);
 
     render_menu_bar(state);
     handle_keyboard(state);

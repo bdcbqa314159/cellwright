@@ -63,7 +63,7 @@ void App::init_window() {
 #endif
 
     auto& wr = state_.settings.window_rect;
-    window_ = glfwCreateWindow(wr.w, wr.h, "Magic Dashboard", nullptr, nullptr);
+    window_ = glfwCreateWindow(wr.w, wr.h, "CellWright", nullptr, nullptr);
     if (!window_) {
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
@@ -169,7 +169,7 @@ void App::main_loop() {
             if (state_.current_file != cached_title_file_ || dirty != cached_title_dirty_) {
                 cached_title_file_ = state_.current_file;
                 cached_title_dirty_ = dirty;
-                cached_title_ = "Magic Dashboard";
+                cached_title_ = "CellWright";
                 if (!state_.current_file.empty()) {
                     auto fname = std::filesystem::path(state_.current_file).filename().string();
                     cached_title_ += " — ";

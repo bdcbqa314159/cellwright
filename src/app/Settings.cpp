@@ -9,7 +9,7 @@ namespace magic {
 std::string Settings::settings_path() {
     const char* home = std::getenv("HOME");
     if (!home) return "";
-    return std::string(home) + "/.magic_dashboard.json";
+    return std::string(home) + "/.cellwright.json";
 }
 
 void Settings::add_recent_file(const std::string& path) {
