@@ -102,15 +102,18 @@ void MainWindow::render_menu_bar(AppState& state) {
                 ci.copy(state.clipboard, state.workbook.active_sheet(),
                         grid_state_.selected, grid_state_.has_range_selection,
                         grid_state_.sel_min(), grid_state_.sel_max());
+                update_marching_ants(state.clipboard);
             }
             if (ImGui::MenuItem("Cut", "Ctrl+X")) {
                 ci.cut(state.clipboard, state.workbook.active_sheet(),
                        grid_state_.selected, grid_state_.has_range_selection,
                        grid_state_.sel_min(), grid_state_.sel_max());
+                update_marching_ants(state.clipboard);
             }
             if (ImGui::MenuItem("Paste", "Ctrl+V", false, state.clipboard.has_data())) {
                 ci.paste(state.clipboard, state.workbook.active_sheet(), grid_state_.selected,
                          as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                clear_marching_ants();
             }
             ImGui::EndMenu();
         }
@@ -276,15 +279,18 @@ void MainWindow::handle_shortcuts(AppState& state) {
         ci.copy(state.clipboard, state.workbook.active_sheet(),
                 grid_state_.selected, grid_state_.has_range_selection,
                 grid_state_.sel_min(), grid_state_.sel_max());
+        update_marching_ants(state.clipboard);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_X)) {
         ci.cut(state.clipboard, state.workbook.active_sheet(),
                grid_state_.selected, grid_state_.has_range_selection,
                grid_state_.sel_min(), grid_state_.sel_max());
+        update_marching_ants(state.clipboard);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
         ci.paste(state.clipboard, state.workbook.active_sheet(), grid_state_.selected,
                  as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+        clear_marching_ants();
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
         if (!state.current_file.empty()) {
@@ -582,15 +588,19 @@ void MainWindow::render(AppState& state) {
             case ContextAction::Cut:
                 ci.cut(state.clipboard, sheet, grid_state_.selected,
                        grid_state_.has_range_selection, grid_state_.sel_min(), grid_state_.sel_max());
+                update_marching_ants(state.clipboard);
                 break;
             case ContextAction::Copy:
                 ci.copy(state.clipboard, sheet, grid_state_.selected,
                         grid_state_.has_range_selection, grid_state_.sel_min(), grid_state_.sel_max());
+                update_marching_ants(state.clipboard);
                 break;
             case ContextAction::Paste:
-                if (state.clipboard.has_data())
+                if (state.clipboard.has_data()) {
                     ci.paste(state.clipboard, sheet, grid_state_.selected,
                              as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                    clear_marching_ants();
+                }
                 break;
             case ContextAction::Clear:
                 ci.process("", sheet, grid_state_.selected,
@@ -840,6 +850,32 @@ void MainWindow::render(AppState& state) {
 
     // Render plugin panels as dockable windows
     state.plugin_manager.render_panels();
+}
+
+void MainWindow::update_marching_ants(const Clipboard& clip) {
+    if (!clip.has_data()) {
+        clear_marching_ants();
+        return;
+    }
+    auto cells = clip.source_cells();
+    if (cells.empty()) {
+        clear_marching_ants();
+        return;
+    }
+    CellAddress mn = cells[0], mx = cells[0];
+    for (const auto& c : cells) {
+        mn.col = std::min(mn.col, c.col);
+        mn.row = std::min(mn.row, c.row);
+        mx.col = std::max(mx.col, c.col);
+        mx.row = std::max(mx.row, c.row);
+    }
+    grid_state_.show_marching_ants = true;
+    grid_state_.clip_min = mn;
+    grid_state_.clip_max = mx;
+}
+
+void MainWindow::clear_marching_ants() {
+    grid_state_.show_marching_ants = false;
 }
 
 }  // namespace magic

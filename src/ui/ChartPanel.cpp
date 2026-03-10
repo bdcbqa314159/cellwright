@@ -94,11 +94,18 @@ void ChartPanel::render_style_controls() {
         // selection stored in colormap_idx_
     }
 
+    ImGui::SetNextItemWidth(200);
+    ImGui::InputText("Chart title", title_, sizeof(title_));
+
     ImGui::Checkbox("Show markers", &show_markers_);
     ImGui::SameLine();
     ImGui::Checkbox("Shade under first series", &shade_under_);
     ImGui::SameLine();
     ImGui::Checkbox("Min/Max annotations", &show_annotations_);
+
+    ImGui::Checkbox("Log scale (Y)", &log_scale_);
+    ImGui::SameLine();
+    ImGui::Checkbox("Grid lines", &show_grid_lines_);
 
     ImGui::SetNextItemWidth(120);
     ImGui::InputText("X label", x_label_, sizeof(x_label_));
@@ -110,8 +117,17 @@ void ChartPanel::render_style_controls() {
 void ChartPanel::render_plot(Sheet& sheet) {
     ImPlot::PushColormap(kColormaps[colormap_idx_]);
 
-    if (ImPlot::BeginPlot("##chart", ImVec2(-1, -1))) {
-        ImPlot::SetupAxes(x_label_, y_label_, ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+    const char* plot_title = (title_[0] != '\0') ? title_ : "##chart";
+    if (ImPlot::BeginPlot(plot_title, ImVec2(-1, -1))) {
+        ImPlotAxisFlags x_flags = ImPlotAxisFlags_AutoFit;
+        ImPlotAxisFlags y_flags = ImPlotAxisFlags_AutoFit;
+        if (!show_grid_lines_) {
+            x_flags |= ImPlotAxisFlags_NoGridLines;
+            y_flags |= ImPlotAxisFlags_NoGridLines;
+        }
+        ImPlot::SetupAxes(x_label_, y_label_, x_flags, y_flags);
+        if (log_scale_)
+            ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
         ImPlot::SetupLegend(ImPlotLocation_NorthEast);
 
         ImPlotSpec spec;

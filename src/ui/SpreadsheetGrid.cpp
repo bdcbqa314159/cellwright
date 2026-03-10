@@ -4,6 +4,7 @@
 #include "formula/Tokenizer.hpp"
 #include <imgui.h>
 #include <algorithm>
+#include <cmath>
 
 namespace magic {
 
@@ -194,6 +195,10 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
         fl_r1 = std::min(state.drag_source.row, state.drag_target.row);
         fl_r2 = std::max(state.drag_source.row, state.drag_target.row);
     }
+
+    // Marching ants: track screen rect of clipboard range
+    ImVec2 ants_min{1e9f, 1e9f}, ants_max{-1e9f, -1e9f};
+    bool ants_visible = false;
 
     ImGuiListClipper clipper;
     clipper.Begin(num_rows);
@@ -397,6 +402,19 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     }
 
                     if (is_error(val)) ImGui::PopStyleColor();
+
+                    // Track clipboard range bounds for marching ants
+                    if (state.show_marching_ants &&
+                        col >= state.clip_min.col && col <= state.clip_max.col &&
+                        row >= state.clip_min.row && row <= state.clip_max.row) {
+                        ImVec2 r_min = cell_min;
+                        ImVec2 r_max = ImGui::GetItemRectMax();
+                        if (r_min.x < ants_min.x) ants_min.x = r_min.x;
+                        if (r_min.y < ants_min.y) ants_min.y = r_min.y;
+                        if (r_max.x > ants_max.x) ants_max.x = r_max.x;
+                        if (r_max.y > ants_max.y) ants_max.y = r_max.y;
+                        ants_visible = true;
+                    }
                 }
 
                 ImGui::PopID();
@@ -405,6 +423,38 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     }
 
     ImGui::EndTable();
+
+    // Draw marching ants around clipboard source range
+    if (ants_visible) {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float t = static_cast<float>(ImGui::GetTime());
+        float dash_len = 6.0f;
+        float offset = std::fmod(t * 20.0f, dash_len * 2.0f);
+
+        auto draw_dashed_line = [&](ImVec2 a, ImVec2 b) {
+            float dx = b.x - a.x, dy = b.y - a.y;
+            float len = std::sqrt(dx * dx + dy * dy);
+            if (len < 1.0f) return;
+            float nx = dx / len, ny = dy / len;
+            float pos = -offset;
+            while (pos < len) {
+                float seg_start = std::max(pos, 0.0f);
+                float seg_end = std::min(pos + dash_len, len);
+                if (seg_start < seg_end) {
+                    dl->AddLine(
+                        ImVec2(a.x + nx * seg_start, a.y + ny * seg_start),
+                        ImVec2(a.x + nx * seg_end, a.y + ny * seg_end),
+                        IM_COL32(0, 120, 215, 255), 2.0f);
+                }
+                pos += dash_len * 2.0f;
+            }
+        };
+
+        draw_dashed_line(ImVec2(ants_min.x, ants_min.y), ImVec2(ants_max.x, ants_min.y)); // top
+        draw_dashed_line(ImVec2(ants_max.x, ants_min.y), ImVec2(ants_max.x, ants_max.y)); // right
+        draw_dashed_line(ImVec2(ants_max.x, ants_max.y), ImVec2(ants_min.x, ants_max.y)); // bottom
+        draw_dashed_line(ImVec2(ants_min.x, ants_max.y), ImVec2(ants_min.x, ants_min.y)); // left
+    }
 
     // Update formula drag target each frame for visual feedback
     if (state.formula_dragging && ImGui::IsMouseDown(0)) {

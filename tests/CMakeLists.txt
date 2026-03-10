@@ -18,22 +18,22 @@ set(PLUGIN_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/plugins/bond/bond_plugin.cpp
 )
 
-add_executable(magic_tests ${TEST_SOURCES} ${LIB_SOURCES} ${PLUGIN_TEST_SOURCES})
+add_executable(cellwright_tests ${TEST_SOURCES} ${LIB_SOURCES} ${PLUGIN_TEST_SOURCES})
 
-target_include_directories(magic_tests PRIVATE
+target_include_directories(cellwright_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
 # SIMD flags for x86_64
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    target_compile_options(magic_tests PRIVATE -mavx2 -mfma)
+    target_compile_options(cellwright_tests PRIVATE -mavx2 -mfma)
 endif()
 
-target_compile_definitions(magic_tests PRIVATE
+target_compile_definitions(cellwright_tests PRIVATE
     PY_BOND_PLUGIN_PATH="${CMAKE_SOURCE_DIR}/plugins/py_bond/py_bond.py"
 )
 
-target_link_libraries(magic_tests PRIVATE
+target_link_libraries(cellwright_tests PRIVATE
     GTest::gtest_main
     plugin_arch
     pybind11::embed
@@ -41,4 +41,4 @@ target_link_libraries(magic_tests PRIVATE
 )
 
 include(GoogleTest)
-gtest_discover_tests(magic_tests)
+gtest_discover_tests(cellwright_tests)

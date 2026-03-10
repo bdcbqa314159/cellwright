@@ -1,5 +1,6 @@
 #include "ui/FormulaBar.hpp"
 #include "core/Sheet.hpp"
+#include "core/CellValue.hpp"
 #include <imgui.h>
 #include <cstring>
 
@@ -51,9 +52,26 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
     if (cell_editing)
         flags |= ImGuiInputTextFlags_ReadOnly;
 
+    // Red tint on formula bar when the cell contains an error
+    CellValue val = sheet.get_value(selected);
+    bool has_error = is_error(val);
+    if (has_error) {
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.4f, 0.1f, 0.1f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+    }
+
     if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags)) {
         committed = true;
     }
+
+    // Tooltip showing the error type
+    if (has_error && ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", to_display_string(val).c_str());
+    }
+
+    if (has_error)
+        ImGui::PopStyleColor(2);
+
     editing_ = !cell_editing && ImGui::IsItemActive();
 
     return committed;

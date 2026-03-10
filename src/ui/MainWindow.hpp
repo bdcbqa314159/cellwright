@@ -5,6 +5,7 @@
 #include "ui/ChartPanel.hpp"
 #include "ui/SqlPanel.hpp"
 #include "ui/StyleSetup.hpp"
+#include "core/Clipboard.hpp"
 #include <cstdint>
 
 namespace magic {
@@ -40,6 +41,8 @@ private:
     void handle_keyboard(AppState& state);
     void handle_shortcuts(AppState& state);
     void handle_navigation(AppState& state);
+    void update_marching_ants(const Clipboard& clip);
+    void clear_marching_ants();
 
     SpreadsheetGrid grid_;
     FormulaBar formula_bar_;

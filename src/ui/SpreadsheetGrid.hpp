@@ -47,6 +47,11 @@ struct GridState {
     const std::vector<CellAddress>* find_matches = nullptr;
     int find_match_index = -1;
 
+    // Clipboard source range (for marching ants animation)
+    bool show_marching_ants = false;
+    CellAddress clip_min{0, 0};
+    CellAddress clip_max{0, 0};
+
     // Cell interaction drag state
     CellDragMode drag_mode = CellDragMode::None;
     CellAddress drag_source{0, 0};
