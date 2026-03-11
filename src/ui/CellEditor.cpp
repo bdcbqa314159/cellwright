@@ -1,4 +1,5 @@
 #include "ui/CellEditor.hpp"
+#include "formula/FunctionRegistry.hpp"
 #include <imgui.h>
 #include <cstring>
 
@@ -10,12 +11,14 @@ void CellEditor::begin_edit(const CellAddress& cell, const std::string& initial,
     select_all_ = select_all;
     cursor_to_end_ = !select_all && !initial.empty();
     frames_since_start_ = 0;
+    cursor_pos_ = 0;
     cell_ = cell;
     std::strncpy(buf_, initial.c_str(), sizeof(buf_) - 1);
     buf_[sizeof(buf_) - 1] = '\0';
+    autocomplete_.reset();
 }
 
-bool CellEditor::render() {
+bool CellEditor::render(const FunctionRegistry* registry) {
     if (!editing_) return false;
 
     // Only grab focus on the first frame
@@ -26,42 +29,64 @@ bool CellEditor::render() {
 
     ImGui::SetNextItemWidth(-1);
 
-    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
+    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
+                                ImGuiInputTextFlags_CallbackAlways;
     if (select_all_)
         flags |= ImGuiInputTextFlags_AutoSelectAll;
 
-    // When type-to-edit seeds the buffer, SetKeyboardFocusHere selects all text
-    // on activation. Use a callback to force cursor to end with no selection.
-    ImGuiInputTextCallback cb = nullptr;
-    void* cb_data = nullptr;
-    if (cursor_to_end_) {
-        flags |= ImGuiInputTextFlags_CallbackAlways;
-        cb = [](ImGuiInputTextCallbackData* data) -> int {
-            bool* flag = static_cast<bool*>(data->UserData);
-            if (*flag) {
-                data->CursorPos = data->BufTextLen;
-                data->SelectionStart = data->BufTextLen;
-                data->SelectionEnd = data->BufTextLen;
-                *flag = false;
-            }
-            return 0;
-        };
-        cb_data = &cursor_to_end_;
-    }
+    // Callback to track cursor position (and handle cursor_to_end_)
+    struct CbData {
+        int* cursor_pos;
+        bool* cursor_to_end;
+    };
+    CbData cb_data{&cursor_pos_, &cursor_to_end_};
 
-    bool committed = ImGui::InputText("##celledit", buf_, sizeof(buf_), flags, cb, cb_data);
+    auto cb = [](ImGuiInputTextCallbackData* data) -> int {
+        auto* ud = static_cast<CbData*>(data->UserData);
+        *ud->cursor_pos = data->CursorPos;
+        if (*ud->cursor_to_end) {
+            data->CursorPos = data->BufTextLen;
+            data->SelectionStart = data->BufTextLen;
+            data->SelectionEnd = data->BufTextLen;
+            *ud->cursor_to_end = false;
+        }
+        return 0;
+    };
+
+    bool committed = ImGui::InputText("##celledit", buf_, sizeof(buf_), flags, cb, &cb_data);
+    ImVec2 anchor = ImGui::GetItemRectMin();
+    anchor.y = ImGui::GetItemRectMax().y;
 
     ++frames_since_start_;
 
+    // Autocomplete popup
+    bool ac_consumed = false;
+    if (registry && buf_[0] == '=') {
+        std::string insertion;
+        if (autocomplete_.render(buf_, cursor_pos_, *registry, anchor, insertion)) {
+            // Insert completion at cursor position
+            std::size_t len = std::strlen(buf_);
+            if (len + insertion.size() < sizeof(buf_) - 1) {
+                std::strncat(buf_, insertion.c_str(), sizeof(buf_) - 1 - len);
+            }
+            cursor_to_end_ = true;
+            focus_needed_ = true;
+            frames_since_start_ = 0;
+            ac_consumed = true;
+        }
+    }
+
     // Escape cancels
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (!ac_consumed && ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         editing_ = false;
+        autocomplete_.reset();
         return false;
     }
 
     // Commit on Enter
     if (committed) {
         editing_ = false;
+        autocomplete_.reset();
         return true;
     }
 
@@ -70,6 +95,7 @@ bool CellEditor::render() {
     if (frames_since_start_ > 3 && buf_[0] != '=') {
         if (!ImGui::IsItemActive() && !ImGui::IsItemFocused()) {
             editing_ = false;
+            autocomplete_.reset();
             return true;
         }
     }
@@ -79,6 +105,7 @@ bool CellEditor::render() {
 
 void CellEditor::cancel() {
     editing_ = false;
+    autocomplete_.reset();
 }
 
 void CellEditor::insert_ref(const std::string& ref) {

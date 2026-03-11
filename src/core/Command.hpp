@@ -110,6 +110,23 @@ private:
     std::unordered_map<CellAddress, std::string> pre_delete_formulas_; // entire sheet formula snapshot
 };
 
+// Sort a column ascending or descending (whole-row permutation)
+class SortColumnCommand : public Command {
+public:
+    SortColumnCommand(int32_t sort_col, bool ascending, Sheet& sheet);
+    void execute(Sheet& sheet) override;
+    void undo(Sheet& sheet) override;
+    std::string description() const override;
+    CellAddress cell() const override { return {sort_col_, 0}; }
+private:
+    int32_t sort_col_;
+    bool ascending_;
+    int32_t data_rows_;  // number of rows with actual data
+    std::vector<std::vector<CellValue>> saved_values_;  // [col][row] snapshot for undo
+    std::unordered_map<CellAddress, std::string> saved_formulas_;
+    std::vector<int32_t> permutation_;  // row permutation computed in constructor
+};
+
 // Undo/redo manager
 class UndoManager {
 public:

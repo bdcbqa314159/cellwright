@@ -1,5 +1,8 @@
 #include "core/Command.hpp"
 #include "core/Sheet.hpp"
+#include <algorithm>
+#include <numeric>
+#include <cctype>
 
 namespace magic {
 
@@ -117,6 +120,124 @@ void DeleteColumnCommand::undo(Sheet& sheet) {
 }
 
 std::string DeleteColumnCommand::description() const { return "Delete Col " + CellAddress::col_to_letters(col_); }
+
+// ── SortColumnCommand ──────────────────────────────────────────────────────
+
+// Sort priority: empty last, numbers, bools, strings, errors
+static int sort_rank(const CellValue& v) {
+    if (is_empty(v)) return 4;  // always last
+    if (is_number(v)) return 0;
+    if (is_bool(v)) return 1;
+    if (is_string(v)) return 2;
+    return 3;  // errors
+}
+
+SortColumnCommand::SortColumnCommand(int32_t sort_col, bool ascending, Sheet& sheet)
+    : sort_col_(sort_col), ascending_(ascending)
+{
+    // Find data extent (max row across all columns that has non-empty data)
+    data_rows_ = 0;
+    for (int32_t c = 0; c < sheet.col_count(); ++c)
+        data_rows_ = std::max(data_rows_, sheet.column(c).size());
+    if (data_rows_ <= 0) return;
+
+    // Snapshot all values and formulas for undo
+    saved_values_.resize(sheet.col_count());
+    for (int32_t c = 0; c < sheet.col_count(); ++c) {
+        saved_values_[c].resize(data_rows_);
+        for (int32_t r = 0; r < data_rows_; ++r)
+            saved_values_[c][r] = sheet.get_value({c, r});
+    }
+    saved_formulas_ = sheet.all_formulas();
+
+    // Build permutation by sorting the sort column
+    permutation_.resize(data_rows_);
+    std::iota(permutation_.begin(), permutation_.end(), 0);
+
+    std::stable_sort(permutation_.begin(), permutation_.end(),
+        [&](int32_t a, int32_t b) {
+            CellValue va = sheet.get_value({sort_col_, a});
+            CellValue vb = sheet.get_value({sort_col_, b});
+            int ra = sort_rank(va), rb = sort_rank(vb);
+            if (ra != rb) return ra < rb;  // empty always last regardless of direction
+            if (is_empty(va)) return false; // both empty = equal
+            if (is_number(va) && is_number(vb)) {
+                double da = as_number(va), db = as_number(vb);
+                return ascending_ ? da < db : da > db;
+            }
+            if (is_bool(va) && is_bool(vb)) {
+                int ia = std::get<bool>(va) ? 1 : 0;
+                int ib = std::get<bool>(vb) ? 1 : 0;
+                return ascending_ ? ia < ib : ia > ib;
+            }
+            if (is_string(va) && is_string(vb)) {
+                const auto& sa = std::get<std::string>(va);
+                const auto& sb = std::get<std::string>(vb);
+                auto cmp = [](char a, char b) {
+                    return std::tolower(static_cast<unsigned char>(a)) <
+                           std::tolower(static_cast<unsigned char>(b));
+                };
+                bool less = std::lexicographical_compare(
+                    sa.begin(), sa.end(), sb.begin(), sb.end(), cmp);
+                bool greater = std::lexicographical_compare(
+                    sb.begin(), sb.end(), sa.begin(), sa.end(), cmp);
+                return ascending_ ? less : greater;
+            }
+            return false;  // errors: preserve order
+        });
+}
+
+void SortColumnCommand::execute(Sheet& sheet) {
+    if (data_rows_ <= 0) return;
+
+    // Apply permutation: build permuted data, then write back
+    int32_t ncols = sheet.col_count();
+    std::vector<std::vector<CellValue>> permuted(ncols);
+    for (int32_t c = 0; c < ncols; ++c) {
+        permuted[c].resize(data_rows_);
+        for (int32_t r = 0; r < data_rows_; ++r)
+            permuted[c][r] = sheet.get_value({c, permutation_[r]});
+    }
+
+    // Permute formulas
+    std::unordered_map<CellAddress, std::string> new_formulas;
+    for (int32_t r = 0; r < data_rows_; ++r) {
+        for (int32_t c = 0; c < ncols; ++c) {
+            CellAddress old_addr{c, permutation_[r]};
+            auto it = sheet.all_formulas().find(old_addr);
+            if (it != sheet.all_formulas().end())
+                new_formulas[{c, r}] = it->second;
+        }
+    }
+    // Keep formulas outside the sorted range
+    for (auto& [addr, formula] : sheet.all_formulas()) {
+        if (addr.row >= data_rows_)
+            new_formulas[addr] = formula;
+    }
+
+    // Write permuted values
+    for (int32_t c = 0; c < ncols; ++c)
+        for (int32_t r = 0; r < data_rows_; ++r)
+            sheet.set_value({c, r}, permuted[c][r]);
+
+    sheet.set_all_formulas(std::move(new_formulas));
+}
+
+void SortColumnCommand::undo(Sheet& sheet) {
+    if (data_rows_ <= 0) return;
+
+    // Restore all values from snapshot
+    for (int32_t c = 0; c < static_cast<int32_t>(saved_values_.size()); ++c)
+        for (int32_t r = 0; r < data_rows_; ++r)
+            sheet.set_value({c, r}, saved_values_[c][r]);
+
+    sheet.set_all_formulas(saved_formulas_);
+}
+
+std::string SortColumnCommand::description() const {
+    return "Sort " + CellAddress::col_to_letters(sort_col_) +
+           (ascending_ ? " A-Z" : " Z-A");
+}
 
 // ── UndoManager ─────────────────────────────────────────────────────────────
 

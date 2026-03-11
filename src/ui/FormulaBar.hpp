@@ -1,5 +1,6 @@
 #pragma once
 #include "core/CellAddress.hpp"
+#include "ui/AutocompletePopup.hpp"
 
 namespace magic {
 
@@ -10,7 +11,8 @@ class FormulaBar {
 public:
     // Render the formula bar. Returns true if the user committed a new value.
     // nav_target is set when user navigates via the name box.
-    bool render(Sheet& sheet, const CellAddress& selected, bool cell_editing = false);
+    bool render(Sheet& sheet, const CellAddress& selected,
+                bool cell_editing = false, const FunctionRegistry* registry = nullptr);
     const char* buffer() const { return buf_; }
     bool is_editing() const { return editing_; }
     bool is_formula_mode() const { return editing_ && buf_[0] == '='; }
@@ -26,6 +28,8 @@ private:
     char name_buf_[32] = {};
     CellAddress last_selected_{-1, -1};
     bool editing_ = false;
+    int cursor_pos_ = 0;
+    AutocompletePopup autocomplete_;
     bool has_nav_target_ = false;
     bool focus_name_box_ = false;
     bool name_box_active_ = false;

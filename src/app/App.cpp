@@ -17,6 +17,7 @@
 #include <imgui_impl_opengl3.h>
 #include <implot.h>
 #include <pybind11/embed.h>
+#include <nfd.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -35,6 +36,7 @@ App::App() = default;
 
 void App::run(int argc, char** argv) {
     pybind11::scoped_interpreter guard{};
+    NFD::Init();
     state_.settings.load();
     init_window();
     init_imgui();
@@ -43,6 +45,7 @@ void App::run(int argc, char** argv) {
         (void)state_.open_file(argv[1]);
     main_loop();
     shutdown();
+    NFD::Quit();
 }
 
 static void glfw_error_callback(int error, const char* description) {

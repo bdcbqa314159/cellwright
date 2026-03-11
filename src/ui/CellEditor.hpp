@@ -1,10 +1,12 @@
 #pragma once
 #include "core/CellAddress.hpp"
+#include "ui/AutocompletePopup.hpp"
 #include <string>
 
 namespace magic {
 
 class Sheet;
+class FunctionRegistry;
 
 class CellEditor {
 public:
@@ -14,7 +16,7 @@ public:
 
     // select_all=true for F2/double-click, false for type-to-edit
     void begin_edit(const CellAddress& cell, const std::string& initial, bool select_all = true);
-    bool render();  // returns true on commit
+    bool render(const FunctionRegistry* registry = nullptr);  // returns true on commit
     void cancel();
     void insert_ref(const std::string& ref);
 
@@ -26,8 +28,10 @@ private:
     bool select_all_ = true;
     bool cursor_to_end_ = false;
     int frames_since_start_ = 0;
+    int cursor_pos_ = 0;
     CellAddress cell_;
     char buf_[1024] = {};
+    AutocompletePopup autocomplete_;
 };
 
 }  // namespace magic

@@ -148,7 +148,27 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
         ImGui::TableSetupColumn(CellAddress::col_to_letters(c).c_str(),
                                 ImGuiTableColumnFlags_WidthFixed, col_widths_[c]);
     }
-    ImGui::TableHeadersRow();
+    // Manual header row with right-click sort menu
+    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TableHeader("##rownum");
+    for (int c = 0; c < num_cols; ++c) {
+        ImGui::TableSetColumnIndex(c + 1);
+        ImGui::TableHeader(CellAddress::col_to_letters(c).c_str());
+        ImGui::PushID(c + 10000);
+        if (ImGui::BeginPopupContextItem("##colhdr")) {
+            if (ImGui::MenuItem("Sort A \xe2\x86\x92 Z")) {
+                state.context_col = c;
+                state.context_action = ContextAction::SortAsc;
+            }
+            if (ImGui::MenuItem("Sort Z \xe2\x86\x92 A")) {
+                state.context_col = c;
+                state.context_action = ContextAction::SortDesc;
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
+    }
 
     // Track which cell the mouse hovers this frame (for formula drag-end detection)
     CellAddress drag_hover{-1, -1};
@@ -259,7 +279,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 if (is_editing) {
                     ImGui::SetNextItemWidth(-1);
                     ImVec2 edit_min = ImGui::GetCursorScreenPos();
-                    if (state.editor.render()) {
+                    if (state.editor.render(state.registry)) {
                         committed = true;
                     }
                     // Green border for in-cell editing (distinct from blue selection)

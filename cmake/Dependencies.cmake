@@ -89,6 +89,15 @@ FetchContent_Declare(duckdb
 )
 FetchContent_MakeAvailable(duckdb)
 
+# ── NFD (native file dialogs) ────────────────────────────────────────────────
+set(NFD_PORTAL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(nfd
+    GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended.git
+    GIT_TAG        v1.2.1
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(nfd)
+
 # ── Google Test ──────────────────────────────────────────────────────────────
 FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git

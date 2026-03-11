@@ -5,6 +5,8 @@
 #include <string>
 #include <unordered_map>
 
+namespace magic { class FunctionRegistry; }
+
 namespace magic {
 
 class Sheet;
@@ -12,7 +14,7 @@ class FormatMap;
 
 enum class CellZone { None, Interior, Edge, FillHandle };
 enum class CellDragMode { None, Move, Select, Fill };
-enum class ContextAction { None, Cut, Copy, Paste, Clear, InsertRow, InsertCol, DeleteRow, DeleteCol };
+enum class ContextAction { None, Cut, Copy, Paste, Clear, InsertRow, InsertCol, DeleteRow, DeleteCol, SortAsc, SortDesc };
 
 struct GridState {
     CellAddress selected{0, 0};
@@ -42,6 +44,10 @@ struct GridState {
 
     // Context menu action (set by grid, consumed by MainWindow)
     ContextAction context_action = ContextAction::None;
+    int32_t context_col = -1;  // column for sort actions
+
+    // Function registry for autocomplete (set by MainWindow each frame)
+    const FunctionRegistry* registry = nullptr;
 
     // Find match highlighting (set by MainWindow each frame)
     const std::vector<CellAddress>* find_matches = nullptr;

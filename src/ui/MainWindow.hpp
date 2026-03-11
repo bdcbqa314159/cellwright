@@ -12,14 +12,6 @@ namespace magic {
 
 struct AppState;
 
-struct FileDialogState {
-    char path_buf[512] = {};
-    bool show_open = false;
-    bool show_save = false;
-    bool show_import_csv = false;
-    bool show_export_csv = false;
-};
-
 class MainWindow {
 public:
     void render(AppState& state);
@@ -43,6 +35,10 @@ private:
     void handle_navigation(AppState& state);
     void update_marching_ants(const Clipboard& clip);
     void clear_marching_ants();
+    void do_open(AppState& state);
+    void do_save(AppState& state);
+    void do_import_csv(AppState& state);
+    void do_export_csv(AppState& state);
 
     SpreadsheetGrid grid_;
     FormulaBar formula_bar_;
@@ -50,7 +46,6 @@ private:
     ChartPanel chart_panel_;
     FindBar find_bar_;
     SqlPanel sql_panel_;
-    FileDialogState file_dialog_;
 
     Theme theme_ = Theme::Dark;
     float zoom_ = 1.0f;

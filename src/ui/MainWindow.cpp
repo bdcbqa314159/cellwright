@@ -6,6 +6,7 @@
 #include "io/CsvIO.hpp"
 #include "io/WorkbookIO.hpp"
 #include "util/Sha256.hpp"
+#include <nfd.hpp>
 #include <imgui.h>
 #include <cstring>
 #include <algorithm>
@@ -33,8 +34,7 @@ void MainWindow::render_menu_bar(AppState& state) {
                 }
             }
             if (ImGui::MenuItem("Open...", "Ctrl+O")) {
-                file_dialog_.show_open = true;
-                snprintf(file_dialog_.path_buf, sizeof(file_dialog_.path_buf), "%s", state.current_file.c_str());
+                do_open(state);
             }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {
                 if (!state.current_file.empty()) {
@@ -42,12 +42,11 @@ void MainWindow::render_menu_bar(AppState& state) {
                     state.mark_saved();
                     state.toasts.show("Saved");
                 } else {
-                    file_dialog_.show_save = true;
+                    do_save(state);
                 }
             }
             if (ImGui::MenuItem("Save As...")) {
-                file_dialog_.show_save = true;
-                snprintf(file_dialog_.path_buf, sizeof(file_dialog_.path_buf), "%s", state.current_file.c_str());
+                do_save(state);
             }
             ImGui::Separator();
             if (ImGui::BeginMenu("Recent Files")) {
@@ -67,12 +66,10 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Import CSV...")) {
-                file_dialog_.show_import_csv = true;
-                file_dialog_.path_buf[0] = '\0';
+                do_import_csv(state);
             }
             if (ImGui::MenuItem("Export CSV...")) {
-                file_dialog_.show_export_csv = true;
-                file_dialog_.path_buf[0] = '\0';
+                do_export_csv(state);
             }
             ImGui::EndMenu();
         }
@@ -196,57 +193,6 @@ void MainWindow::render_menu_bar(AppState& state) {
         ImGui::EndMenuBar();
     }
 
-    // ── File dialogs (simple InputText popups) ──────────────────────────────
-    auto file_popup = [&](const char* id, bool& show, auto callback) {
-        if (show) ImGui::OpenPopup(id);
-        if (ImGui::BeginPopupModal(id, &show, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::InputText("Path", file_dialog_.path_buf, sizeof(file_dialog_.path_buf));
-            if (ImGui::Button("OK", ImVec2(120, 0))) {
-                callback(std::string(file_dialog_.path_buf));
-                show = false;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-                show = false;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-    };
-
-    file_popup("Open File", file_dialog_.show_open, [&](const std::string& path) {
-        if (!state.open_file(path))
-            state.toasts.show("Failed to open file");
-    });
-
-    file_popup("Save File", file_dialog_.show_save, [&](const std::string& path) {
-        if (WorkbookIO::save(path, state.workbook)) {
-            state.current_file = path;
-            state.mark_saved();
-            state.settings.add_recent_file(path);
-            state.toasts.show("Saved");
-        }
-    });
-
-    file_popup("Import CSV", file_dialog_.show_import_csv, [&](const std::string& path) {
-        auto& sheet = state.workbook.active_sheet();
-        if (CsvIO::import_file(path, sheet)) {
-            as.dep_graph.clear();
-            as.format_map = FormatMap{};
-            as.undo_manager.clear();
-            state.toasts.show("CSV imported");
-        } else {
-            state.toasts.show("Failed to import CSV");
-        }
-    });
-
-    file_popup("Export CSV", file_dialog_.show_export_csv, [&](const std::string& path) {
-        if (CsvIO::export_file(path, state.workbook.active_sheet()))
-            state.toasts.show("CSV exported");
-        else
-            state.toasts.show("Failed to export CSV");
-    });
 }
 
 // ── Keyboard shortcuts ──────────────────────────────────────────────────────
@@ -298,11 +244,11 @@ void MainWindow::handle_shortcuts(AppState& state) {
             state.mark_saved();
             state.toasts.show("Saved");
         } else {
-            file_dialog_.show_save = true;
+            do_save(state);
         }
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
-        file_dialog_.show_open = true;
+        do_open(state);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_G)) {
         formula_bar_.focus_name_box();
@@ -531,7 +477,7 @@ void MainWindow::render(AppState& state) {
 
     // Formula bar
     bool cell_editing = grid_state_.editor.is_editing();
-    if (formula_bar_.render(sheet, grid_state_.selected, cell_editing)) {
+    if (formula_bar_.render(sheet, grid_state_.selected, cell_editing, &state.function_registry)) {
         ci.process(formula_bar_.buffer(), sheet, grid_state_.selected,
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
@@ -555,6 +501,7 @@ void MainWindow::render(AppState& state) {
     grid_state_.formula_bar_buf = formula_bar_.is_formula_mode()
         ? formula_bar_.buffer() : nullptr;
     grid_state_.dark_theme = (theme_ == Theme::Dark);
+    grid_state_.registry = &state.function_registry;
     grid_state_.find_matches = find_bar_.is_visible() ? &find_bar_.matches() : nullptr;
     grid_state_.find_match_index = find_bar_.current_match_index();
 
@@ -636,6 +583,19 @@ void MainWindow::render(AppState& state) {
                 as.undo_manager.execute(std::move(cmd), sheet);
                 as.dep_graph.shift_cols(grid_state_.selected.col, -1);
                 as.format_map.shift_cols(grid_state_.selected.col, -1);
+                break;
+            }
+            case ContextAction::SortAsc:
+            case ContextAction::SortDesc: {
+                bool asc = (action == ContextAction::SortAsc);
+                auto cmd = std::make_unique<SortColumnCommand>(grid_state_.context_col, asc, sheet);
+                as.undo_manager.execute(std::move(cmd), sheet);
+                // Mark all formula cells dirty and recalc
+                std::unordered_set<CellAddress> dirty;
+                for (auto& [addr, _] : sheet.all_formulas())
+                    dirty.insert(addr);
+                if (!dirty.empty())
+                    ci.batch_recalc(sheet, dirty, as.dep_graph, &state.workbook);
                 break;
             }
             default: break;
@@ -880,6 +840,63 @@ void MainWindow::update_marching_ants(const Clipboard& clip) {
 
 void MainWindow::clear_marching_ants() {
     grid_state_.show_marching_ants = false;
+}
+
+// ── Native file dialogs (NFD) ───────────────────────────────────────────────
+
+void MainWindow::do_open(AppState& state) {
+    NFD::UniquePath path;
+    nfdfilteritem_t filters[] = {{"CellWright", "magic"}, {"All Files", "*"}};
+    if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
+        if (!state.open_file(path.get()))
+            state.toasts.show("Failed to open file");
+    }
+}
+
+void MainWindow::do_save(AppState& state) {
+    NFD::UniquePath path;
+    nfdfilteritem_t filters[] = {{"CellWright", "magic"}};
+    std::string default_name;
+    if (!state.current_file.empty())
+        default_name = std::filesystem::path(state.current_file).filename().string();
+    if (NFD::SaveDialog(path, filters, 1, nullptr,
+                        default_name.empty() ? nullptr : default_name.c_str()) == NFD_OKAY) {
+        std::string p = path.get();
+        if (WorkbookIO::save(p, state.workbook)) {
+            state.current_file = p;
+            state.mark_saved();
+            state.settings.add_recent_file(p);
+            state.toasts.show("Saved");
+        }
+    }
+}
+
+void MainWindow::do_import_csv(AppState& state) {
+    NFD::UniquePath path;
+    nfdfilteritem_t filters[] = {{"CSV", "csv"}, {"All Files", "*"}};
+    if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
+        auto& sheet = state.workbook.active_sheet();
+        auto& as = state.active_state();
+        if (CsvIO::import_file(path.get(), sheet)) {
+            as.dep_graph.clear();
+            as.format_map = FormatMap{};
+            as.undo_manager.clear();
+            state.toasts.show("CSV imported");
+        } else {
+            state.toasts.show("Failed to import CSV");
+        }
+    }
+}
+
+void MainWindow::do_export_csv(AppState& state) {
+    NFD::UniquePath path;
+    nfdfilteritem_t filters[] = {{"CSV", "csv"}};
+    if (NFD::SaveDialog(path, filters, 1) == NFD_OKAY) {
+        if (CsvIO::export_file(path.get(), state.workbook.active_sheet()))
+            state.toasts.show("CSV exported");
+        else
+            state.toasts.show("Failed to export CSV");
+    }
 }
 
 }  // namespace magic

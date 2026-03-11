@@ -46,6 +46,7 @@ target_link_libraries(cellwright PRIVATE
     glfw
     pybind11::embed
     duckdb
+    nfd
 )
 
 if(APPLE)

@@ -1,12 +1,14 @@
 #include "ui/FormulaBar.hpp"
 #include "core/Sheet.hpp"
 #include "core/CellValue.hpp"
+#include "formula/FunctionRegistry.hpp"
 #include <imgui.h>
 #include <cstring>
 
 namespace magic {
 
-bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_editing) {
+bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
+                         bool cell_editing, const FunctionRegistry* registry) {
     bool committed = false;
 
     // Clickable name box — editable InputText for Go-To navigation
@@ -48,7 +50,8 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
     ImGui::SetNextItemWidth(-1);
 
     // Read-only when cell editor is active to prevent focus stealing
-    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
+    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
+                                ImGuiInputTextFlags_CallbackAlways;
     if (cell_editing)
         flags |= ImGuiInputTextFlags_ReadOnly;
 
@@ -60,9 +63,18 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
     }
 
-    if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags)) {
+    // Callback to track cursor position
+    auto cb = [](ImGuiInputTextCallbackData* data) -> int {
+        *static_cast<int*>(data->UserData) = data->CursorPos;
+        return 0;
+    };
+
+    if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags, cb, &cursor_pos_)) {
         committed = true;
     }
+
+    ImVec2 anchor = ImGui::GetItemRectMin();
+    anchor.y = ImGui::GetItemRectMax().y;
 
     // Tooltip showing the error type
     if (has_error && ImGui::IsItemHovered()) {
@@ -73,6 +85,19 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_edi
         ImGui::PopStyleColor(2);
 
     editing_ = !cell_editing && ImGui::IsItemActive();
+
+    // Autocomplete popup (only when formula bar is active and in formula mode)
+    if (registry && editing_ && buf_[0] == '=') {
+        std::string insertion;
+        if (autocomplete_.render(buf_, cursor_pos_, *registry, anchor, insertion)) {
+            std::size_t len = std::strlen(buf_);
+            if (len + insertion.size() < sizeof(buf_) - 1) {
+                std::strncat(buf_, insertion.c_str(), sizeof(buf_) - 1 - len);
+            }
+        }
+    } else {
+        autocomplete_.reset();
+    }
 
     return committed;
 }
