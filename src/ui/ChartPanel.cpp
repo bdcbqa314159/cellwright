@@ -40,6 +40,7 @@ void ChartPanel::render_controls(Sheet& sheet) {
     int type_idx = static_cast<int>(chart_type_);
     ImGui::SetNextItemWidth(100);
     if (ImGui::Combo("Type", &type_idx, type_labels, 4)) {
+        type_idx = std::clamp(type_idx, 0, 3);
         chart_type_ = static_cast<ChartType>(type_idx);
     }
 
@@ -115,6 +116,7 @@ void ChartPanel::render_style_controls() {
 }
 
 void ChartPanel::render_plot(Sheet& sheet) {
+    colormap_idx_ = std::clamp(colormap_idx_, 0, kColormapCount - 1);
     ImPlot::PushColormap(kColormaps[colormap_idx_]);
 
     const char* plot_title = (title_[0] != '\0') ? title_ : "##chart";

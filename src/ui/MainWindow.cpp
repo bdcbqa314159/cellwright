@@ -313,8 +313,10 @@ void MainWindow::handle_shortcuts(AppState& state) {
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_H)) {
         find_bar_.show_replace();
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape) && find_bar_.is_visible()) {
-        find_bar_.hide();
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        if (find_bar_.is_visible())
+            find_bar_.hide();
+        clear_marching_ants();
     }
 }
 
@@ -460,6 +462,7 @@ void MainWindow::handle_navigation(AppState& state) {
             initial = "=" + sheet.get_formula(grid_state_.selected);
         else
             initial = to_display_string(sheet.get_value(grid_state_.selected));
+        clear_marching_ants();
         grid_state_.editor.begin_edit(grid_state_.selected, initial);
     }
 
@@ -471,6 +474,7 @@ void MainWindow::handle_navigation(AppState& state) {
             if (wch >= 32 && wch < 127) {
                 std::string seed(1, static_cast<char>(wch));
                 input_io.InputQueueCharacters.erase(input_io.InputQueueCharacters.Data);
+                clear_marching_ants();
                 grid_state_.editor.begin_edit(grid_state_.selected, seed, false);
             }
         }
