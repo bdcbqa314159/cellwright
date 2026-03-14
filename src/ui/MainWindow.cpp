@@ -2,6 +2,7 @@
 #include "app/AppState.hpp"
 #include "app/AutoSave.hpp"
 #include "core/ConditionalFormat.hpp"
+#include "core/FillPattern.hpp"
 #include "core/Workbook.hpp"
 #include "core/Clipboard.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
@@ -730,15 +731,29 @@ void MainWindow::handle_drag_completion(AppState& state, Sheet& sheet) {
         int32_t r1 = std::min(src.row, tgt.row);
         int32_t r2 = std::max(src.row, tgt.row);
 
+        // Detect fill direction and pattern for non-formula numeric cells
+        bool vertical = (r2 - r1) >= (c2 - c1);
+        FillPattern pattern;
+        bool use_pattern = src_formula.empty() && is_number(src_val);
+        if (use_pattern)
+            pattern = detect_pattern(sheet, src, vertical);
+
+        int step_counter = 0;
         std::unordered_set<CellAddress> changed_cells;
         for (int32_t c = c1; c <= c2; ++c) {
             for (int32_t r = r1; r <= r2; ++r) {
                 if (c == src.col && r == src.row) continue;
                 CellAddress fill_addr{c, r};
+                ++step_counter;
                 if (!src_formula.empty()) {
                     std::string adjusted = Clipboard::adjust_references(
                         src_formula, c - src.col, r - src.row);
                     ci.process_no_recalc(("=" + adjusted).c_str(), sheet, fill_addr,
+                                         as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                } else if (use_pattern && pattern.kind == FillPattern::Kind::Arithmetic) {
+                    CellValue fv = fill_value(pattern, step_counter);
+                    std::string display = to_display_string(fv);
+                    ci.process_no_recalc(display.c_str(), sheet, fill_addr,
                                          as.undo_manager, as.format_map, as.dep_graph, state.workbook);
                 } else {
                     std::string display = to_display_string(src_val);
