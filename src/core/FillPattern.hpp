@@ -2,6 +2,7 @@
 #include "core/CellValue.hpp"
 #include "core/CellAddress.hpp"
 #include "core/Sheet.hpp"
+#include <cmath>
 #include <vector>
 
 namespace magic {
@@ -46,12 +47,12 @@ inline FillPattern detect_pattern(const Sheet& sheet, const CellAddress& src,
         double step = values[1] - values[0];
         bool consistent = true;
         for (std::size_t i = 2; i < values.size(); ++i) {
-            if (values[i] - values[i - 1] != step) {
+            if (std::abs((values[i] - values[i - 1]) - step) > 1e-9) {
                 consistent = false;
                 break;
             }
         }
-        if (consistent && step != 0.0) {
+        if (consistent && std::abs(step) > 1e-12) {
             result.kind = FillPattern::Kind::Arithmetic;
             result.start = values.back();
             result.step = step;

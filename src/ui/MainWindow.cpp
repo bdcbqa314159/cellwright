@@ -738,20 +738,22 @@ void MainWindow::handle_drag_completion(AppState& state, Sheet& sheet) {
         if (use_pattern)
             pattern = detect_pattern(sheet, src, vertical);
 
-        int step_counter = 0;
         std::unordered_set<CellAddress> changed_cells;
         for (int32_t c = c1; c <= c2; ++c) {
             for (int32_t r = r1; r <= r2; ++r) {
                 if (c == src.col && r == src.row) continue;
                 CellAddress fill_addr{c, r};
-                ++step_counter;
+                // Distance along the fill axis (not a flat counter)
+                int axis_dist = vertical ? (r - src.row) : (c - src.col);
+                if (axis_dist == 0) axis_dist = vertical ? (c - src.col) : (r - src.row);
+                if (axis_dist < 0) axis_dist = -axis_dist;
                 if (!src_formula.empty()) {
                     std::string adjusted = Clipboard::adjust_references(
                         src_formula, c - src.col, r - src.row);
                     ci.process_no_recalc(("=" + adjusted).c_str(), sheet, fill_addr,
                                          as.undo_manager, as.format_map, as.dep_graph, state.workbook);
                 } else if (use_pattern && pattern.kind == FillPattern::Kind::Arithmetic) {
-                    CellValue fv = fill_value(pattern, step_counter);
+                    CellValue fv = fill_value(pattern, axis_dist);
                     std::string display = to_display_string(fv);
                     ci.process_no_recalc(display.c_str(), sheet, fill_addr,
                                          as.undo_manager, as.format_map, as.dep_graph, state.workbook);
