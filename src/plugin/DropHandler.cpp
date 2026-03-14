@@ -1,6 +1,5 @@
 #include "plugin/DropHandler.hpp"
 #include <GLFW/glfw3.h>
-#include <algorithm>
 #include <filesystem>
 #include <iostream>
 
@@ -8,6 +7,8 @@ namespace magic {
 
 DropHandler::LoadCallback DropHandler::callback_;
 
+// Ordering requirement: uninstall() must be called before the objects captured
+// by the callback are destroyed (i.e., before PluginManager is torn down).
 void DropHandler::install(GLFWwindow* window, LoadCallback callback) {
     callback_ = std::move(callback);
     glfwSetDropCallback(window, glfw_drop_callback);

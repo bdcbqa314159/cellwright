@@ -36,7 +36,8 @@ std::optional<CellAddress> CellAddress::from_a1(const std::string& s) {
     int row_1based;
     try { row_1based = std::stoi(digits); }
     catch (...) { return std::nullopt; }
-    if (row_1based < 1) return std::nullopt;
+    static constexpr int MAX_ROW = 1048576;
+    if (row_1based < 1 || row_1based > MAX_ROW) return std::nullopt;
 
     return CellAddress{letters_to_col(letters), row_1based - 1};
 }

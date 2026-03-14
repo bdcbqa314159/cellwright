@@ -9,8 +9,10 @@ std::string to_display_string(const CellValue& v) {
     if (is_empty(v)) return "";
     if (is_number(v)) {
         double d = as_number(v);
-        if (std::isfinite(d) && d >= static_cast<double>(INT64_MIN) &&
-            d <= static_cast<double>(INT64_MAX) && d == static_cast<int64_t>(d))
+        // 2^53 is the largest integer exactly representable in double
+        constexpr double max_safe_int = 9007199254740992.0;
+        if (std::isfinite(d) && std::abs(d) <= max_safe_int &&
+            d == static_cast<int64_t>(d))
             return std::to_string(static_cast<int64_t>(d));
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%g", d);

@@ -1,5 +1,6 @@
 #include "core/Sheet.hpp"
 #include "core/FormulaAdjust.hpp"
+#include <stdexcept>
 
 namespace magic {
 
@@ -126,7 +127,8 @@ void Sheet::delete_column(int32_t at) {
 }
 
 Column& Sheet::column(int32_t col) {
-    if (col < 0 || col >= MAX_COL) { static Column empty; return empty; }
+    if (col < 0 || col >= MAX_COL)
+        throw std::out_of_range("column index out of range");
     while (col >= col_count()) columns_.emplace_back();
     return columns_[col];
 }

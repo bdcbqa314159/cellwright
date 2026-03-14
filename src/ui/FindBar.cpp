@@ -136,10 +136,24 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
             for (auto& addr : matches_) {
                 CellValue val = sheet.get_value(addr);
                 std::string text = to_display_string(val);
-                auto it = icase_find(text, needle);
-                if (it != text.end()) {
-                    auto pos = static_cast<size_t>(it - text.cbegin());
+                std::string original_text = text;
+                size_t search_pos = 0;
+                bool changed = false;
+                while (search_pos <= text.size()) {
+                    auto match_it = std::search(
+                        text.begin() + static_cast<ptrdiff_t>(search_pos), text.end(),
+                        needle.begin(), needle.end(),
+                        [](char a, char b) {
+                            return std::tolower(static_cast<unsigned char>(a)) ==
+                                   std::tolower(static_cast<unsigned char>(b));
+                        });
+                    if (match_it == text.end()) break;
+                    auto pos = static_cast<size_t>(match_it - text.begin());
                     text.replace(pos, needle.size(), replacement);
+                    search_pos = pos + replacement.size();
+                    changed = true;
+                }
+                if (changed) {
                     CellValue new_val{text};
                     if (undo) {
                         std::string old_formula = sheet.has_formula(addr) ? sheet.get_formula(addr) : "";

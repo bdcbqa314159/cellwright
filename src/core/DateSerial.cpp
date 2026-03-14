@@ -165,7 +165,7 @@ std::string serial_to_iso(double serial) {
     using namespace std::chrono;
     if (!std::isfinite(serial) || serial < -365243219162.0 || serial > 365241780471.0)
         return "";
-    auto days_count = static_cast<int>(serial);
+    auto days_count = static_cast<int>(std::floor(serial));
     sys_days sd{days{days_count}};
     year_month_day ymd{sd};
     if (!ymd.ok()) return "";

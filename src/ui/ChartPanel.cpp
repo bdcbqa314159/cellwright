@@ -150,6 +150,7 @@ void ChartPanel::render_plot(Sheet& sheet) {
             std::vector<double> xs, ys;
             if (x_col_ >= 0 && x_col_ < sheet.col_count()) {
                 const auto& x_doubles = sheet.column(x_col_).doubles();
+                // Cast is safe: size is bounded by sheet dimensions (MAX_ROW)
                 int n = static_cast<int>(std::min(x_doubles.size(), y_doubles.size()));
                 for (int i = 0; i < n; ++i) {
                     if (!std::isnan(x_doubles[i]) && !std::isnan(y_doubles[i])) {
@@ -158,6 +159,7 @@ void ChartPanel::render_plot(Sheet& sheet) {
                     }
                 }
             } else {
+                // Cast is safe: size is bounded by sheet dimensions (MAX_ROW)
                 for (int i = 0; i < static_cast<int>(y_doubles.size()); ++i) {
                     if (!std::isnan(y_doubles[i])) {
                         xs.push_back(static_cast<double>(i));

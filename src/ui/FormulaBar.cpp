@@ -91,8 +91,13 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
         std::string insertion;
         if (autocomplete_.render(buf_, cursor_pos_, *registry, anchor, insertion)) {
             std::size_t len = std::strlen(buf_);
+            std::size_t insert_pos = static_cast<std::size_t>(cursor_pos_);
             if (len + insertion.size() < sizeof(buf_) - 1) {
-                std::strncat(buf_, insertion.c_str(), sizeof(buf_) - 1 - len);
+                // Shift existing text after cursor to make room, then insert
+                std::memmove(buf_ + insert_pos + insertion.size(),
+                             buf_ + insert_pos,
+                             len - insert_pos + 1); // +1 for null terminator
+                std::memcpy(buf_ + insert_pos, insertion.c_str(), insertion.size());
             }
         }
     } else {

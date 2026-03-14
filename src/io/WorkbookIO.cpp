@@ -38,6 +38,26 @@ static std::string escape_json(const std::string& s) {
     return out;
 }
 
+static std::string unescape_json(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '\\' && i + 1 < s.size()) {
+            switch (s[i + 1]) {
+                case '"':  out += '"';  ++i; break;
+                case '\\': out += '\\'; ++i; break;
+                case 'n':  out += '\n'; ++i; break;
+                case 'r':  out += '\r'; ++i; break;
+                case 't':  out += '\t'; ++i; break;
+                default:   out += s[i]; break;
+            }
+        } else {
+            out += s[i];
+        }
+    }
+    return out;
+}
+
 std::string WorkbookIO::to_json(const Workbook& workbook) {
     std::ostringstream out;
     out << "{\"sheets\":[";
@@ -285,11 +305,11 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                 if (has_v && !type.empty()) {
                                     if (type == "n") val = CellValue{std::stod(raw_v)};
                                     else if (type == "s") {
-                                        // Strip surrounding quotes
+                                        // Strip surrounding quotes and unescape
                                         if (raw_v.size() >= 2 && raw_v.front() == '"' && raw_v.back() == '"')
-                                            val = CellValue{raw_v.substr(1, raw_v.size() - 2)};
+                                            val = CellValue{unescape_json(raw_v.substr(1, raw_v.size() - 2))};
                                         else
-                                            val = CellValue{raw_v};
+                                            val = CellValue{unescape_json(raw_v)};
                                     }
                                     else if (type == "b") val = CellValue{raw_v == "true"};
                                     else if (type == "e") val = CellValue{static_cast<CellError>(std::stoi(raw_v))};

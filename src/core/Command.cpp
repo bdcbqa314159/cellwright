@@ -122,6 +122,8 @@ void DeleteColumnCommand::undo(Sheet& sheet) {
 std::string DeleteColumnCommand::description() const { return "Delete Col " + CellAddress::col_to_letters(col_); }
 
 // ── SortColumnCommand ──────────────────────────────────────────────────────
+// NOTE: The constructor snapshots all column values for undo. This is correct
+// but expensive for large sheets — an optimization target for future work.
 
 // Sort priority: empty last, numbers, bools, strings, errors
 static int sort_rank(const CellValue& v) {

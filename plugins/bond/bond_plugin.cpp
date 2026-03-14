@@ -5,6 +5,8 @@
 
 namespace magic::plugins {
 
+static constexpr size_t MAX_STORE_SIZE = 1000;
+
 static std::unordered_map<std::string, Bond>& store() {
     static std::unordered_map<std::string, Bond> s;
     return s;
@@ -21,6 +23,10 @@ CellValue BondPlugin::call(const std::string& func_name, const std::vector<CellV
         double ytm       = to_double(args[1]);
         double maturity  = to_double(args[2]);
         double frequency = to_double(args[3]);
+
+        // Prevent unbounded growth of the handle store
+        if (store().size() >= MAX_STORE_SIZE)
+            store().clear();
 
         std::string handle = "Bond#" + std::to_string(++counter());
         store()[handle] = Bond{coupon, ytm, maturity, frequency};

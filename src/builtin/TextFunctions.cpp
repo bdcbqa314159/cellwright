@@ -44,14 +44,16 @@ void register_text_functions(FunctionRegistry& reg) {
     reg.register_function("UPPER", [](const std::vector<CellValue>& args) -> CellValue {
         if (args.empty()) return CellValue{CellError::VALUE};
         std::string s = cell_to_string(args[0]);
-        std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+        std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
         return CellValue{s};
     });
 
     reg.register_function("LOWER", [](const std::vector<CellValue>& args) -> CellValue {
         if (args.empty()) return CellValue{CellError::VALUE};
         std::string s = cell_to_string(args[0]);
-        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+        std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return CellValue{s};
     });
 
