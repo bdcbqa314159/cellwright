@@ -34,6 +34,7 @@ private:
     bool show_annotations_ = false;
     bool log_scale_ = false;
     bool show_grid_lines_ = true;
+    bool stacked_ = false;
     int colormap_idx_ = 0;
     char title_[128] = "";
     char x_label_[64] = "X";

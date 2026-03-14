@@ -132,6 +132,8 @@ void ChartPanel::render_style_controls() {
     ImGui::SameLine();
     ImGui::Checkbox("Min/Max annotations", &show_annotations_);
 
+    if (chart_type_ == ChartType::Bar)
+        ImGui::Checkbox("Stacked bars", &stacked_);
     ImGui::Checkbox("Log scale (Y)", &log_scale_);
     ImGui::SameLine();
     ImGui::Checkbox("Grid lines", &show_grid_lines_);
@@ -171,6 +173,43 @@ void ChartPanel::render_plot(Sheet& sheet) {
         }
 
         bool is_first_series = true;
+
+        // Stacked bar mode: use PlotBarGroups API
+        if (chart_type_ == ChartType::Bar && stacked_) {
+            // Collect selected Y column indices
+            std::vector<int> y_cols;
+            for (int c = 0; c < sheet.col_count(); ++c) {
+                if (static_cast<size_t>(c) < y_col_selected_.size() && y_col_selected_[static_cast<size_t>(c)])
+                    y_cols.push_back(c);
+            }
+            if (!y_cols.empty()) {
+                int num_rows = sheet.row_count();
+                int item_count = static_cast<int>(y_cols.size());
+                // Build label array
+                std::vector<std::string> label_strs;
+                std::vector<const char*> labels;
+                for (int c : y_cols) {
+                    label_strs.push_back(CellAddress::col_to_letters(c));
+                    labels.push_back(label_strs.back().c_str());
+                }
+                // Build flat row-major data: [series0_group0, series0_group1, ..., series1_group0, ...]
+                std::vector<double> data(static_cast<size_t>(item_count * num_rows), 0.0);
+                for (int si = 0; si < item_count; ++si) {
+                    const auto& col_data = sheet.column(y_cols[si]).doubles();
+                    for (int r = 0; r < num_rows && r < static_cast<int>(col_data.size()); ++r) {
+                        double v = col_data[r];
+                        data[static_cast<size_t>(si * num_rows + r)] = std::isnan(v) ? 0.0 : v;
+                    }
+                }
+                ImPlotSpec bar_spec;
+                bar_spec.Flags = ImPlotBarGroupsFlags_Stacked;
+                ImPlot::PlotBarGroups(labels.data(), data.data(), item_count, num_rows, 0.67, 0, bar_spec);
+            }
+            // Skip per-series rendering below
+            ImPlot::EndPlot();
+            ImPlot::PopColormap();
+            return;
+        }
 
         for (int c = 0; c < sheet.col_count(); ++c) {
             if (static_cast<size_t>(c) >= y_col_selected_.size() || !y_col_selected_[static_cast<size_t>(c)])
