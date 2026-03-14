@@ -11,6 +11,21 @@ void FunctionRegistry::register_function(const std::string& name, SpreadsheetFun
     funcs_[upper] = std::move(fn);
 }
 
+void FunctionRegistry::register_function(const std::string& name, SpreadsheetFunc fn,
+                                          const std::string& signature_hint) {
+    std::string upper = name;
+    std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
+    funcs_[upper] = std::move(fn);
+    signatures_[upper] = signature_hint;
+}
+
+std::string FunctionRegistry::signature(const std::string& name) const {
+    std::string upper = name;
+    std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
+    auto it = signatures_.find(upper);
+    return it != signatures_.end() ? it->second : std::string{};
+}
+
 bool FunctionRegistry::unregister_function(const std::string& name) {
     std::string upper = name;
     std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
@@ -41,6 +56,7 @@ CellValue FunctionRegistry::call_direct(const std::string& name, const std::vect
 
 void FunctionRegistry::clear() {
     funcs_.clear();
+    signatures_.clear();
 }
 
 }  // namespace magic

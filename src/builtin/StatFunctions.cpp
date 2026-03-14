@@ -17,7 +17,7 @@ void register_stat_functions(FunctionRegistry& reg) {
         double sq_sum = 0.0;
         for (double x : nums) sq_sum += (x - mean) * (x - mean);
         return CellValue{std::sqrt(sq_sum / (nums.size() - 1))};
-    });
+    }, "STDEV(number1, [number2], ...)");
 
     reg.register_function("MEDIAN", [](const std::vector<CellValue>& args) -> CellValue {
         std::vector<double> nums;
@@ -29,7 +29,7 @@ void register_stat_functions(FunctionRegistry& reg) {
         size_t n = nums.size();
         if (n % 2 == 1) return CellValue{nums[n / 2]};
         return CellValue{(nums[n / 2 - 1] + nums[n / 2]) / 2.0};
-    });
+    }, "MEDIAN(number1, [number2], ...)");
 
     reg.register_function("PERCENTILE", [](const std::vector<CellValue>& args) -> CellValue {
         // Last arg is the percentile (0-1), rest are data
@@ -50,7 +50,7 @@ void register_stat_functions(FunctionRegistry& reg) {
         if (lo == hi) return CellValue{nums[lo]};
         double frac = idx - lo;
         return CellValue{nums[lo] * (1 - frac) + nums[hi] * frac};
-    });
+    }, "PERCENTILE(array, k)");
 
     reg.register_function("CORREL", [](const std::vector<CellValue>& args) -> CellValue {
         // Expects an even number of args: first half = X, second half = Y
@@ -76,7 +76,7 @@ void register_stat_functions(FunctionRegistry& reg) {
         double denom = std::sqrt(dx2 * dy2);
         if (denom == 0) return CellValue{CellError::DIV0};
         return CellValue{num / denom};
-    });
+    }, "CORREL(array1, array2)");
 
     reg.register_function("VLOOKUP", [](const std::vector<CellValue>& args) -> CellValue {
         // VLOOKUP(lookup_value, table_range..., col_index)
@@ -85,7 +85,7 @@ void register_stat_functions(FunctionRegistry& reg) {
         if (args.size() < 3) return CellValue{CellError::VALUE};
         // Minimal implementation — exact match in first "column"
         return CellValue{CellError::NA};  // Phase 2 placeholder
-    });
+    }, "VLOOKUP(lookup_value, table_array, col_index, [range_lookup])");
 }
 
 }  // namespace magic

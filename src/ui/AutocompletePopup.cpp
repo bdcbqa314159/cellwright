@@ -34,6 +34,35 @@ std::string AutocompletePopup::extract_token(const char* buf, int cursor_pos) {
     return token;
 }
 
+std::string AutocompletePopup::find_enclosing_function(const char* buf, int cursor_pos) {
+    if (!buf || cursor_pos <= 0) return {};
+    if (buf[0] != '=') return {};
+
+    // Walk backwards from cursor, tracking paren depth.
+    // When we find an unmatched '(' preceded by a function name, return it.
+    int depth = 0;
+    for (int i = cursor_pos - 1; i >= 0; --i) {
+        char c = buf[i];
+        if (c == ')') ++depth;
+        else if (c == '(') {
+            if (depth > 0) { --depth; continue; }
+            // Found unmatched '(' — scan backwards for function name
+            int end = i;
+            int start = end;
+            while (start > 0 && std::isalpha(static_cast<unsigned char>(buf[start - 1])))
+                --start;
+            if (start < end) {
+                std::string name(buf + start, end - start);
+                for (auto& ch : name)
+                    ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                return name;
+            }
+            return {};
+        }
+    }
+    return {};
+}
+
 void AutocompletePopup::update_matches(const std::string& prefix,
                                         const FunctionRegistry& registry) {
     if (prefix == prefix_ && !matches_.empty()) return;

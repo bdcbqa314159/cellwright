@@ -15,7 +15,7 @@ void register_math_functions(FunctionRegistry& reg) {
             // skip empty, strings
         }
         return CellValue{sum};
-    });
+    }, "SUM(number1, [number2], ...)");
 
     reg.register_function("AVERAGE", [](const std::vector<CellValue>& args) -> CellValue {
         double sum = 0.0;
@@ -26,7 +26,7 @@ void register_math_functions(FunctionRegistry& reg) {
         }
         if (count == 0) return CellValue{CellError::DIV0};
         return CellValue{sum / count};
-    });
+    }, "AVERAGE(number1, [number2], ...)");
 
     reg.register_function("MIN", [](const std::vector<CellValue>& args) -> CellValue {
         double result = std::numeric_limits<double>::infinity();
@@ -35,7 +35,7 @@ void register_math_functions(FunctionRegistry& reg) {
             if (is_number(a)) { result = std::min(result, as_number(a)); found = true; }
         }
         return found ? CellValue{result} : CellValue{0.0};
-    });
+    }, "MIN(number1, [number2], ...)");
 
     reg.register_function("MAX", [](const std::vector<CellValue>& args) -> CellValue {
         double result = -std::numeric_limits<double>::infinity();
@@ -44,7 +44,7 @@ void register_math_functions(FunctionRegistry& reg) {
             if (is_number(a)) { result = std::max(result, as_number(a)); found = true; }
         }
         return found ? CellValue{result} : CellValue{0.0};
-    });
+    }, "MAX(number1, [number2], ...)");
 
     reg.register_function("COUNT", [](const std::vector<CellValue>& args) -> CellValue {
         int count = 0;
@@ -52,12 +52,12 @@ void register_math_functions(FunctionRegistry& reg) {
             if (is_number(a)) ++count;
         }
         return CellValue{static_cast<double>(count)};
-    });
+    }, "COUNT(value1, [value2], ...)");
 
     reg.register_function("ABS", [](const std::vector<CellValue>& args) -> CellValue {
         if (args.empty()) return CellValue{CellError::VALUE};
         return CellValue{std::abs(to_double(args[0]))};
-    });
+    }, "ABS(number)");
 
     reg.register_function("ROUND", [](const std::vector<CellValue>& args) -> CellValue {
         if (args.empty()) return CellValue{CellError::VALUE};
@@ -65,7 +65,7 @@ void register_math_functions(FunctionRegistry& reg) {
         int digits = args.size() > 1 ? static_cast<int>(to_double(args[1])) : 0;
         double factor = std::pow(10.0, digits);
         return CellValue{std::round(val * factor) / factor};
-    });
+    }, "ROUND(number, [digits])");
 }
 
 }  // namespace magic

@@ -86,6 +86,27 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
 
     editing_ = !cell_editing && ImGui::IsItemActive();
 
+    // Function signature tooltip (when cursor is inside a function call)
+    if (registry && editing_ && buf_[0] == '=' && !autocomplete_.is_active()) {
+        auto func_name = AutocompletePopup::find_enclosing_function(buf_, cursor_pos_);
+        if (!func_name.empty()) {
+            auto sig = registry->signature(func_name);
+            if (!sig.empty()) {
+                ImGui::SetNextWindowPos(ImVec2(anchor.x, anchor.y + 2));
+                ImGuiWindowFlags tip_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing;
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.15f, 0.15f, 0.2f, 0.95f));
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.9f, 1.0f, 1.0f));
+                if (ImGui::Begin("##sig_tooltip", nullptr, tip_flags)) {
+                    ImGui::TextUnformatted(sig.c_str());
+                }
+                ImGui::End();
+                ImGui::PopStyleColor(2);
+            }
+        }
+    }
+
     // Autocomplete popup (only when formula bar is active and in formula mode)
     if (registry && editing_ && buf_[0] == '=') {
         std::string insertion;

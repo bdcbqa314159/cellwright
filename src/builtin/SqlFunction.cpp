@@ -25,7 +25,7 @@ void register_sql_function(FunctionRegistry& registry, DuckDBEngine& engine, Wor
                 return result.columns[0][0];
 
             return CellValue{};
-        });
+        }, "SQL(query_string)");
 }
 
 }  // namespace magic

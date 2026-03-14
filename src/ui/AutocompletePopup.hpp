@@ -28,7 +28,13 @@ private:
     std::vector<std::string> matches_;
 
     void update_matches(const std::string& prefix, const FunctionRegistry& registry);
+
+public:
+    // Extract the current partial token at cursor (for autocomplete prefix).
     static std::string extract_token(const char* buf, int cursor_pos);
+    // Find the name of the function whose argument list the cursor is inside.
+    // Returns empty if cursor is not inside a function call.
+    static std::string find_enclosing_function(const char* buf, int cursor_pos);
 };
 
 }  // namespace magic
