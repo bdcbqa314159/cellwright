@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <imgui.h>
 
 namespace magic {
 
@@ -19,6 +20,7 @@ private:
     void render_controls(Sheet& sheet);
     void render_style_controls();
     void render_plot(Sheet& sheet);
+    void export_png();
 
     bool visible_ = false;
     ChartType chart_type_ = ChartType::Line;
@@ -35,6 +37,9 @@ private:
     char title_[128] = "";
     char x_label_[64] = "X";
     char y_label_[64] = "Y";
+    bool export_requested_ = false;
+    ImVec2 plot_min_{0, 0};
+    ImVec2 plot_max_{0, 0};
 };
 
 }  // namespace magic

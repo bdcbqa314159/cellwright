@@ -21,6 +21,7 @@ file(GLOB_RECURSE DASHBOARD_SOURCES
     src/builtin/*.cpp
     src/io/*.cpp
     src/ui/*.cpp
+    src/util/*.cpp
 )
 
 add_executable(cellwright ${DASHBOARD_SOURCES})

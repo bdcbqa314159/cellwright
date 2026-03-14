@@ -10,6 +10,15 @@
 #include <string>
 #include <algorithm>
 
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
+
+#include "util/stb_image_write.h"
+#include <nfd.hpp>
+
 namespace magic {
 
 static constexpr int kColormapCount = 6;
@@ -29,8 +38,20 @@ void ChartPanel::render(Sheet& sheet) {
     ImGui::Begin("Chart", &visible_);
     render_controls(sheet);
     render_style_controls();
+
+    if (ImGui::Button("Export PNG...")) {
+        export_requested_ = true;
+    }
+
     ImGui::Separator();
     render_plot(sheet);
+
+    // Capture after rendering (deferred one frame so the plot is drawn)
+    if (export_requested_) {
+        export_requested_ = false;
+        export_png();
+    }
+
     ImGui::End();
 }
 
@@ -121,6 +142,10 @@ void ChartPanel::render_plot(Sheet& sheet) {
 
     const char* plot_title = (title_[0] != '\0') ? title_ : "##chart";
     if (ImPlot::BeginPlot(plot_title, ImVec2(-1, -1))) {
+        // Capture plot area for PNG export
+        plot_min_ = ImPlot::GetPlotPos();
+        plot_max_ = ImVec2(plot_min_.x + ImPlot::GetPlotSize().x,
+                           plot_min_.y + ImPlot::GetPlotSize().y);
         ImPlotAxisFlags x_flags = ImPlotAxisFlags_AutoFit;
         ImPlotAxisFlags y_flags = ImPlotAxisFlags_AutoFit;
         if (!show_grid_lines_) {
@@ -223,6 +248,59 @@ void ChartPanel::render_plot(Sheet& sheet) {
     }
 
     ImPlot::PopColormap();
+}
+
+void ChartPanel::export_png() {
+    // Get the chart window rect (including controls, not just plot area)
+    ImVec2 win_min = ImGui::GetWindowPos();
+    ImVec2 win_size = ImGui::GetWindowSize();
+
+    int x = static_cast<int>(win_min.x);
+    int y_from_top = static_cast<int>(win_min.y);
+    int w = static_cast<int>(win_size.x);
+    int h = static_cast<int>(win_size.y);
+
+    if (w <= 0 || h <= 0) return;
+
+    // OpenGL framebuffer Y is bottom-up; ImGui Y is top-down
+    int fb_w, fb_h;
+    auto* vp = ImGui::GetMainViewport();
+    fb_w = static_cast<int>(vp->Size.x);
+    fb_h = static_cast<int>(vp->Size.y);
+
+    // Account for DPI scaling (framebuffer may be larger than window coords)
+    ImGuiIO& io = ImGui::GetIO();
+    float scale_x = io.DisplayFramebufferScale.x;
+    float scale_y = io.DisplayFramebufferScale.y;
+
+    int px = static_cast<int>(x * scale_x);
+    int py = static_cast<int>((fb_h / scale_y - y_from_top - h) * scale_y);
+    int pw = static_cast<int>(w * scale_x);
+    int ph = static_cast<int>(h * scale_y);
+
+    if (pw <= 0 || ph <= 0) return;
+
+    std::vector<unsigned char> pixels(static_cast<size_t>(pw * ph * 3));
+    glReadPixels(px, py, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+
+    // Flip vertically (OpenGL is bottom-up)
+    int row_bytes = pw * 3;
+    std::vector<unsigned char> row(row_bytes);
+    for (int i = 0; i < ph / 2; ++i) {
+        unsigned char* top = pixels.data() + i * row_bytes;
+        unsigned char* bot = pixels.data() + (ph - 1 - i) * row_bytes;
+        std::memcpy(row.data(), top, row_bytes);
+        std::memcpy(top, bot, row_bytes);
+        std::memcpy(bot, row.data(), row_bytes);
+    }
+
+    // Ask user for save path
+    NFD::UniquePathN path;
+    nfdfilteritem_t filter[] = {{"PNG Image", "png"}};
+    auto result = NFD::SaveDialog(path, filter, 1, nullptr, "chart.png");
+    if (result == NFD_OKAY && path) {
+        stbi_write_png(path.get(), pw, ph, 3, pixels.data(), row_bytes);
+    }
 }
 
 }  // namespace magic
