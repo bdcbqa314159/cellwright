@@ -28,6 +28,14 @@ CTestTestfile.cmake
 Testing/
 install_manifest.txt
 
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.egg
+
 # Package managers
 vcpkg_installed/
 conan/

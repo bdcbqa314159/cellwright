@@ -1,0 +1,20 @@
+[project]
+name = "cellwright"
+version = "0.1.0"
+description = "Python test and interop utilities for CellWright"
+requires-python = ">=3.11"
+dependencies = [
+    "pyarrow>=23.0",
+    "polars>=1.39",
+    "pandas>=3.0",
+    "numpy>=2.4",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["."]
