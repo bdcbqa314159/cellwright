@@ -47,6 +47,8 @@ target_link_libraries(imgui_glfw_opengl3 PUBLIC glfw)
 
 if(APPLE)
     target_link_libraries(imgui_glfw_opengl3 PUBLIC "-framework OpenGL")
+elseif(WIN32)
+    target_link_libraries(imgui_glfw_opengl3 PUBLIC opengl32)
 elseif(UNIX)
     target_link_libraries(imgui_glfw_opengl3 PUBLIC GL)
 endif()

@@ -74,7 +74,11 @@ target_include_directories(cellwright_core PUBLIC
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    target_compile_options(cellwright_core PRIVATE -mavx2 -mfma)
+    if(MSVC)
+        target_compile_options(cellwright_core PRIVATE /arch:AVX2)
+    else()
+        target_compile_options(cellwright_core PRIVATE -mavx2 -mfma)
+    endif()
 endif()
 
 target_link_libraries(cellwright_core PUBLIC
@@ -127,8 +131,10 @@ if(APPLE)
         "-framework IOKit"
         "-framework CoreVideo"
     )
-elseif(UNIX)
+elseif(UNIX AND NOT WIN32)
     target_link_libraries(cellwright PRIVATE GL dl)
+elseif(WIN32)
+    target_link_libraries(cellwright PRIVATE opengl32)
 endif()
 
 # ── Plugins ──────────────────────────────────────────────────────
