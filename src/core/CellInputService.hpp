@@ -4,6 +4,13 @@
 
 namespace magic {
 
+enum class PasteMode {
+    Normal,       // paste values + formulas with reference adjustment (default)
+    ValuesOnly,   // paste evaluated values, strip formulas
+    FormulasOnly, // paste formulas only (skip value-only cells)
+    Transpose,    // swap rows and columns
+};
+
 class Sheet;
 class Workbook;
 class FunctionRegistry;
@@ -47,6 +54,9 @@ public:
     void paste(Clipboard& clipboard, Sheet& sheet, const CellAddress& dest,
                UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
                Workbook& workbook);
+    void paste_special(Clipboard& clipboard, Sheet& sheet, const CellAddress& dest,
+                       UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
+                       Workbook& workbook, PasteMode mode);
 
 private:
     void process_impl(const char* buf, Sheet& sheet, const CellAddress& addr,

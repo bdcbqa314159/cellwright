@@ -100,6 +100,31 @@ std::vector<Clipboard::PasteEntry> Clipboard::paste_at(const CellAddress& dest) 
     return entries;
 }
 
+std::vector<Clipboard::PasteEntry> Clipboard::paste_at_transposed(const CellAddress& dest) const {
+    std::vector<PasteEntry> entries;
+    entries.reserve(cells_.size());
+
+    for (const auto& cc : cells_) {
+        // Swap row/col offsets for transpose
+        CellAddress pa{dest.col + cc.rel_row, dest.row + cc.rel_col};
+        if (pa.col < 0 || pa.row < 0) continue;
+
+        PasteEntry pe;
+        pe.addr = pa;
+
+        if (!cc.formula.empty()) {
+            int32_t dcol = pe.addr.col - (origin_.col + cc.rel_col);
+            int32_t drow = pe.addr.row - (origin_.row + cc.rel_row);
+            pe.formula = adjust_references(cc.formula, dcol, drow);
+        }
+
+        pe.value = cc.value;
+        entries.push_back(std::move(pe));
+    }
+
+    return entries;
+}
+
 std::vector<CellAddress> Clipboard::source_cells() const {
     std::vector<CellAddress> result;
     result.reserve(cells_.size());

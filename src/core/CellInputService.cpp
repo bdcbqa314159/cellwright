@@ -232,4 +232,48 @@ void CellInputService::paste(Clipboard& clipboard, Sheet& sheet, const CellAddre
     }
 }
 
+void CellInputService::paste_special(Clipboard& clipboard, Sheet& sheet, const CellAddress& dest,
+                                      UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
+                                      Workbook& workbook, PasteMode mode) {
+    if (mode == PasteMode::Normal) {
+        paste(clipboard, sheet, dest, undo, formats, dep_graph, workbook);
+        return;
+    }
+
+    auto entries = (mode == PasteMode::Transpose)
+        ? clipboard.paste_at_transposed(dest)
+        : clipboard.paste_at(dest);
+
+    for (const auto& pe : entries) {
+        if (mode == PasteMode::ValuesOnly) {
+            // Always paste as value, ignore formulas
+            std::string display = to_display_string(pe.value);
+            process(display.c_str(), sheet, pe.addr, undo, formats, dep_graph, workbook);
+        } else if (mode == PasteMode::FormulasOnly) {
+            // Only paste cells that have formulas
+            if (!pe.formula.empty()) {
+                process(("=" + pe.formula).c_str(), sheet, pe.addr, undo, formats, dep_graph, workbook);
+            }
+        } else {
+            // Transpose: paste both values and formulas
+            if (!pe.formula.empty()) {
+                process(("=" + pe.formula).c_str(), sheet, pe.addr, undo, formats, dep_graph, workbook);
+            } else {
+                std::string display = to_display_string(pe.value);
+                process(display.c_str(), sheet, pe.addr, undo, formats, dep_graph, workbook);
+            }
+        }
+    }
+
+    if (clipboard.is_cut()) {
+        std::unordered_set<CellAddress> dest_set;
+        for (const auto& pe : entries) dest_set.insert(pe.addr);
+        for (const auto& src : clipboard.source_cells()) {
+            if (!dest_set.contains(src))
+                process("", sheet, src, undo, formats, dep_graph, workbook);
+        }
+        clipboard.clear();
+    }
+}
+
 }  // namespace magic

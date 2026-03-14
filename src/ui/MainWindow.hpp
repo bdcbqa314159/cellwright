@@ -6,6 +6,7 @@
 #include "ui/SqlPanel.hpp"
 #include "ui/StyleSetup.hpp"
 #include "core/Clipboard.hpp"
+#include "core/CellInputService.hpp"
 #include <cstdint>
 
 namespace magic {
@@ -48,6 +49,7 @@ private:
     void action_copy(AppState& state);
     void action_cut(AppState& state);
     void action_paste(AppState& state);
+    void action_paste_special(AppState& state, PasteMode mode);
 
     // Decomposed render sub-methods
     void dispatch_context_action(AppState& state, Sheet& sheet);
@@ -80,6 +82,7 @@ private:
 
     bool show_dirty_new_modal_ = false;
     bool show_cond_format_ = false;  // conditional formatting editor window
+    bool show_paste_special_ = false; // paste special modal
     bool wants_close_ = false;
     bool should_quit_ = false;
 

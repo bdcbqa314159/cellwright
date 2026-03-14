@@ -33,6 +33,7 @@ public:
         std::string formula;  // already adjusted
     };
     std::vector<PasteEntry> paste_at(const CellAddress& dest) const;
+    std::vector<PasteEntry> paste_at_transposed(const CellAddress& dest) const;
 
     // Adjust cell references in a formula by a delta
     static std::string adjust_references(const std::string& formula,

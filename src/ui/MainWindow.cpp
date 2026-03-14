@@ -75,6 +75,16 @@ void MainWindow::action_paste(AppState& state) {
     }
 }
 
+void MainWindow::action_paste_special(AppState& state, PasteMode mode) {
+    if (state.clipboard.has_data()) {
+        auto& as = state.active_state();
+        state.cell_input.paste_special(state.clipboard, state.workbook.active_sheet(),
+                                       grid_state_.selection.selected_cell, as.undo_manager, as.format_map,
+                                       as.dep_graph, state.workbook, mode);
+        clear_marching_ants();
+    }
+}
+
 // ── Menu bar ────────────────────────────────────────────────────────────────
 
 void MainWindow::render_menu_bar(AppState& state) {
@@ -148,6 +158,15 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             if (ImGui::MenuItem("Paste", "Ctrl+V", false, state.clipboard.has_data())) {
                 action_paste(state);
+            }
+            if (ImGui::BeginMenu("Paste Special", state.clipboard.has_data())) {
+                if (ImGui::MenuItem("Values Only"))
+                    action_paste_special(state, PasteMode::ValuesOnly);
+                if (ImGui::MenuItem("Formulas Only"))
+                    action_paste_special(state, PasteMode::FormulasOnly);
+                if (ImGui::MenuItem("Transpose"))
+                    action_paste_special(state, PasteMode::Transpose);
+                ImGui::EndMenu();
             }
             ImGui::EndMenu();
         }
@@ -270,6 +289,7 @@ void MainWindow::handle_keyboard(AppState& state) {
 void MainWindow::handle_shortcuts(AppState& state) {
     ImGuiIO& io = ImGui::GetIO();
     bool ctrl = io.KeyCtrl;
+    bool shift = io.KeyShift;
 
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z)) {
         action_undo(state);
@@ -283,7 +303,9 @@ void MainWindow::handle_shortcuts(AppState& state) {
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_X)) {
         action_cut(state);
     }
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
+    if (ctrl && shift && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
+        show_paste_special_ = true;
+    } else if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V) && state.clipboard.has_data()) {
         action_paste(state);
     }
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
@@ -827,6 +849,35 @@ void MainWindow::render_modals(AppState& state) {
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
             wants_close_ = false;
             show_dirty_new_modal_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Paste Special modal (Ctrl+Shift+V)
+    if (show_paste_special_)
+        ImGui::OpenPopup("Paste Special");
+    if (ImGui::BeginPopupModal("Paste Special", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Choose paste mode:");
+        ImGui::Spacing();
+        if (ImGui::Button("Values Only", ImVec2(140, 0))) {
+            action_paste_special(state, PasteMode::ValuesOnly);
+            show_paste_special_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::Button("Formulas Only", ImVec2(140, 0))) {
+            action_paste_special(state, PasteMode::FormulasOnly);
+            show_paste_special_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::Button("Transpose", ImVec2(140, 0))) {
+            action_paste_special(state, PasteMode::Transpose);
+            show_paste_special_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::Spacing();
+        if (ImGui::Button("Cancel", ImVec2(140, 0))) {
+            show_paste_special_ = false;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
