@@ -1,6 +1,7 @@
 #include "ui/MainWindow.hpp"
 #include "app/AppState.hpp"
 #include "app/AutoSave.hpp"
+#include "core/ConditionalFormat.hpp"
 #include "core/Workbook.hpp"
 #include "core/Clipboard.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
@@ -184,6 +185,10 @@ void MainWindow::render_menu_bar(AppState& state) {
             }
             if (ImGui::MenuItem("Date (ISO)", nullptr, current.type == FormatType::DATE)) {
                 apply_format({FormatType::DATE});
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Conditional Formatting...")) {
+                show_cond_format_ = true;
             }
             ImGui::EndMenu();
         }
@@ -517,6 +522,7 @@ void MainWindow::render(AppState& state) {
     grid_state_.dark_theme = (theme_ == Theme::Dark);
     grid_state_.registry = &state.function_registry;
     grid_state_.mono_font = state.mono_font;
+    grid_state_.cond_format = &as.cond_format;
     grid_state_.find_matches = find_bar_.is_visible() ? &find_bar_.matches() : nullptr;
     grid_state_.find_match_index = find_bar_.current_match_index();
 
@@ -557,6 +563,9 @@ void MainWindow::render(AppState& state) {
     state.toasts.render();
 
     render_modals(state);
+
+    // Render conditional formatting editor window
+    if (show_cond_format_) render_cond_format_editor(state);
 
     // Render chart panel as a separate dockable window
     chart_panel_.render(sheet);
@@ -934,6 +943,82 @@ void MainWindow::do_export_csv(AppState& state) {
         else
             state.toasts.show("Failed to export CSV");
     }
+}
+
+void MainWindow::render_cond_format_editor(AppState& state) {
+    auto& store = state.active_state().cond_format;
+    ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Conditional Formatting", &show_cond_format_)) {
+        ImGui::End();
+        return;
+    }
+
+    static const char* op_names[] = {">", "<", ">=", "<=", "==", "!="};
+
+    // Existing rules
+    int to_remove = -1;
+    for (std::size_t i = 0; i < store.size(); ++i) {
+        auto& rule = store.rules()[i];
+        ImGui::PushID(static_cast<int>(i));
+
+        // Column selector
+        ImGui::SetNextItemWidth(60);
+        char col_label[8];
+        if (rule.column == -1)
+            std::snprintf(col_label, sizeof(col_label), "All");
+        else
+            std::snprintf(col_label, sizeof(col_label), "%s",
+                          CellAddress::col_to_letters(rule.column).c_str());
+        if (ImGui::BeginCombo("##col", col_label)) {
+            if (ImGui::Selectable("All", rule.column == -1))
+                rule.column = -1;
+            for (int32_t c = 0; c < 26; ++c) {
+                auto lbl = CellAddress::col_to_letters(c);
+                if (ImGui::Selectable(lbl.c_str(), rule.column == c))
+                    rule.column = c;
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(50);
+        int op_idx = static_cast<int>(rule.op);
+        if (ImGui::Combo("##op", &op_idx, op_names, 6))
+            rule.op = static_cast<ConditionOp>(op_idx);
+
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(80);
+        ImGui::InputDouble("##val", &rule.threshold, 0, 0, "%.2f");
+
+        ImGui::SameLine();
+        float color[4] = {rule.color.r / 255.0f, rule.color.g / 255.0f,
+                           rule.color.b / 255.0f, rule.color.a / 255.0f};
+        ImGui::SetNextItemWidth(40);
+        if (ImGui::ColorEdit4("##clr", color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+            rule.color = {static_cast<uint8_t>(color[0] * 255),
+                          static_cast<uint8_t>(color[1] * 255),
+                          static_cast<uint8_t>(color[2] * 255),
+                          static_cast<uint8_t>(color[3] * 255)};
+        }
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("X"))
+            to_remove = static_cast<int>(i);
+
+        ImGui::PopID();
+    }
+
+    if (to_remove >= 0)
+        store.remove_rule(static_cast<std::size_t>(to_remove));
+
+    ImGui::Separator();
+    if (ImGui::Button("Add Rule")) {
+        ConditionalRule rule;
+        rule.column = grid_state_.selection.selected_cell.col;
+        store.add_rule(rule);
+    }
+
+    ImGui::End();
 }
 
 }  // namespace magic

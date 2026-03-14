@@ -1,6 +1,7 @@
 #include "ui/SpreadsheetGrid.hpp"
 #include "core/Sheet.hpp"
 #include "core/CellFormat.hpp"
+#include "core/ConditionalFormat.hpp"
 #include "formula/Tokenizer.hpp"
 #include <imgui.h>
 #include <algorithm>
@@ -326,6 +327,14 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     if (is_error(val)) {
                         ImGui::PushStyleColor(ImGuiCol_Text, error_text_color);
                         ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(255, 0, 0, 25));
+                    }
+
+                    // Conditional formatting — apply background color from first matching rule
+                    if (state.cond_format && is_number(val)) {
+                        if (auto* cc = state.cond_format->evaluate(col, as_number(val))) {
+                            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                                   IM_COL32(cc->r, cc->g, cc->b, cc->a));
+                        }
                     }
 
                     if (ImGui::Selectable(display.empty() ? "##empty" : display.c_str(),

@@ -78,8 +78,11 @@ private:
     std::string trust_modal_hash_;
 
     bool show_dirty_new_modal_ = false;
+    bool show_cond_format_ = false;  // conditional formatting editor window
     bool wants_close_ = false;
     bool should_quit_ = false;
+
+    void render_cond_format_editor(AppState& state);
 };
 
 }  // namespace magic

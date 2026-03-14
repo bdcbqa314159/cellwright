@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace magic { class FunctionRegistry; }
+namespace magic { class FunctionRegistry; class ConditionalFormatStore; }
 
 namespace magic {
 
@@ -80,6 +80,7 @@ struct GridState {
     // Function registry for autocomplete (set by MainWindow each frame)
     const FunctionRegistry* registry = nullptr;
     ImFont* mono_font = nullptr;  // monospace font for formula editing
+    const ConditionalFormatStore* cond_format = nullptr;  // conditional formatting rules
 
     // Find match highlighting (set by MainWindow each frame)
     const std::vector<CellAddress>* find_matches = nullptr;
