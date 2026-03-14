@@ -5,7 +5,7 @@
 
 namespace magic {
 
-static std::string adjust_refs_impl(const std::string& formula, bool is_row, int32_t at, int delta) {
+static std::string adjust_refs_impl(const std::string& formula, bool is_row, int32_t at, int32_t delta) {
     try {
         auto tokens = Tokenizer::tokenize(formula);
         std::ostringstream out;

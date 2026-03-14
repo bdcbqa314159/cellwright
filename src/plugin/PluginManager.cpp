@@ -1,4 +1,5 @@
 #include "plugin/PluginManager.hpp"
+#include "core/Workbook.hpp"
 #include "util/Sha256.hpp"
 #include <cstring>
 #include <filesystem>
@@ -20,6 +21,22 @@ int count_args_from_signature(const char* sig) {
         if (*p == ',') ++count;
     }
     return count;
+}
+
+// ── IFunction bridge helper ──────────────────────────────────────────────────
+// Registers a plugin function with arity checks, avoiding lambda duplication.
+
+template <typename Callable>
+static void register_ifunc_bridge(FunctionRegistry& registry, const std::string& name,
+                                   int min_args, int max_args, Callable&& callable) {
+    registry.register_function(name,
+        [callable = std::forward<Callable>(callable), min_args, max_args]
+        (const std::vector<CellValue>& args) -> CellValue {
+            int n = static_cast<int>(args.size());
+            if (n < min_args) return CellValue{CellError::VALUE};
+            if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+            return callable(args);
+        });
 }
 
 // ── Constructors ────────────────────────────────────────────────────────────
@@ -120,15 +137,10 @@ bool PluginManager::load_ifunction(const std::string& path) {
             lp.function_names.push_back(fd.name);
             entry.function_names.push_back(fd.name);
 
-            auto hot_ref = hot;  // lambda captures shared_ptr to HotPluginLoader
+            auto hot_ref = hot;
             std::string fn_name = fd.name;
-            int min_args = fd.min_args;
-            int max_args = fd.max_args;
-            registry_.register_function(fd.name,
-                [hot_ref, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
-                    int n = static_cast<int>(args.size());
-                    if (n < min_args) return CellValue{CellError::VALUE};
-                    if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+            register_ifunc_bridge(registry_, fd.name, fd.min_args, fd.max_args,
+                [hot_ref, fn_name](const std::vector<CellValue>& args) {
                     return hot_ref->get_instance()->call(fn_name, args);
                 });
         }
@@ -163,6 +175,15 @@ bool PluginManager::load_ipanel(const std::string& path) {
     }
 }
 
+void PluginManager::init_panels(Workbook& workbook) {
+    for (auto& pi : panels_) {
+        if (!pi.initialized) {
+            pi.panel->init(workbook);
+            pi.initialized = true;
+        }
+    }
+}
+
 void PluginManager::render_panels() {
     for (auto& pi : panels_) {
         pi.panel->render();
@@ -186,13 +207,8 @@ int PluginManager::poll_reloads() {
 
                 auto hot_ref = entry.loader;
                 std::string fn_name = fd.name;
-                int min_args = fd.min_args;
-                int max_args = fd.max_args;
-                registry_.register_function(fd.name,
-                    [hot_ref, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
-                        int n = static_cast<int>(args.size());
-                        if (n < min_args) return CellValue{CellError::VALUE};
-                        if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+                register_ifunc_bridge(registry_, fd.name, fd.min_args, fd.max_args,
+                    [hot_ref, fn_name](const std::vector<CellValue>& args) {
                         return hot_ref->get_instance()->call(fn_name, args);
                     });
             }
@@ -238,7 +254,9 @@ bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) 
                 [raw, nargs, captured_lib](const std::vector<CellValue>& args) -> CellValue {
                     int n = static_cast<int>(args.size());
                     if (n != nargs) return CellValue{CellError::VALUE};
-                    switch (nargs) {
+                    // Arity-based dispatch limited to 0–4 args. For higher arities,
+            // libffi or a generic calling convention would be needed.
+            switch (nargs) {
                     case 0: {
                         auto fn = reinterpret_cast<double(*)()>(raw);
                         return CellValue{fn()};
@@ -289,13 +307,8 @@ bool PluginManager::load_python(const std::string& path) {
 
             auto inst = instance;
             std::string fn_name = fd.name;
-            int min_args = fd.min_args;
-            int max_args = fd.max_args;
-            registry_.register_function(fd.name,
-                [inst, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
-                    int n = static_cast<int>(args.size());
-                    if (n < min_args) return CellValue{CellError::VALUE};
-                    if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
+            register_ifunc_bridge(registry_, fd.name, fd.min_args, fd.max_args,
+                [inst, fn_name](const std::vector<CellValue>& args) {
                     return inst->call(fn_name, args);
                 });
         }

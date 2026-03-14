@@ -99,7 +99,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     // Zone detection and cursor setting (uses rect captured from previous frame)
     bool in_formula_or_edit = state.editor.is_formula_mode() || state.editor.is_editing();
     CellZone hovered_zone = CellZone::None;
-    if (!in_formula_or_edit && state.drag_mode == CellDragMode::None) {
+    if (!in_formula_or_edit && state.drag.drag_mode == CellDragMode::None) {
         ImVec2 mouse = ImGui::GetMousePos();
         hovered_zone = detect_zone(mouse, state.selected_rect_min, state.selected_rect_max);
         switch (hovered_zone) {
@@ -110,21 +110,21 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     }
 
     // Drag initiation on mouse press
-    if (!in_formula_or_edit && state.drag_mode == CellDragMode::None &&
+    if (!in_formula_or_edit && state.drag.drag_mode == CellDragMode::None &&
         ImGui::IsMouseClicked(0) && hovered_zone != CellZone::None) {
         switch (hovered_zone) {
             case CellZone::Edge:
-                state.drag_mode = CellDragMode::Move;
-                state.drag_source = state.selected;
+                state.drag.drag_mode = CellDragMode::Move;
+                state.drag.drag_source = state.selection.selected_cell;
                 break;
             case CellZone::Interior:
-                state.drag_mode = CellDragMode::Select;
-                state.sel_anchor = state.selected;
-                state.has_range_selection = false;
+                state.drag.drag_mode = CellDragMode::Select;
+                state.selection.sel_anchor = state.selection.selected_cell;
+                state.selection.has_range = false;
                 break;
             case CellZone::FillHandle:
-                state.drag_mode = CellDragMode::Fill;
-                state.drag_source = state.selected;
+                state.drag.drag_mode = CellDragMode::Fill;
+                state.drag.drag_source = state.selection.selected_cell;
                 break;
             default: break;
         }
@@ -174,8 +174,8 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     CellAddress drag_hover{-1, -1};
 
     // Cancel drag if we left formula mode (e.g. Escape)
-    if (state.formula_dragging && !state.editor.is_formula_mode())
-        state.formula_dragging = false;
+    if (state.drag.formula_dragging && !state.editor.is_formula_mode())
+        state.drag.formula_dragging = false;
 
     // Build reference highlight map for formula mode (cached)
     // Use cell editor buffer if editing in-cell, otherwise formula bar buffer
@@ -198,22 +198,22 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     auto sel_max = state.sel_max();
 
     // Precompute drag highlight bounds once (avoid per-cell min/max)
-    bool has_formula_drag_highlight = state.formula_dragging && state.formula_drag_target.col >= 0;
+    bool has_formula_drag_highlight = state.drag.formula_dragging && state.drag.formula_drag_target.col >= 0;
     int fd_c1 = 0, fd_c2 = -1, fd_r1 = 0, fd_r2 = -1;
     if (has_formula_drag_highlight) {
-        fd_c1 = std::min(state.formula_drag_origin.col, state.formula_drag_target.col);
-        fd_c2 = std::max(state.formula_drag_origin.col, state.formula_drag_target.col);
-        fd_r1 = std::min(state.formula_drag_origin.row, state.formula_drag_target.row);
-        fd_r2 = std::max(state.formula_drag_origin.row, state.formula_drag_target.row);
+        fd_c1 = std::min(state.drag.formula_drag_origin.col, state.drag.formula_drag_target.col);
+        fd_c2 = std::max(state.drag.formula_drag_origin.col, state.drag.formula_drag_target.col);
+        fd_r1 = std::min(state.drag.formula_drag_origin.row, state.drag.formula_drag_target.row);
+        fd_r2 = std::max(state.drag.formula_drag_origin.row, state.drag.formula_drag_target.row);
     }
 
-    bool has_fill_drag_highlight = state.drag_mode == CellDragMode::Fill && state.drag_target.col >= 0;
+    bool has_fill_drag_highlight = state.drag.drag_mode == CellDragMode::Fill && state.drag.drag_target.col >= 0;
     int fl_c1 = 0, fl_c2 = -1, fl_r1 = 0, fl_r2 = -1;
     if (has_fill_drag_highlight) {
-        fl_c1 = std::min(state.drag_source.col, state.drag_target.col);
-        fl_c2 = std::max(state.drag_source.col, state.drag_target.col);
-        fl_r1 = std::min(state.drag_source.row, state.drag_target.row);
-        fl_r2 = std::max(state.drag_source.row, state.drag_target.row);
+        fl_c1 = std::min(state.drag.drag_source.col, state.drag.drag_target.col);
+        fl_c2 = std::max(state.drag.drag_source.col, state.drag.drag_target.col);
+        fl_r1 = std::min(state.drag.drag_source.row, state.drag.drag_target.row);
+        fl_r2 = std::max(state.drag.drag_source.row, state.drag.drag_target.row);
     }
 
     // Marching ants: track screen rect of clipboard range
@@ -268,9 +268,9 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
                                            fill_drag_color);
 
-                bool is_selected = (state.selected == addr);
+                bool is_selected = (state.selection.selected_cell == addr);
                 // Highlight cells in selection range
-                if (!is_selected && state.has_range_selection) {
+                if (!is_selected && state.selection.has_range) {
                     is_selected = (col >= sel_min.col && col <= sel_max.col &&
                                    row >= sel_min.row && row <= sel_max.row);
                 }
@@ -332,10 +332,10 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                                           is_selected,
                                           ImGuiSelectableFlags_AllowDoubleClick)) {
                         if (!state.editor.is_formula_mode() &&
-                            state.drag_mode == CellDragMode::None) {
-                            state.selected = addr;
-                            state.sel_anchor = addr;
-                            state.has_range_selection = false;
+                            state.drag.drag_mode == CellDragMode::None) {
+                            state.selection.selected_cell = addr;
+                            state.selection.sel_anchor = addr;
+                            state.selection.has_range = false;
 
                             // Double click only to enter edit mode (#33)
                             if (ImGui::IsMouseDoubleClicked(0)) {
@@ -380,7 +380,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     // Capture selected cell rect using full cell bounds
                     // GetItemRectMax gives correct bottom-right (Selectable spans cell width),
                     // but use cell_min for top-left since right-align may shift cursor.
-                    if (state.selected == addr) {
+                    if (state.selection.selected_cell == addr) {
                         state.selected_rect_min = cell_min;
                         state.selected_rect_max = ImGui::GetItemRectMax();
 
@@ -416,17 +416,17 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
 
                         // Formula-mode drag start
                         if (state.editor.is_formula_mode() && ImGui::IsMouseClicked(0)) {
-                            state.formula_drag_origin = addr;
-                            state.formula_dragging = true;
+                            state.drag.formula_drag_origin = addr;
+                            state.drag.formula_dragging = true;
                         }
                     }
 
                     if (is_error(val)) ImGui::PopStyleColor();
 
                     // Track clipboard range bounds for marching ants
-                    if (state.show_marching_ants &&
-                        col >= state.clip_min.col && col <= state.clip_max.col &&
-                        row >= state.clip_min.row && row <= state.clip_max.row) {
+                    if (state.clipboard_visual.show_marching_ants &&
+                        col >= state.clipboard_visual.clip_min.col && col <= state.clipboard_visual.clip_max.col &&
+                        row >= state.clipboard_visual.clip_min.row && row <= state.clipboard_visual.clip_max.row) {
                         ImVec2 r_min = cell_min;
                         ImVec2 r_max = ImGui::GetItemRectMax();
                         if (r_min.x < ants_min.x) ants_min.x = r_min.x;
@@ -477,37 +477,37 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     }
 
     // Update formula drag target each frame for visual feedback
-    if (state.formula_dragging && ImGui::IsMouseDown(0)) {
+    if (state.drag.formula_dragging && ImGui::IsMouseDown(0)) {
         if (drag_hover.col >= 0)
-            state.formula_drag_target = drag_hover;
+            state.drag.formula_drag_target = drag_hover;
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
     }
 
     // Formula-mode drag end: mouse released over a cell
-    if (state.formula_dragging && ImGui::IsMouseReleased(0)) {
+    if (state.drag.formula_dragging && ImGui::IsMouseReleased(0)) {
         if (state.editor.is_formula_mode() && drag_hover.col >= 0) {
-            if (state.formula_drag_origin == drag_hover)
+            if (state.drag.formula_drag_origin == drag_hover)
                 state.editor.insert_ref(drag_hover.to_a1());
             else
                 state.editor.insert_ref(
-                    state.formula_drag_origin.to_a1() + ":" + drag_hover.to_a1());
+                    state.drag.formula_drag_origin.to_a1() + ":" + drag_hover.to_a1());
         }
-        state.formula_dragging = false;
-        state.formula_drag_target = {-1, -1};
+        state.drag.formula_dragging = false;
+        state.drag.formula_drag_target = {-1, -1};
     }
 
     // Cell drag tracking while mouse is held
-    if (state.drag_mode != CellDragMode::None && ImGui::IsMouseDown(0)) {
+    if (state.drag.drag_mode != CellDragMode::None && ImGui::IsMouseDown(0)) {
         if (drag_hover.col >= 0 && drag_hover.row >= 0) {
-            state.drag_target = drag_hover;
-            if (state.drag_mode == CellDragMode::Select) {
-                state.selected = drag_hover;
-                if (!(drag_hover == state.sel_anchor))
-                    state.has_range_selection = true;
+            state.drag.drag_target = drag_hover;
+            if (state.drag.drag_mode == CellDragMode::Select) {
+                state.selection.selected_cell = drag_hover;
+                if (!(drag_hover == state.selection.sel_anchor))
+                    state.selection.has_range = true;
             }
         }
         // Set cursor during drag
-        switch (state.drag_mode) {
+        switch (state.drag.drag_mode) {
             case CellDragMode::Move: ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); break;
             case CellDragMode::Fill: ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll); break;
             default: break;
@@ -515,15 +515,15 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     }
 
     // Drag completion on mouse release
-    if (state.drag_mode != CellDragMode::None && ImGui::IsMouseReleased(0)) {
-        if (state.drag_mode == CellDragMode::Move || state.drag_mode == CellDragMode::Fill) {
+    if (state.drag.drag_mode != CellDragMode::None && ImGui::IsMouseReleased(0)) {
+        if (state.drag.drag_mode == CellDragMode::Move || state.drag.drag_mode == CellDragMode::Fill) {
             if (drag_hover.col >= 0 && drag_hover.row >= 0) {
-                state.drag_target = drag_hover;
-                state.drag_completed = true;
+                state.drag.drag_target = drag_hover;
+                state.drag.drag_completed = true;
             }
         }
         // Always reset drag mode on mouse release (#5)
-        state.drag_mode = CellDragMode::None;
+        state.drag.drag_mode = CellDragMode::None;
     }
 
     return committed;

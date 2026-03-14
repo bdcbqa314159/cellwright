@@ -70,11 +70,11 @@ void CellInputService::recalc_dependents(Sheet& sheet, const CellAddress& addr,
     }
 }
 
-// ── process ─────────────────────────────────────────────────────────────────
+// ── process_impl (shared by process and process_no_recalc) ──────────────────
 
-void CellInputService::process(const char* buf, Sheet& sheet, const CellAddress& addr,
-                                UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
-                                Workbook& workbook) {
+void CellInputService::process_impl(const char* buf, Sheet& sheet, const CellAddress& addr,
+                                     UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
+                                     Workbook& workbook, bool do_recalc) {
     std::string input(buf);
     CellValue old_val = sheet.get_value(addr);
     std::string old_formula = sheet.get_formula(addr);
@@ -83,7 +83,8 @@ void CellInputService::process(const char* buf, Sheet& sheet, const CellAddress&
         auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
         undo.execute(std::move(cmd), sheet);
         dep_graph.set_dependencies(addr, {});
-        recalc_dependents(sheet, addr, dep_graph, &workbook);
+        if (do_recalc)
+            recalc_dependents(sheet, addr, dep_graph, &workbook);
         return;
     }
 
@@ -103,7 +104,8 @@ void CellInputService::process(const char* buf, Sheet& sheet, const CellAddress&
             auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
             undo.execute(std::move(cmd), sheet);
 
-            recalc_dependents(sheet, addr, dep_graph, &workbook);
+            if (do_recalc)
+                recalc_dependents(sheet, addr, dep_graph, &workbook);
         } catch (const std::exception&) {
             dep_graph.set_dependencies(addr, {});
             auto cmd = std::make_unique<SetFormulaCommand>(
@@ -139,8 +141,17 @@ void CellInputService::process(const char* buf, Sheet& sheet, const CellAddress&
 
         auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
         undo.execute(std::move(cmd), sheet);
-        recalc_dependents(sheet, addr, dep_graph, &workbook);
+        if (do_recalc)
+            recalc_dependents(sheet, addr, dep_graph, &workbook);
     }
+}
+
+// ── process ─────────────────────────────────────────────────────────────────
+
+void CellInputService::process(const char* buf, Sheet& sheet, const CellAddress& addr,
+                                UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
+                                Workbook& workbook) {
+    process_impl(buf, sheet, addr, undo, formats, dep_graph, workbook, true);
 }
 
 // ── process_no_recalc ───────────────────────────────────────────────────────
@@ -148,68 +159,7 @@ void CellInputService::process(const char* buf, Sheet& sheet, const CellAddress&
 void CellInputService::process_no_recalc(const char* buf, Sheet& sheet, const CellAddress& addr,
                                           UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
                                           Workbook& workbook) {
-    std::string input(buf);
-    CellValue old_val = sheet.get_value(addr);
-    std::string old_formula = sheet.get_formula(addr);
-
-    if (input.empty()) {
-        auto cmd = std::make_unique<SetValueCommand>(addr, CellValue{}, old_val, old_formula);
-        undo.execute(std::move(cmd), sheet);
-        dep_graph.set_dependencies(addr, {});
-        return;
-    }
-
-    if (input[0] == '=') {
-        std::string formula = input.substr(1);
-        try {
-            auto tokens = Tokenizer::tokenize(formula);
-            auto parsed = Parser::parse(tokens);
-
-            std::vector<CellAddress> refs;
-            collect_refs(*parsed.root, refs);
-            dep_graph.set_dependencies(addr, refs);
-
-            Evaluator eval(sheet, registry_, &workbook);
-            CellValue result = eval.evaluate(*parsed.root);
-
-            auto cmd = std::make_unique<SetFormulaCommand>(addr, formula, result, old_val, old_formula);
-            undo.execute(std::move(cmd), sheet);
-        } catch (const std::exception&) {
-            dep_graph.set_dependencies(addr, {});
-            auto cmd = std::make_unique<SetFormulaCommand>(
-                addr, formula, CellValue{CellError::VALUE}, old_val, old_formula);
-            undo.execute(std::move(cmd), sheet);
-        }
-    } else {
-        dep_graph.set_dependencies(addr, {});
-        CellValue new_val;
-
-        auto date_result = parse_date(input);
-        if (date_result) {
-            new_val = CellValue{date_result->serial};
-            CellFormat cur = formats.get(addr);
-            if (cur.type == FormatType::GENERAL) {
-                CellFormat date_fmt;
-                date_fmt.type = FormatType::DATE;
-                date_fmt.date_input_hint = date_result->input_hint;
-                formats.set(addr, date_fmt);
-            }
-        } else {
-            try {
-                size_t pos = 0;
-                double d = std::stod(input, &pos);
-                if (pos == input.size())
-                    new_val = CellValue{d};
-                else
-                    new_val = CellValue{input};
-            } catch (...) {
-                new_val = CellValue{input};
-            }
-        }
-
-        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, old_val, old_formula);
-        undo.execute(std::move(cmd), sheet);
-    }
+    process_impl(buf, sheet, addr, undo, formats, dep_graph, workbook, false);
 }
 
 // ── batch_recalc ────────────────────────────────────────────────────────────

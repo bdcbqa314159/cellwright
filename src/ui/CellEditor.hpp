@@ -29,8 +29,9 @@ private:
     bool cursor_to_end_ = false;
     int frames_since_start_ = 0;
     int cursor_pos_ = 0;
+    static constexpr std::size_t kFormulaBufferSize = 1024;
     CellAddress cell_;
-    char buf_[1024] = {};
+    char buf_[kFormulaBufferSize] = {};
     AutocompletePopup autocomplete_;
 };
 

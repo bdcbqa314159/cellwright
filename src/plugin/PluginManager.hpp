@@ -38,6 +38,9 @@ public:
 
     const std::vector<LoadedPlugin>& loaded() const { return loaded_; }
 
+    // Initialize all loaded IPanel plugins that haven't been initialized yet
+    void init_panels(Workbook& workbook);
+
     // Render all loaded IPanel plugins
     void render_panels();
 
@@ -72,6 +75,7 @@ private:
     struct PanelInstance {
         std::shared_ptr<IPanel> panel;
         std::shared_ptr<plugin_arch::PluginLoader<IPanel>> loader;
+        bool initialized = false;
     };
     std::vector<PanelInstance> panels_;
 };

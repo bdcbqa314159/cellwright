@@ -208,7 +208,8 @@ void Evaluator::collect_args_into(const std::vector<ASTNode*>& args, std::vector
 }
 
 // Column fast-path dispatch: maps builtin aggregate names to Column SIMD methods.
-// Coupled to StatFunctions.cpp registration — names must match exactly.
+// These names must match the functions registered in MathFunctions.cpp that have
+// Column-level SIMD implementations.
 static std::optional<CellValue> try_column_aggregate(
     const std::string& name, const Column& col, int32_t from, int32_t to) {
     if (name == "SUM")   return CellValue{col.sum(from, to)};

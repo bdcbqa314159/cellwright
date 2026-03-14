@@ -12,6 +12,8 @@ class Clipboard;
 class FormatMap;
 class UndoManager;
 
+// CellInputService handles cell input processing and also clipboard operations
+// (copy, cut, paste) for historical reasons — they share the cell-processing pipeline.
 class CellInputService {
 public:
     explicit CellInputService(FunctionRegistry& registry);
@@ -47,6 +49,9 @@ public:
                Workbook& workbook);
 
 private:
+    void process_impl(const char* buf, Sheet& sheet, const CellAddress& addr,
+                      UndoManager& undo, FormatMap& formats, DependencyGraph& dep_graph,
+                      Workbook& workbook, bool do_recalc);
     FunctionRegistry& registry_;
 };
 

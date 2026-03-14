@@ -42,9 +42,26 @@ struct AppState {
     PerSheetState& active_state() { return sheet_states[workbook.active_index()]; }
     const PerSheetState& active_state() const { return sheet_states[workbook.active_index()]; }
 
+    // Invariant: sheet_states.size() must equal workbook.sheet_count().
     void ensure_sheet_states() {
         while (static_cast<int>(sheet_states.size()) < workbook.sheet_count())
             sheet_states.emplace_back();
+        while (static_cast<int>(sheet_states.size()) > workbook.sheet_count()) {
+            sheet_states.pop_back();
+            if (static_cast<int>(saved_generations_.size()) > workbook.sheet_count())
+                saved_generations_.pop_back();
+        }
+        active_sheet_ = std::clamp(workbook.active_index(), 0,
+                                    std::max(0, workbook.sheet_count() - 1));
+    }
+
+    void remove_sheet_state(int index) {
+        if (index < 0 || index >= static_cast<int>(sheet_states.size())) return;
+        sheet_states.erase(sheet_states.begin() + index);
+        if (index < static_cast<int>(saved_generations_.size()))
+            saved_generations_.erase(saved_generations_.begin() + index);
+        active_sheet_ = std::clamp(workbook.active_index(), 0,
+                                    std::max(0, static_cast<int>(sheet_states.size()) - 1));
     }
 
     // Reset to a fresh untitled workbook
@@ -58,6 +75,15 @@ struct AppState {
 
     // Open a file, replacing current workbook state
     [[nodiscard]] bool open_file(const std::string& path);
+
+    // Save workbook to a path, updating current_file and marking saved
+    [[nodiscard]] bool save_file(const std::string& path);
+
+    // Import CSV into the active sheet, resetting per-sheet state
+    [[nodiscard]] bool import_csv(const std::string& path);
+
+    // Export active sheet to CSV
+    [[nodiscard]] bool export_csv(const std::string& path);
 
     // Dirty tracking: compare each sheet's undo generation against saved snapshot
     [[nodiscard]] bool is_dirty() const {
@@ -76,6 +102,7 @@ struct AppState {
     }
 
 private:
+    int active_sheet_ = 0;  // cached clamped active sheet index
     std::vector<uint64_t> saved_generations_{0};  // one per sheet
 };
 

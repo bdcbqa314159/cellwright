@@ -17,16 +17,47 @@ enum class CellDragMode { None, Move, Select, Fill };
 enum class ContextAction { None, Cut, Copy, Paste, Clear, InsertRow, InsertCol, DeleteRow, DeleteCol, SortAsc, SortDesc };
 
 struct GridState {
-    CellAddress selected{0, 0};
-    // Selection range (anchor + selected define the range)
-    CellAddress sel_anchor{0, 0};
-    bool has_range_selection = false;
-    CellEditor editor;
+    // ── Selection state ──────────────────────────────────────────────────────
+    struct SelectionState {
+        CellAddress selected_cell{0, 0};
+        CellAddress sel_anchor{0, 0};
+        bool has_range = false;
 
-    // Formula-mode drag state (for click-drag range insertion)
-    CellAddress formula_drag_origin{0, 0};
-    CellAddress formula_drag_target{-1, -1};  // live hover target (for visual feedback)
-    bool formula_dragging = false;
+        CellAddress sel_min() const {
+            if (!has_range) return selected_cell;
+            return {std::min(sel_anchor.col, selected_cell.col), std::min(sel_anchor.row, selected_cell.row)};
+        }
+        CellAddress sel_max() const {
+            if (!has_range) return selected_cell;
+            return {std::max(sel_anchor.col, selected_cell.col), std::max(sel_anchor.row, selected_cell.row)};
+        }
+    };
+    SelectionState selection;
+
+    // ── Drag state ───────────────────────────────────────────────────────────
+    struct DragState {
+        CellDragMode drag_mode = CellDragMode::None;
+        CellAddress drag_source{0, 0};
+        CellAddress drag_target{0, 0};
+        bool drag_completed = false;  // set true on mouse release after drag
+
+        // Formula-mode drag (for click-drag range insertion)
+        CellAddress formula_drag_origin{0, 0};
+        CellAddress formula_drag_target{-1, -1};  // live hover target
+        bool formula_dragging = false;
+    };
+    DragState drag;
+
+    // ── Clipboard visual state ───────────────────────────────────────────────
+    struct ClipboardVisual {
+        bool show_marching_ants = false;
+        CellAddress clip_min{0, 0};
+        CellAddress clip_max{0, 0};
+    };
+    ClipboardVisual clipboard_visual;
+
+    // ── Non-grouped state ────────────────────────────────────────────────────
+    CellEditor editor;
 
     // Formula bar buffer pointer (set by MainWindow each frame when formula bar is active)
     const char* formula_bar_buf = nullptr;
@@ -53,26 +84,10 @@ struct GridState {
     const std::vector<CellAddress>* find_matches = nullptr;
     int find_match_index = -1;
 
-    // Clipboard source range (for marching ants animation)
-    bool show_marching_ants = false;
-    CellAddress clip_min{0, 0};
-    CellAddress clip_max{0, 0};
-
-    // Cell interaction drag state
-    CellDragMode drag_mode = CellDragMode::None;
-    CellAddress drag_source{0, 0};
-    CellAddress drag_target{0, 0};
-    bool drag_completed = false;  // set true on mouse release after drag
-
-    // Get the rectangular selection bounds
-    CellAddress sel_min() const {
-        if (!has_range_selection) return selected;
-        return {std::min(sel_anchor.col, selected.col), std::min(sel_anchor.row, selected.row)};
-    }
-    CellAddress sel_max() const {
-        if (!has_range_selection) return selected;
-        return {std::max(sel_anchor.col, selected.col), std::max(sel_anchor.row, selected.row)};
-    }
+    // ── Convenience accessors (backwards compatibility) ─────────────────────
+    // These delegate to nested sub-structs for readability at call sites.
+    CellAddress sel_min() const { return selection.sel_min(); }
+    CellAddress sel_max() const { return selection.sel_max(); }
 };
 
 class SpreadsheetGrid {

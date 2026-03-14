@@ -24,7 +24,8 @@ public:
     void focus_name_box() { focus_name_box_ = true; }
 
 private:
-    char buf_[1024] = {};
+    static constexpr std::size_t kFormulaBufferSize = 1024;
+    char buf_[kFormulaBufferSize] = {};
     char name_buf_[32] = {};
     CellAddress last_selected_{-1, -1};
     bool editing_ = false;

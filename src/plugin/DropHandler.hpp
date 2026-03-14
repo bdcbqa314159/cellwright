@@ -7,6 +7,7 @@ struct GLFWwindow;
 
 namespace magic {
 
+// DropHandler uses static state (callback_) — assumes a single GLFW window per process.
 class DropHandler {
 public:
     using LoadCallback = std::function<void(const std::string& path)>;
