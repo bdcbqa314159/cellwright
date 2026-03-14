@@ -106,7 +106,6 @@ public:
 private:
     int32_t col_;
     std::vector<CellValue> saved_col_values_;                       // cells in deleted column
-    std::unordered_map<int32_t, std::string> saved_col_formulas_;   // row → formula (deleted col only)
     std::unordered_map<CellAddress, std::string> pre_delete_formulas_; // entire sheet formula snapshot
 };
 

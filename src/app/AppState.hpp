@@ -51,8 +51,6 @@ struct AppState {
             if (static_cast<int>(saved_generations_.size()) > workbook.sheet_count())
                 saved_generations_.pop_back();
         }
-        active_sheet_ = std::clamp(workbook.active_index(), 0,
-                                    std::max(0, workbook.sheet_count() - 1));
     }
 
     void remove_sheet_state(int index) {
@@ -60,8 +58,6 @@ struct AppState {
         sheet_states.erase(sheet_states.begin() + index);
         if (index < static_cast<int>(saved_generations_.size()))
             saved_generations_.erase(saved_generations_.begin() + index);
-        active_sheet_ = std::clamp(workbook.active_index(), 0,
-                                    std::max(0, static_cast<int>(sheet_states.size()) - 1));
     }
 
     // Reset to a fresh untitled workbook
@@ -102,7 +98,6 @@ struct AppState {
     }
 
 private:
-    int active_sheet_ = 0;  // cached clamped active sheet index
     std::vector<uint64_t> saved_generations_{0};  // one per sheet
 };
 

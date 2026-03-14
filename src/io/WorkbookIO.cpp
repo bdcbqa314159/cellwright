@@ -316,7 +316,13 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                             val = CellValue{unescape_json(raw_v)};
                                     }
                                     else if (type == "b") val = CellValue{raw_v == "true"};
-                                    else if (type == "e") val = CellValue{static_cast<CellError>(std::stoi(raw_v))};
+                                    else if (type == "e") {
+                                        int ev = std::stoi(raw_v);
+                                        if (ev >= 0 && ev <= 4)
+                                            val = CellValue{static_cast<CellError>(ev)};
+                                        else
+                                            val = CellValue{CellError::VALUE};
+                                    }
                                 }
                                 // Skip cells with out-of-range coordinates
                                 static constexpr int MAX_COL = 16384;
