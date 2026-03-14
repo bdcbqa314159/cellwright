@@ -9,6 +9,7 @@
 #include "formula/DependencyGraph.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
 #include "plugin/PluginManager.hpp"
+#include "app/AutoSave.hpp"
 #include "app/Settings.hpp"
 #include "ui/MainWindow.hpp"
 #include "ui/ToastManager.hpp"
@@ -34,7 +35,9 @@ struct AppState {
     Settings settings;
     std::string current_file;  // path to current .magic file (empty = untitled)
     std::string pending_plugin_path;  // set by DropHandler when untrusted; cleared by modal
+    AutoSave auto_save;
     bool font_rebuild_needed = false;  // set by UI when font size changes
+    bool show_recovery_modal = false;  // set on startup if recovery file found
 
     // Per-sheet state (indexed by sheet index, kept in sync with workbook)
     std::vector<PerSheetState> sheet_states{1};

@@ -41,8 +41,11 @@ void App::run(int argc, char** argv) {
     init_window();
     init_imgui();
     init_builtins();
-    if (argc > 1 && argv && argv[1])
+    if (argc > 1 && argv && argv[1]) {
         (void)state_.open_file(argv[1]);
+    } else if (AutoSave::has_recovery()) {
+        state_.show_recovery_modal = true;
+    }
     main_loop();
     shutdown();
     NFD::Quit();
@@ -166,6 +169,9 @@ void App::main_loop() {
 
         glfwSwapBuffers(window_);
 
+        // Auto-save recovery file periodically when dirty
+        state_.auto_save.poll(state_.workbook, state_.is_dirty());
+
         // Update window title only when state changes
         {
             bool dirty = state_.is_dirty();
@@ -198,6 +204,9 @@ void App::main_loop() {
 }
 
 void App::shutdown() {
+    // Clean exit — remove recovery file
+    AutoSave::discard_recovery();
+
     // Save window position/size to settings
     if (window_) {
         auto& wr = state_.settings.window_rect;

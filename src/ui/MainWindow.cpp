@@ -1,5 +1,6 @@
 #include "ui/MainWindow.hpp"
 #include "app/AppState.hpp"
+#include "app/AutoSave.hpp"
 #include "core/Workbook.hpp"
 #include "core/Clipboard.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
@@ -826,6 +827,34 @@ void MainWindow::render_modals(AppState& state) {
         ImGui::SameLine();
         if (ImGui::Button("Cancel", ImVec2(140, 0))) {
             state.pending_plugin_path.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Recovery modal — shown on startup if a recovery file exists
+    if (state.show_recovery_modal)
+        ImGui::OpenPopup("Recover Unsaved Work?");
+    if (ImGui::BeginPopupModal("Recover Unsaved Work?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("A recovery file was found from a previous session.");
+        ImGui::Text("Would you like to restore it?");
+        ImGui::Spacing();
+        if (ImGui::Button("Restore", ImVec2(120, 0))) {
+            auto path = AutoSave::recovery_path();
+            if (state.open_file(path.string())) {
+                state.current_file.clear();  // don't associate with recovery file
+                state.toasts.show("Recovered unsaved work");
+            } else {
+                state.toasts.show("Recovery failed");
+            }
+            AutoSave::discard_recovery();
+            state.show_recovery_modal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Discard", ImVec2(120, 0))) {
+            AutoSave::discard_recovery();
+            state.show_recovery_modal = false;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

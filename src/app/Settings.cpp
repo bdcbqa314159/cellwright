@@ -1,21 +1,10 @@
 #include "app/Settings.hpp"
+#include "util/ConfigDir.hpp"
 #include <algorithm>
-#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
 namespace magic {
-
-static std::string get_config_dir() {
-#ifdef _WIN32
-    const char* appdata = std::getenv("APPDATA");
-    if (appdata) return appdata;
-    const char* userprofile = std::getenv("USERPROFILE");
-    if (userprofile) return userprofile;
-#endif
-    const char* home = std::getenv("HOME");
-    return home ? home : ".";
-}
 
 std::string Settings::settings_path() {
     std::string dir = get_config_dir();
