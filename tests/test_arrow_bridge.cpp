@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <stdexcept>
 
 using namespace magic;
 
@@ -182,6 +183,45 @@ TEST(ArrowBridge, ImportSetsSheetName) {
 
     Sheet imported = import_sheet_from_arrow(&schema, &array, "MySheet");
     EXPECT_EQ(imported.name(), "MySheet");
+
+    schema.release(&schema);
+    array.release(&array);
+}
+
+TEST(ArrowBridge, ImportRejectsNullInput) {
+    EXPECT_THROW(import_sheet_from_arrow(nullptr, nullptr), std::invalid_argument);
+}
+
+TEST(ArrowBridge, ImportRejectsNonStructSchema) {
+    ArrowSchema schema{};
+    schema.format = "g";  // float64, not struct
+    schema.release = nullptr;
+    ArrowArray array{};
+    array.length = 0;
+    array.release = nullptr;
+    EXPECT_THROW(import_sheet_from_arrow(&schema, &array), std::invalid_argument);
+}
+
+TEST(ArrowBridge, ExportPaddsSparseColumns) {
+    // Column with only row 0 populated but sheet has 5 rows
+    Sheet sheet("sparse", 1, 5);
+    sheet.set_value({0, 0}, CellValue{42.0});
+
+    ArrowSchema schema{};
+    ArrowArray array{};
+    export_sheet_to_arrow(sheet, &schema, &array);
+
+    const auto* col = array.children[0];
+    EXPECT_EQ(col->length, 5);
+    EXPECT_EQ(col->null_count, 4);
+
+    // Data buffer should be safe to read for all 5 entries
+    const auto* data = static_cast<const double*>(col->buffers[1]);
+    EXPECT_DOUBLE_EQ(data[0], 42.0);
+    // Remaining entries exist (padded) — values are NaN but memory is valid
+    for (int i = 1; i < 5; ++i) {
+        EXPECT_TRUE(std::isnan(data[i]));
+    }
 
     schema.release(&schema);
     array.release(&array);

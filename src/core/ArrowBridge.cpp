@@ -3,10 +3,11 @@
 #include "core/CellValue.hpp"
 #include "core/Sheet.hpp"
 
-#include <cassert>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #ifndef ARROW_FLAG_NULLABLE
@@ -22,7 +23,7 @@ static size_t bitmap_byte_count(int64_t n) {
 }
 
 static void bitmap_set(uint8_t* bitmap, int64_t i) {
-    bitmap[i / 8] |= static_cast<uint8_t>(1 << (i % 8));
+    bitmap[i / 8] |= static_cast<uint8_t>(1u << (i % 8));
 }
 
 static bool bitmap_get(const uint8_t* bitmap, int64_t i) {
@@ -34,7 +35,8 @@ static bool bitmap_get(const uint8_t* bitmap, int64_t i) {
 // Holds allocated resources for a child (column-level) ArrowArray.
 struct ColumnExportData {
     std::vector<uint8_t> validity;
-    // buffers[0] = validity bitmap, buffers[1] = data pointer (into Column)
+    std::vector<double> padded_data;  // only allocated when doubles.size() < num_rows
+    // buffers[0] = validity bitmap, buffers[1] = data pointer
     const void* buffers[2];
 };
 
@@ -71,11 +73,9 @@ static void release_child_schema(ArrowSchema* schema) {
 }
 
 static void release_struct_schema(ArrowSchema* schema) {
-    // children array and child schemas are owned by StructExportData
-    // which is freed by release_struct_array
-    if (schema->children) {
-        schema->children = nullptr;
-    }
+    // All child data is owned by StructExportData (freed via release_struct_array).
+    // Safe to call in any order relative to array release.
+    schema->children = nullptr;
     schema->release = nullptr;
 }
 
@@ -111,9 +111,18 @@ void export_sheet_to_arrow(const Sheet& sheet, ArrowSchema* schema, ArrowArray* 
             }
         }
 
-        // Point directly at Column's contiguous double storage (zero-copy)
+        // Data buffer must be at least num_rows elements per Arrow spec.
+        // Zero-copy when the Column already has enough backing storage;
+        // otherwise copy into a padded buffer.
         cd->buffers[0] = cd->validity.data();
-        cd->buffers[1] = doubles.data();
+        if (static_cast<int32_t>(doubles.size()) >= num_rows) {
+            cd->buffers[1] = doubles.data();
+        } else {
+            cd->padded_data.assign(doubles.begin(), doubles.end());
+            cd->padded_data.resize(static_cast<size_t>(num_rows),
+                                   std::numeric_limits<double>::quiet_NaN());
+            cd->buffers[1] = cd->padded_data.data();
+        }
 
         // Fill child ArrowArray
         ArrowArray& child = data->child_arrays[ci];
@@ -182,24 +191,27 @@ Sheet import_sheet_from_arrow(
     const ArrowArray* array,
     const std::string& sheet_name)
 {
-    assert(schema && array);
-    assert(std::strcmp(schema->format, "+s") == 0 && "Expected struct schema");
+    if (!schema || !array)
+        throw std::invalid_argument("import_sheet_from_arrow: null schema or array");
+    if (!schema->format || std::strcmp(schema->format, "+s") != 0)
+        throw std::invalid_argument("import_sheet_from_arrow: expected struct schema (+s)");
+    if (schema->n_children < 0 || array->length < 0)
+        throw std::invalid_argument("import_sheet_from_arrow: negative dimensions");
+    if (schema->n_children > Sheet::MAX_COL)
+        throw std::invalid_argument("import_sheet_from_arrow: too many columns");
+    if (array->length > Sheet::MAX_ROW)
+        throw std::invalid_argument("import_sheet_from_arrow: too many rows");
 
-    int64_t num_cols = schema->n_children;
-    int64_t num_rows = array->length;
+    auto num_cols = static_cast<int32_t>(schema->n_children);
+    auto num_rows = static_cast<int32_t>(array->length);
 
-    Sheet sheet(sheet_name,
-                static_cast<int32_t>(num_cols),
-                static_cast<int32_t>(num_rows));
+    Sheet sheet(sheet_name, num_cols, num_rows);
 
-    for (int64_t c = 0; c < num_cols; ++c) {
+    for (int32_t c = 0; c < num_cols; ++c) {
         const ArrowSchema* cs = schema->children[c];
         const ArrowArray* ca = array->children[c];
 
-        // Set column name on the sheet if available
-        if (cs->name && cs->name[0] != '\0') {
-            // Column names are used for display; sheet columns are indexed
-        }
+        if (!cs || !ca || !cs->format) continue;
 
         if (std::strcmp(cs->format, "g") != 0) {
             // Skip non-float64 columns — future extension point
@@ -216,13 +228,12 @@ Sheet import_sheet_from_arrow(
         if (!values) continue;
 
         int64_t offset = ca->offset;
-        auto col_idx = static_cast<int32_t>(c);
 
-        for (int64_t r = 0; r < num_rows; ++r) {
+        for (int32_t r = 0; r < num_rows; ++r) {
             int64_t idx = r + offset;
             bool valid = !validity || bitmap_get(validity, idx);
             if (valid) {
-                sheet.set_value({col_idx, static_cast<int32_t>(r)},
+                sheet.set_value({c, r},
                                 CellValue{values[idx]});
             }
             // Invalid (null) entries remain as empty (monostate)
