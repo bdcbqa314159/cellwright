@@ -32,6 +32,7 @@ include(cmake/Dependencies.cmake)
 
 add_library(cellwright_core STATIC
     # core
+    src/core/ArrowBridge.cpp
     src/core/Arena.cpp
     src/core/CellAddress.cpp
     src/core/CellFormat.cpp

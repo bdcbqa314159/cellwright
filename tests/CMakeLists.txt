@@ -1,5 +1,6 @@
 add_executable(cellwright_tests
     test_arena.cpp
+    test_arrow_bridge.cpp
     test_async_recalc.cpp
     test_bond_plugin.cpp
     test_cell_address.cpp
