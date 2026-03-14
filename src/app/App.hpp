@@ -18,8 +18,11 @@ private:
     void main_loop();
     void shutdown();
 
+    void rebuild_fonts();
+
     GLFWwindow* window_ = nullptr;
     AppState state_;
+    float dpi_scale_ = 1.0f;
 
     // Cached title state to avoid rebuilding every frame
     std::string cached_title_;

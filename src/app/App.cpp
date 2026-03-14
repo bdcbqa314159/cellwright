@@ -80,6 +80,9 @@ void App::init_window() {
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);  // vsync
 
+    // Query DPI scale for high-DPI displays (Retina, Windows scaling)
+    glfwGetWindowContentScale(window_, &dpi_scale_, nullptr);
+
     // Install drop handler — trusted plugins load immediately, untrusted go to modal
     DropHandler::install(window_, [this](const std::string& path) {
         if (state_.plugin_manager.allowlist().is_trusted(path)) {
@@ -108,24 +111,38 @@ void App::init_imgui() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    // Load Roboto as the default font (replaces ImGui's tiny ProggyClean)
-    // Fall back to ImGui default if font file is missing
-    const char* font_path = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
-    if (std::ifstream(font_path).good())
-        io.Fonts->AddFontFromFileTTF(font_path, state_.settings.font_size);
-
-    // Load Cousine as monospace font for formula bar and cell editor
-    const char* mono_path = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
-    if (std::ifstream(mono_path).good())
-        state_.mono_font = io.Fonts->AddFontFromFileTTF(mono_path, state_.settings.font_size);
+    // Load fonts scaled by DPI
+    rebuild_fonts();
 
     setup_style();
+    // Scale style by DPI
+    ImGui::GetStyle().ScaleAllSizes(dpi_scale_);
     apply_theme(Theme::Dark);
 
     ImGui_ImplGlfw_InitForOpenGL(window_, true);
     ImGui_ImplOpenGL3_Init("#version 150");
 
     ImPlot::CreateContext();
+}
+
+void App::rebuild_fonts() {
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->Clear();
+    state_.mono_font = nullptr;
+
+    float scaled_size = state_.settings.font_size * dpi_scale_;
+
+    const char* font_path = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
+    if (std::ifstream(font_path).good())
+        io.Fonts->AddFontFromFileTTF(font_path, scaled_size);
+    else
+        io.Fonts->AddFontDefault();
+
+    const char* mono_path = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
+    if (std::ifstream(mono_path).good())
+        state_.mono_font = io.Fonts->AddFontFromFileTTF(mono_path, scaled_size);
+
+    io.Fonts->Build();
 }
 
 void App::init_builtins() {
@@ -149,21 +166,25 @@ void App::main_loop() {
         if (int n = state_.plugin_manager.poll_reloads(); n > 0)
             state_.toasts.show("Plugin reloaded");
 
-        // Rebuild font atlas if font size changed
+        // Detect DPI scale changes (e.g., window moved between monitors)
+        {
+            float new_scale = 1.0f;
+            glfwGetWindowContentScale(window_, &new_scale, nullptr);
+            if (new_scale != dpi_scale_) {
+                dpi_scale_ = new_scale;
+                state_.font_rebuild_needed = true;
+            }
+        }
+
+        // Rebuild font atlas if font size or DPI changed
         if (state_.font_rebuild_needed) {
             state_.font_rebuild_needed = false;
-            ImGuiIO& font_io = ImGui::GetIO();
-            font_io.Fonts->Clear();
-            state_.mono_font = nullptr;
-            const char* fp = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
-            if (std::ifstream(fp).good())
-                font_io.Fonts->AddFontFromFileTTF(fp, state_.settings.font_size);
-            else
-                font_io.Fonts->AddFontDefault();
-            const char* mp = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
-            if (std::ifstream(mp).good())
-                state_.mono_font = font_io.Fonts->AddFontFromFileTTF(mp, state_.settings.font_size);
-            font_io.Fonts->Build();
+            rebuild_fonts();
+            // Re-apply style scaling
+            ImGui::GetStyle() = ImGuiStyle();
+            setup_style();
+            ImGui::GetStyle().ScaleAllSizes(dpi_scale_);
+            apply_theme(Theme::Dark);  // re-apply after style reset
         }
 
         state_.main_window.render(state_);
