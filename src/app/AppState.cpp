@@ -1,4 +1,5 @@
 #include "app/AppState.hpp"
+#include "app/AutoSave.hpp"
 #include "io/WorkbookIO.hpp"
 #include "io/CsvIO.hpp"
 
@@ -20,6 +21,7 @@ bool AppState::save_file(const std::string& path) {
     if (WorkbookIO::save(path, workbook)) {
         current_file = path;
         mark_saved();
+        AutoSave::discard_recovery();  // manual save supersedes recovery file
         settings.add_recent_file(path);
         return true;
     }
