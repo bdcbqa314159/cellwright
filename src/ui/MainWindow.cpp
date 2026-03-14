@@ -214,6 +214,29 @@ void MainWindow::render_menu_bar(AppState& state) {
                 }
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("Freeze Panes")) {
+                bool no_freeze = (grid_state_.freeze_rows == 0 && grid_state_.freeze_cols == 0);
+                if (ImGui::MenuItem("None", nullptr, no_freeze)) {
+                    grid_state_.freeze_rows = 0;
+                    grid_state_.freeze_cols = 0;
+                }
+                if (ImGui::MenuItem("Freeze Top Row", nullptr,
+                                    grid_state_.freeze_rows == 1 && grid_state_.freeze_cols == 0)) {
+                    grid_state_.freeze_rows = 1;
+                    grid_state_.freeze_cols = 0;
+                }
+                if (ImGui::MenuItem("Freeze First Column", nullptr,
+                                    grid_state_.freeze_rows == 0 && grid_state_.freeze_cols == 1)) {
+                    grid_state_.freeze_rows = 0;
+                    grid_state_.freeze_cols = 1;
+                }
+                if (ImGui::MenuItem("Freeze at Selection")) {
+                    auto& sel = grid_state_.selection.selected_cell;
+                    grid_state_.freeze_rows = sel.row;
+                    grid_state_.freeze_cols = sel.col;
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::BeginMenu("Font Size")) {
                 static constexpr float sizes[] = {12.0f, 14.0f, 16.0f, 18.0f, 20.0f, 24.0f};
                 for (float sz : sizes) {

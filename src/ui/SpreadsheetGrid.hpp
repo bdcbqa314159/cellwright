@@ -82,6 +82,12 @@ struct GridState {
     ImFont* mono_font = nullptr;  // monospace font for formula editing
     const ConditionalFormatStore* cond_format = nullptr;  // conditional formatting rules
 
+    // Freeze panes: number of frozen rows/cols beyond the header.
+    // 0 = only the header row/row-number column are frozen (default).
+    // e.g., freeze_rows=2 freezes the header + 2 data rows.
+    int freeze_rows = 0;
+    int freeze_cols = 0;
+
     // Find match highlighting (set by MainWindow each frame)
     const std::vector<CellAddress>* find_matches = nullptr;
     int find_match_index = -1;

@@ -138,7 +138,8 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
 
     if (!ImGui::BeginTable("spreadsheet", table_cols, flags)) return false;
 
-    ImGui::TableSetupScrollFreeze(1, 1);
+    // Freeze header row + row-number column, plus user-configured extra panes
+    ImGui::TableSetupScrollFreeze(1 + state.freeze_cols, 1 + state.freeze_rows);
 
     // Ensure col_widths_ vector is big enough
     if (static_cast<int>(col_widths_.size()) < num_cols)
