@@ -56,7 +56,10 @@ void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_nam
     auto create_result = impl_->conn.Query(create_sql);
     if (create_result->HasError()) return;
 
-    // Bulk insert using Appender
+    // Bulk insert using Appender.
+    // Note: DuckDB's Appender API takes a table name parameter (not raw SQL),
+    // so SQL injection is not a concern here. The table name is also currently
+    // hardcoded to "data" by the caller, further limiting risk.
     duckdb::Appender appender(impl_->conn, table_name);
     for (int32_t r = 0; r < nrows; ++r) {
         bool has_data = false;

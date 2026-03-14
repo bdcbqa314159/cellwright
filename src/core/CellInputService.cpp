@@ -14,7 +14,10 @@ namespace magic {
 
 // ── AST reference collector ─────────────────────────────────────────────────
 
-static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs) {
+static constexpr int MAX_COLLECT_DEPTH = 256;
+
+static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs, int depth = 0) {
+    if (depth >= MAX_COLLECT_DEPTH) return;
     std::visit([&](const auto& v) {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, CellRefNode>) {
@@ -28,15 +31,15 @@ static void collect_refs(const ASTNode& node, std::vector<CellAddress>& refs) {
                 for (int32_t r = r1; r <= r2; ++r)
                     refs.push_back({c, r});
         } else if constexpr (std::is_same_v<T, BinOpNode>) {
-            collect_refs(*v.left, refs);
-            collect_refs(*v.right, refs);
+            collect_refs(*v.left, refs, depth + 1);
+            collect_refs(*v.right, refs, depth + 1);
         } else if constexpr (std::is_same_v<T, UnaryOpNode>) {
-            collect_refs(*v.operand, refs);
+            collect_refs(*v.operand, refs, depth + 1);
         } else if constexpr (std::is_same_v<T, FuncCallNode>) {
-            for (const auto& arg : v.args) collect_refs(*arg, refs);
+            for (const auto& arg : v.args) collect_refs(*arg, refs, depth + 1);
         } else if constexpr (std::is_same_v<T, CompareNode>) {
-            collect_refs(*v.left, refs);
-            collect_refs(*v.right, refs);
+            collect_refs(*v.left, refs, depth + 1);
+            collect_refs(*v.right, refs, depth + 1);
         }
     }, node.value);
 }

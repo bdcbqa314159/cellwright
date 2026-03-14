@@ -8,10 +8,10 @@ namespace magic {
 class CsvIO {
 public:
     // Import CSV into a sheet, replacing its contents
-    static bool import_file(const std::filesystem::path& path, Sheet& sheet);
+    [[nodiscard]] static bool import_file(const std::filesystem::path& path, Sheet& sheet);
 
     // Export a sheet to CSV
-    static bool export_file(const std::filesystem::path& path, const Sheet& sheet);
+    [[nodiscard]] static bool export_file(const std::filesystem::path& path, const Sheet& sheet);
 
     // Parse CSV string into a sheet
     static void parse(const std::string& csv, Sheet& sheet);

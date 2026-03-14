@@ -1,4 +1,5 @@
 #include "io/CsvIO.hpp"
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -115,6 +116,11 @@ std::string CsvIO::serialize(const Sheet& sheet) {
 }
 
 bool CsvIO::import_file(const std::filesystem::path& path, Sheet& sheet) {
+    static constexpr uintmax_t MAX_CSV_FILE_SIZE = 500ULL * 1024 * 1024;  // 500 MB
+    std::error_code ec;
+    auto fsize = std::filesystem::file_size(path, ec);
+    if (ec || fsize > MAX_CSV_FILE_SIZE) return false;
+
     std::ifstream file(path);
     if (!file.is_open()) return false;
 

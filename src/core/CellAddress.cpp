@@ -13,9 +13,11 @@ std::string CellAddress::col_to_letters(int32_t c) {
 }
 
 int32_t CellAddress::letters_to_col(const std::string& letters) {
+    static constexpr int32_t MAX_COL = 16384;
     int32_t col = 0;
     for (char ch : letters) {
         col = col * 26 + (std::toupper(ch) - 'A' + 1);
+        if (col > MAX_COL) return MAX_COL;  // overflow protection
     }
     return col - 1;
 }
@@ -39,7 +41,10 @@ std::optional<CellAddress> CellAddress::from_a1(const std::string& s) {
     static constexpr int MAX_ROW = 1048576;
     if (row_1based < 1 || row_1based > MAX_ROW) return std::nullopt;
 
-    return CellAddress{letters_to_col(letters), row_1based - 1};
+    int32_t col = letters_to_col(letters);
+    static constexpr int32_t MAX_COL = 16384;
+    if (col < 0 || col >= MAX_COL) return std::nullopt;
+    return CellAddress{col, row_1based - 1};
 }
 
 std::string CellAddress::to_a1() const {

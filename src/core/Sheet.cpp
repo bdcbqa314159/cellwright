@@ -134,7 +134,8 @@ Column& Sheet::column(int32_t col) {
 }
 
 const Column& Sheet::column(int32_t col) const {
-    if (col < 0 || col >= col_count()) { static const Column empty; return empty; }
+    if (col < 0 || col >= col_count())
+        throw std::out_of_range("column index out of range");
     return columns_[col];
 }
 

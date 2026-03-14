@@ -247,6 +247,11 @@ void UndoManager::execute(CommandPtr cmd, Sheet& sheet) {
     cmd->execute(sheet);
     undo_stack_.push_back(std::move(cmd));
     redo_stack_.clear();
+    // Trim oldest entries if stack exceeds max depth
+    if (undo_stack_.size() > MAX_UNDO_DEPTH) {
+        undo_stack_.erase(undo_stack_.begin(),
+                          undo_stack_.begin() + static_cast<ptrdiff_t>(undo_stack_.size() - MAX_UNDO_DEPTH));
+    }
     ++generation_;
 }
 

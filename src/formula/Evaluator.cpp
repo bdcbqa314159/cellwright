@@ -4,8 +4,12 @@
 #include "core/Workbook.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <optional>
 #include <stdexcept>
+
+static_assert(sizeof(size_t) >= 8 || sizeof(void*) >= 8,
+              "cellwright requires a 64-bit platform to avoid range size overflow");
 
 namespace magic {
 
@@ -13,10 +17,10 @@ Evaluator::Evaluator(Sheet& sheet, const FunctionRegistry& registry, Workbook* w
     : sheet_(sheet), registry_(registry), workbook_(workbook) {}
 
 CellValue Evaluator::evaluate(const ASTNode& node) {
-    if (++depth_ > MAX_EVAL_DEPTH) {
-        --depth_;
+    if (depth_ >= MAX_EVAL_DEPTH) {
         return CellValue{CellError::VALUE};
     }
+    ++depth_;
     struct DepthGuard {
         int& d;
         ~DepthGuard() { --d; }

@@ -163,11 +163,15 @@ struct JsonReader {
     double read_number() {
         skip_ws();
         size_t start = pos;
-        if (pos < s.size() && s[pos] == '-') ++pos;
+        if (pos < s.size() && (s[pos] == '-' || s[pos] == '+')) ++pos;
         while (pos < s.size() && (std::isdigit(static_cast<unsigned char>(s[pos])) ||
-               s[pos] == '.' || s[pos] == 'e' || s[pos] == 'E' ||
-               s[pos] == '+' || s[pos] == '-')) ++pos;
-        // Avoid double-consuming leading minus
+               s[pos] == '.')) ++pos;
+        // Exponent part: e/E followed by optional sign and digits
+        if (pos < s.size() && (s[pos] == 'e' || s[pos] == 'E')) {
+            ++pos;
+            if (pos < s.size() && (s[pos] == '+' || s[pos] == '-')) ++pos;
+            while (pos < s.size() && std::isdigit(static_cast<unsigned char>(s[pos]))) ++pos;
+        }
         if (pos == start) throw std::runtime_error("JSON: expected number");
         return std::stod(s.substr(start, pos - start));
     }
@@ -314,7 +318,11 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                     else if (type == "b") val = CellValue{raw_v == "true"};
                                     else if (type == "e") val = CellValue{static_cast<CellError>(std::stoi(raw_v))};
                                 }
-                                cells.emplace_back(c, r2, val);
+                                // Skip cells with out-of-range coordinates
+                                static constexpr int MAX_COL = 16384;
+                                static constexpr int MAX_ROW = 1048576;
+                                if (c >= 0 && c < MAX_COL && r2 >= 0 && r2 < MAX_ROW)
+                                    cells.emplace_back(c, r2, val);
                                 if (r.peek() == ',') r.next();
                             }
                             r.expect(']');
@@ -335,7 +343,9 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                     if (r.peek() == ',') r.next();
                                 }
                                 r.expect('}');
-                                formulas.emplace_back(c, r2, f);
+                                // Skip formulas with out-of-range coordinates
+                                if (c >= 0 && c < 16384 && r2 >= 0 && r2 < 1048576)
+                                    formulas.emplace_back(c, r2, f);
                                 if (r.peek() == ',') r.next();
                             }
                             r.expect(']');
@@ -396,6 +406,11 @@ bool WorkbookIO::save(const std::filesystem::path& path, const Workbook& workboo
 }
 
 bool WorkbookIO::load(const std::filesystem::path& path, Workbook& workbook) {
+    static constexpr uintmax_t MAX_WORKBOOK_FILE_SIZE = 100ULL * 1024 * 1024;  // 100 MB
+    std::error_code ec;
+    auto fsize = std::filesystem::file_size(path, ec);
+    if (ec || fsize > MAX_WORKBOOK_FILE_SIZE) return false;
+
     std::ifstream file(path);
     if (!file.is_open()) return false;
     std::ostringstream buf;

@@ -22,9 +22,12 @@ namespace magic {
 
 void MainWindow::action_save(AppState& state) {
     if (!state.current_file.empty()) {
-        WorkbookIO::save(state.current_file, state.workbook);
-        state.mark_saved();
-        state.toasts.show("Saved");
+        if (WorkbookIO::save(state.current_file, state.workbook)) {
+            state.mark_saved();
+            state.toasts.show("Saved");
+        } else {
+            state.toasts.show("Save failed!");
+        }
     } else {
         do_save(state);
     }

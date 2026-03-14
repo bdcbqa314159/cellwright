@@ -9,7 +9,9 @@ std::string to_display_string(const CellValue& v) {
     if (is_empty(v)) return "";
     if (is_number(v)) {
         double d = as_number(v);
-        // 2^53 is the largest integer exactly representable in double
+        // 2^53 is the largest integer exactly representable in double.
+        // The isfinite() guard above ensures d is not NaN or Inf, which
+        // protects the int64_t cast below from undefined behavior.
         constexpr double max_safe_int = 9007199254740992.0;
         if (std::isfinite(d) && std::abs(d) <= max_safe_int &&
             d == static_cast<int64_t>(d))

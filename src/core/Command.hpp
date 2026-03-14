@@ -130,6 +130,8 @@ private:
 // Undo/redo manager
 class UndoManager {
 public:
+    static constexpr size_t MAX_UNDO_DEPTH = 200;
+
     void execute(CommandPtr cmd, Sheet& sheet);
     bool can_undo() const { return !undo_stack_.empty(); }
     bool can_redo() const { return !redo_stack_.empty(); }

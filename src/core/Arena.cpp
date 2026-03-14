@@ -46,10 +46,13 @@ void* Arena::allocate(size_t size, size_t align) {
     // Align current_offset_ up
     size_t aligned = (current_offset_ + align - 1) & ~(align - 1);
     if (aligned + size > blk.capacity) {
-        grow(size);
+        // Allocate enough for the requested size plus worst-case alignment padding
+        grow(size + align - 1);
         auto& new_blk = blocks_.back();
-        current_offset_ = size;
-        return new_blk.data;
+        // current_offset_ is 0 after grow(); re-align from 0
+        size_t new_aligned = (0 + align - 1) & ~(align - 1);  // 0 for power-of-2 align
+        current_offset_ = new_aligned + size;
+        return new_blk.data + new_aligned;
     }
     current_offset_ = aligned + size;
     return blk.data + aligned;

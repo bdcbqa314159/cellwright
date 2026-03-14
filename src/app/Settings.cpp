@@ -6,10 +6,21 @@
 
 namespace magic {
 
-std::string Settings::settings_path() {
+static std::string get_config_dir() {
+#ifdef _WIN32
+    const char* appdata = std::getenv("APPDATA");
+    if (appdata) return appdata;
+    const char* userprofile = std::getenv("USERPROFILE");
+    if (userprofile) return userprofile;
+#endif
     const char* home = std::getenv("HOME");
-    if (!home) return "";
-    return std::string(home) + "/.cellwright.json";
+    return home ? home : ".";
+}
+
+std::string Settings::settings_path() {
+    std::string dir = get_config_dir();
+    if (dir.empty()) return "";
+    return dir + "/.cellwright.json";
 }
 
 void Settings::add_recent_file(const std::string& path) {

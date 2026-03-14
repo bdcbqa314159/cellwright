@@ -30,8 +30,11 @@ void FindBar::do_search(Sheet& sheet) {
     if (query.empty()) return;
     last_search_ = query;
 
-    for (int32_t r = 0; r < sheet.row_count(); ++r) {
-        for (int32_t c = 0; c < sheet.col_count(); ++c) {
+    // Limit search to actual data extent (col_count/row_count track populated area)
+    int32_t max_search_rows = std::min(sheet.row_count(), int32_t{1048576});
+    int32_t max_search_cols = std::min(sheet.col_count(), int32_t{16384});
+    for (int32_t r = 0; r < max_search_rows; ++r) {
+        for (int32_t c = 0; c < max_search_cols; ++c) {
             CellAddress addr{c, r};
             CellValue val = sheet.get_value(addr);
             std::string display = to_display_string(val);

@@ -22,26 +22,26 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
             return to_display_string(val);
 
         case FormatType::NUMBER: {
-            char buf[64];
+            char buf[256];
             std::snprintf(buf, sizeof(buf), "%.*f", decimals, d);
             return buf;
         }
 
         case FormatType::PERCENTAGE: {
-            char buf[64];
+            char buf[256];
             std::snprintf(buf, sizeof(buf), "%.*f%%", decimals, d * 100.0);
             return buf;
         }
 
         case FormatType::CURRENCY: {
-            char buf[64];
+            char buf[256];
             std::snprintf(buf, sizeof(buf), "%s%.*f", fmt.currency_symbol.c_str(), decimals, std::abs(d));
             if (d < 0) return std::string("-") + buf;
             return buf;
         }
 
         case FormatType::SCIENTIFIC: {
-            char buf[64];
+            char buf[256];
             std::snprintf(buf, sizeof(buf), "%.*e", decimals, d);
             return buf;
         }
