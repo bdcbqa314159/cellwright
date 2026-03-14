@@ -9,6 +9,7 @@ void FunctionRegistry::register_function(const std::string& name, SpreadsheetFun
     std::string upper = name;
     std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
     funcs_[upper] = std::move(fn);
+    signatures_.erase(upper);  // clear stale hint if re-registering without one
 }
 
 void FunctionRegistry::register_function(const std::string& name, SpreadsheetFunc fn,
@@ -19,16 +20,18 @@ void FunctionRegistry::register_function(const std::string& name, SpreadsheetFun
     signatures_[upper] = signature_hint;
 }
 
-std::string FunctionRegistry::signature(const std::string& name) const {
+const std::string& FunctionRegistry::signature(const std::string& name) const {
+    static const std::string empty;
     std::string upper = name;
     std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
     auto it = signatures_.find(upper);
-    return it != signatures_.end() ? it->second : std::string{};
+    return it != signatures_.end() ? it->second : empty;
 }
 
 bool FunctionRegistry::unregister_function(const std::string& name) {
     std::string upper = name;
     std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
+    signatures_.erase(upper);
     return funcs_.erase(upper) > 0;
 }
 

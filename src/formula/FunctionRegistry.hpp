@@ -26,7 +26,7 @@ public:
 
     // Returns the signature hint for a function (e.g., "SUM(number1, ...)").
     // Returns empty string if no hint is registered.
-    [[nodiscard]] std::string signature(const std::string& name) const;
+    [[nodiscard]] const std::string& signature(const std::string& name) const;
 
 private:
     std::unordered_map<std::string, SpreadsheetFunc> funcs_;
