@@ -12,7 +12,8 @@ public:
     // Render the formula bar. Returns true if the user committed a new value.
     // nav_target is set when user navigates via the name box.
     bool render(Sheet& sheet, const CellAddress& selected,
-                bool cell_editing = false, const FunctionRegistry* registry = nullptr);
+                bool cell_editing = false, const FunctionRegistry* registry = nullptr,
+                ImFont* mono_font = nullptr);
     const char* buffer() const { return buf_; }
     bool is_editing() const { return editing_; }
     bool is_formula_mode() const { return editing_ && buf_[0] == '='; }

@@ -114,6 +114,11 @@ void App::init_imgui() {
     if (std::ifstream(font_path).good())
         io.Fonts->AddFontFromFileTTF(font_path, state_.settings.font_size);
 
+    // Load Cousine as monospace font for formula bar and cell editor
+    const char* mono_path = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
+    if (std::ifstream(mono_path).good())
+        state_.mono_font = io.Fonts->AddFontFromFileTTF(mono_path, state_.settings.font_size);
+
     setup_style();
     apply_theme(Theme::Dark);
 
@@ -149,11 +154,15 @@ void App::main_loop() {
             state_.font_rebuild_needed = false;
             ImGuiIO& font_io = ImGui::GetIO();
             font_io.Fonts->Clear();
+            state_.mono_font = nullptr;
             const char* fp = IMGUI_FONT_DIR "/Roboto-Medium.ttf";
             if (std::ifstream(fp).good())
                 font_io.Fonts->AddFontFromFileTTF(fp, state_.settings.font_size);
             else
                 font_io.Fonts->AddFontDefault();
+            const char* mp = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
+            if (std::ifstream(mp).good())
+                state_.mono_font = font_io.Fonts->AddFontFromFileTTF(mp, state_.settings.font_size);
             font_io.Fonts->Build();
         }
 

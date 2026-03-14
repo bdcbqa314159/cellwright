@@ -18,7 +18,7 @@ void CellEditor::begin_edit(const CellAddress& cell, const std::string& initial,
     autocomplete_.reset();
 }
 
-bool CellEditor::render(const FunctionRegistry* registry) {
+bool CellEditor::render(const FunctionRegistry* registry, ImFont* mono_font) {
     if (!editing_) return false;
 
     // Only grab focus on the first frame
@@ -28,6 +28,8 @@ bool CellEditor::render(const FunctionRegistry* registry) {
     }
 
     ImGui::SetNextItemWidth(-1);
+
+    if (mono_font) ImGui::PushFont(mono_font);
 
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
                                 ImGuiInputTextFlags_CallbackAlways;
@@ -54,6 +56,9 @@ bool CellEditor::render(const FunctionRegistry* registry) {
     };
 
     bool committed = ImGui::InputText("##celledit", buf_, sizeof(buf_), flags, cb, &cb_data);
+
+    if (mono_font) ImGui::PopFont();
+
     ImVec2 anchor = ImGui::GetItemRectMin();
     anchor.y = ImGui::GetItemRectMax().y;
 

@@ -279,7 +279,7 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 if (is_editing) {
                     ImGui::SetNextItemWidth(-1);
                     ImVec2 edit_min = ImGui::GetCursorScreenPos();
-                    if (state.editor.render(state.registry)) {
+                    if (state.editor.render(state.registry, state.mono_font)) {
                         committed = true;
                     }
                     // Green border for in-cell editing (distinct from blue selection)

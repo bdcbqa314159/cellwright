@@ -8,7 +8,8 @@
 namespace magic {
 
 bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
-                         bool cell_editing, const FunctionRegistry* registry) {
+                         bool cell_editing, const FunctionRegistry* registry,
+                         ImFont* mono_font) {
     bool committed = false;
 
     // Clickable name box — editable InputText for Go-To navigation
@@ -49,6 +50,9 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
 
     ImGui::SetNextItemWidth(-1);
 
+    // Use monospace font for formula editing
+    if (mono_font) ImGui::PushFont(mono_font);
+
     // Read-only when cell editor is active to prevent focus stealing
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
                                 ImGuiInputTextFlags_CallbackAlways;
@@ -83,6 +87,8 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
 
     if (has_error)
         ImGui::PopStyleColor(2);
+
+    if (mono_font) ImGui::PopFont();
 
     editing_ = !cell_editing && ImGui::IsItemActive();
 

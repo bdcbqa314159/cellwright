@@ -16,7 +16,8 @@ public:
 
     // select_all=true for F2/double-click, false for type-to-edit
     void begin_edit(const CellAddress& cell, const std::string& initial, bool select_all = true);
-    bool render(const FunctionRegistry* registry = nullptr);  // returns true on commit
+    bool render(const FunctionRegistry* registry = nullptr,
+                ImFont* mono_font = nullptr);  // returns true on commit
     void cancel();
     void insert_ref(const std::string& ref);
 

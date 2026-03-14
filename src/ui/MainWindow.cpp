@@ -491,7 +491,7 @@ void MainWindow::render(AppState& state) {
 
     // Formula bar
     bool cell_editing = grid_state_.editor.is_editing();
-    if (formula_bar_.render(sheet, grid_state_.selection.selected_cell, cell_editing, &state.function_registry)) {
+    if (formula_bar_.render(sheet, grid_state_.selection.selected_cell, cell_editing, &state.function_registry, state.mono_font)) {
         ci.process(formula_bar_.buffer(), sheet, grid_state_.selection.selected_cell,
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
@@ -516,6 +516,7 @@ void MainWindow::render(AppState& state) {
         ? formula_bar_.buffer() : nullptr;
     grid_state_.dark_theme = (theme_ == Theme::Dark);
     grid_state_.registry = &state.function_registry;
+    grid_state_.mono_font = state.mono_font;
     grid_state_.find_matches = find_bar_.is_visible() ? &find_bar_.matches() : nullptr;
     grid_state_.find_match_index = find_bar_.current_match_index();
 

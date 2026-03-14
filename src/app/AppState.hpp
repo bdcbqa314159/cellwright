@@ -1,4 +1,5 @@
 #pragma once
+#include <imgui.h>
 #include "core/Workbook.hpp"
 #include "core/Command.hpp"
 #include "core/Clipboard.hpp"
@@ -36,6 +37,7 @@ struct AppState {
     std::string current_file;  // path to current .magic file (empty = untitled)
     std::string pending_plugin_path;  // set by DropHandler when untrusted; cleared by modal
     AutoSave auto_save;
+    ImFont* mono_font = nullptr;       // monospace font for formula editing (Cousine)
     bool font_rebuild_needed = false;  // set by UI when font size changes
     bool show_recovery_modal = false;  // set on startup if recovery file found
 

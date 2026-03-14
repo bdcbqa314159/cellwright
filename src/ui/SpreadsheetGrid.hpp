@@ -79,6 +79,7 @@ struct GridState {
 
     // Function registry for autocomplete (set by MainWindow each frame)
     const FunctionRegistry* registry = nullptr;
+    ImFont* mono_font = nullptr;  // monospace font for formula editing
 
     // Find match highlighting (set by MainWindow each frame)
     const std::vector<CellAddress>* find_matches = nullptr;
