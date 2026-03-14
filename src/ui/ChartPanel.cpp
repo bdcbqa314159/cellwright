@@ -205,11 +205,7 @@ void ChartPanel::render_plot(Sheet& sheet) {
                 bar_spec.Flags = ImPlotBarGroupsFlags_Stacked;
                 ImPlot::PlotBarGroups(labels.data(), data.data(), item_count, num_rows, 0.67, 0, bar_spec);
             }
-            // Skip per-series rendering below
-            ImPlot::EndPlot();
-            ImPlot::PopColormap();
-            return;
-        }
+        } else {
 
         for (int c = 0; c < sheet.col_count(); ++c) {
             if (static_cast<size_t>(c) >= y_col_selected_.size() || !y_col_selected_[static_cast<size_t>(c)])
@@ -281,6 +277,7 @@ void ChartPanel::render_plot(Sheet& sheet) {
 
             is_first_series = false;
         }
+        } // end non-stacked path
 
         // Hover tooltip
         if (ImPlot::IsPlotHovered()) {

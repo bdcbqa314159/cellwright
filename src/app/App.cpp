@@ -115,8 +115,6 @@ void App::init_imgui() {
     rebuild_fonts();
 
     setup_style();
-    // Scale style by DPI
-    ImGui::GetStyle().ScaleAllSizes(dpi_scale_);
     apply_theme(Theme::Dark);
 
     ImGui_ImplGlfw_InitForOpenGL(window_, true);
@@ -142,7 +140,9 @@ void App::rebuild_fonts() {
     if (std::ifstream(mono_path).good())
         state_.mono_font = io.Fonts->AddFontFromFileTTF(mono_path, scaled_size);
 
-    io.Fonts->Build();
+    // Scale font back to logical size — fonts are rasterized at physical pixels
+    // for sharpness, but layout should use logical coordinates.
+    io.FontGlobalScale = 1.0f / dpi_scale_;
 }
 
 void App::init_builtins() {
@@ -180,10 +180,8 @@ void App::main_loop() {
         if (state_.font_rebuild_needed) {
             state_.font_rebuild_needed = false;
             rebuild_fonts();
-            // Re-apply style scaling
             ImGui::GetStyle() = ImGuiStyle();
             setup_style();
-            ImGui::GetStyle().ScaleAllSizes(dpi_scale_);
             apply_theme(state_.main_window.current_theme());
         }
 
