@@ -1,4 +1,5 @@
 #include "ui/SpreadsheetGrid.hpp"
+#include "ui/FormulaBar.hpp"
 #include "core/Sheet.hpp"
 #include "core/CellFormat.hpp"
 #include "core/ConditionalFormat.hpp"
@@ -500,8 +501,10 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     if (cell_hovered) {
                         drag_hover = addr;
 
-                        // Formula-mode drag start
-                        if (state.editor.is_formula_mode() && ImGui::IsMouseClicked(0)) {
+                        // Formula-mode drag start (cell editor or formula bar)
+                        bool in_formula_mode = state.editor.is_formula_mode() ||
+                            (state.formula_bar && state.formula_bar->is_formula_mode());
+                        if (in_formula_mode && ImGui::IsMouseClicked(0)) {
                             state.drag.formula_drag_origin = addr;
                             state.drag.formula_dragging = true;
                         }
@@ -571,12 +574,14 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
 
     // Formula-mode drag end: mouse released over a cell
     if (state.drag.formula_dragging && ImGui::IsMouseReleased(0)) {
-        if (state.editor.is_formula_mode() && drag_hover.col >= 0) {
-            if (state.drag.formula_drag_origin == drag_hover)
-                state.editor.insert_ref(drag_hover.to_a1());
-            else
-                state.editor.insert_ref(
-                    state.drag.formula_drag_origin.to_a1() + ":" + drag_hover.to_a1());
+        if (drag_hover.col >= 0) {
+            std::string ref = (state.drag.formula_drag_origin == drag_hover)
+                ? drag_hover.to_a1()
+                : state.drag.formula_drag_origin.to_a1() + ":" + drag_hover.to_a1();
+            if (state.editor.is_formula_mode())
+                state.editor.insert_ref(ref);
+            else if (state.formula_bar && state.formula_bar->is_formula_mode())
+                state.formula_bar->insert_ref(ref);
         }
         state.drag.formula_dragging = false;
         state.drag.formula_drag_target = {-1, -1};
@@ -608,8 +613,10 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 state.drag.drag_completed = true;
             }
         }
-        // Always reset drag mode on mouse release (#5)
-        state.drag.drag_mode = CellDragMode::None;
+        // drag_mode is preserved so handle_drag_completion() can inspect it;
+        // it resets drag_mode after processing.
+        if (!state.drag.drag_completed)
+            state.drag.drag_mode = CellDragMode::None;
     }
 
     return committed;

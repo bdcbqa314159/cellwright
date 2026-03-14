@@ -33,25 +33,34 @@ bool CellEditor::render(const FunctionRegistry* registry, ImFont* mono_font) {
 
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
                                 ImGuiInputTextFlags_CallbackAlways;
-    if (select_all_)
+    if (select_all_) {
         flags |= ImGuiInputTextFlags_AutoSelectAll;
+        select_all_ = false;  // only auto-select on the first focus
+    }
 
-    // Callback to track cursor position (and handle cursor_to_end_)
+    // Callback to track cursor position and handle forced positioning
     struct CbData {
         int* cursor_pos;
         bool* cursor_to_end;
+        int* set_cursor_pos;
     };
-    CbData cb_data{&cursor_pos_, &cursor_to_end_};
+    CbData cb_data{&cursor_pos_, &cursor_to_end_, &set_cursor_pos_};
 
     auto cb = [](ImGuiInputTextCallbackData* data) -> int {
         auto* ud = static_cast<CbData*>(data->UserData);
-        *ud->cursor_pos = data->CursorPos;
-        if (*ud->cursor_to_end) {
+        // Force cursor to specific position (after insert_ref)
+        if (*ud->set_cursor_pos >= 0) {
+            data->CursorPos = *ud->set_cursor_pos;
+            data->SelectionStart = *ud->set_cursor_pos;
+            data->SelectionEnd = *ud->set_cursor_pos;
+            *ud->set_cursor_pos = -1;
+        } else if (*ud->cursor_to_end) {
             data->CursorPos = data->BufTextLen;
             data->SelectionStart = data->BufTextLen;
             data->SelectionEnd = data->BufTextLen;
             *ud->cursor_to_end = false;
         }
+        *ud->cursor_pos = data->CursorPos;
         return 0;
     };
 
@@ -141,11 +150,21 @@ void CellEditor::cancel() {
 
 void CellEditor::insert_ref(const std::string& ref) {
     std::size_t len = std::strlen(buf_);
+    std::size_t insert_pos = static_cast<std::size_t>(cursor_pos_);
+    if (insert_pos > len) insert_pos = len;
     if (len + ref.size() < sizeof(buf_) - 1) {
-        std::strncat(buf_, ref.c_str(), sizeof(buf_) - 1 - len);
+        // Shift text after cursor to make room, then insert
+        std::memmove(buf_ + insert_pos + ref.size(),
+                     buf_ + insert_pos,
+                     len - insert_pos + 1);  // +1 for null terminator
+        std::memcpy(buf_ + insert_pos, ref.c_str(), ref.size());
+        int new_pos = static_cast<int>(insert_pos + ref.size());
+        cursor_pos_ = new_pos;
+        set_cursor_pos_ = new_pos;  // force cursor via callback, clears selection
     }
     focus_needed_ = true;
-    cursor_to_end_ = true;
+    select_all_ = false;
+    cursor_to_end_ = false;
     frames_since_start_ = 0;
 }
 

@@ -542,9 +542,17 @@ void MainWindow::render(AppState& state) {
 
     // Formula bar
     bool cell_editing = grid_state_.editor.is_editing();
-    if (formula_bar_.render(sheet, grid_state_.selection.selected_cell, cell_editing, &state.function_registry, state.mono_font)) {
+    const char* editor_buf = cell_editing ? grid_state_.editor.buffer() : nullptr;
+    if (formula_bar_.render(sheet, grid_state_.selection.selected_cell, cell_editing,
+                            &state.function_registry, state.mono_font, editor_buf)) {
         ci.process(formula_bar_.buffer(), sheet, grid_state_.selection.selected_cell,
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+    }
+    // If formula bar took focus from cell editor, cancel the cell editor
+    // so the user can continue editing in the formula bar.
+    if (formula_bar_.took_focus()) {
+        formula_bar_.clear_took_focus();
+        grid_state_.editor.cancel();
     }
     if (formula_bar_.has_nav_target()) {
         grid_state_.selection.selected_cell = formula_bar_.consume_nav_target();
@@ -562,9 +570,10 @@ void MainWindow::render(AppState& state) {
 
     ImGui::Separator();
 
-    // Pass formula bar buffer to grid for reference highlighting
+    // Pass formula bar to grid for reference highlighting and click-to-insert
     grid_state_.formula_bar_buf = formula_bar_.is_formula_mode()
         ? formula_bar_.buffer() : nullptr;
+    grid_state_.formula_bar = &formula_bar_;
     grid_state_.dark_theme = (theme_ == Theme::Dark);
     grid_state_.registry = &state.function_registry;
     grid_state_.mono_font = state.mono_font;

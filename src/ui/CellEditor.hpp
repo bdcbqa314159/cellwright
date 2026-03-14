@@ -28,6 +28,7 @@ private:
     bool focus_needed_ = false;
     bool select_all_ = true;
     bool cursor_to_end_ = false;
+    int set_cursor_pos_ = -1;  // >= 0: force cursor to this position on next frame
     int frames_since_start_ = 0;
     int cursor_pos_ = 0;
     static constexpr std::size_t kFormulaBufferSize = 1024;

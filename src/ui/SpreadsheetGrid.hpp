@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace magic { class FunctionRegistry; class ConditionalFormatStore; class RowFilter; }
+namespace magic { class FunctionRegistry; class ConditionalFormatStore; class RowFilter; class FormulaBar; }
 
 namespace magic {
 
@@ -84,6 +84,9 @@ struct GridState {
 
     // Row filter (set by MainWindow each frame)
     RowFilter* row_filter = nullptr;
+
+    // Formula bar (for click-to-insert references when editing in formula bar)
+    FormulaBar* formula_bar = nullptr;
 
     // Freeze panes: number of frozen rows/cols beyond the header.
     // 0 = only the header row/row-number column are frozen (default).

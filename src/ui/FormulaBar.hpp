@@ -13,9 +13,13 @@ public:
     // nav_target is set when user navigates via the name box.
     bool render(Sheet& sheet, const CellAddress& selected,
                 bool cell_editing = false, const FunctionRegistry* registry = nullptr,
-                ImFont* mono_font = nullptr);
+                ImFont* mono_font = nullptr,
+                const char* cell_editor_buf = nullptr);
     const char* buffer() const { return buf_; }
     bool is_editing() const { return editing_; }
+    bool took_focus() const { return took_focus_; }
+    void clear_took_focus() { took_focus_ = false; }
+    void insert_ref(const std::string& ref);
     bool is_formula_mode() const { return editing_ && buf_[0] == '='; }
     void force_refresh() { last_selected_ = {-1, -1}; }
 
@@ -35,6 +39,8 @@ private:
     bool has_nav_target_ = false;
     bool focus_name_box_ = false;
     bool name_box_active_ = false;
+    bool took_focus_ = false;
+    int set_cursor_pos_ = -1;
     CellAddress nav_target_{0, 0};
 };
 

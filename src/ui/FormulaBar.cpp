@@ -9,7 +9,7 @@ namespace magic {
 
 bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
                          bool cell_editing, const FunctionRegistry* registry,
-                         ImFont* mono_font) {
+                         ImFont* mono_font, const char* cell_editor_buf) {
     bool committed = false;
 
     // Clickable name box — editable InputText for Go-To navigation
@@ -36,8 +36,11 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
     name_box_active_ = ImGui::IsItemActive();
     ImGui::SameLine();
 
-    // Refresh buffer when selection changes (and not currently editing in cell)
-    if (!(selected == last_selected_) && !cell_editing) {
+    // Mirror cell editor buffer into formula bar while editing in-cell
+    // (but not if the formula bar itself is active — user is typing here).
+    if (cell_editing && cell_editor_buf && !editing_) {
+        std::snprintf(buf_, sizeof(buf_), "%s", cell_editor_buf);
+    } else if (!(selected == last_selected_) && !cell_editing) {
         last_selected_ = selected;
         std::string content;
         if (sheet.has_formula(selected)) {
@@ -53,11 +56,8 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
     // Use monospace font for formula editing
     if (mono_font) ImGui::PushFont(mono_font);
 
-    // Read-only when cell editor is active to prevent focus stealing
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
                                 ImGuiInputTextFlags_CallbackAlways;
-    if (cell_editing)
-        flags |= ImGuiInputTextFlags_ReadOnly;
 
     // Red tint on formula bar when the cell contains an error
     CellValue val = sheet.get_value(selected);
@@ -67,13 +67,26 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
     }
 
-    // Callback to track cursor position
+    // Callback to track cursor position and handle forced positioning
+    struct CbData {
+        int* cursor_pos;
+        int* set_cursor_pos;
+    };
+    CbData cb_data{&cursor_pos_, &set_cursor_pos_};
+
     auto cb = [](ImGuiInputTextCallbackData* data) -> int {
-        *static_cast<int*>(data->UserData) = data->CursorPos;
+        auto* ud = static_cast<CbData*>(data->UserData);
+        if (*ud->set_cursor_pos >= 0) {
+            data->CursorPos = *ud->set_cursor_pos;
+            data->SelectionStart = *ud->set_cursor_pos;
+            data->SelectionEnd = *ud->set_cursor_pos;
+            *ud->set_cursor_pos = -1;
+        }
+        *ud->cursor_pos = data->CursorPos;
         return 0;
     };
 
-    if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags, cb, &cursor_pos_)) {
+    if (ImGui::InputText("##formula", buf_, sizeof(buf_), flags, cb, &cb_data)) {
         committed = true;
     }
 
@@ -90,7 +103,12 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
 
     if (mono_font) ImGui::PopFont();
 
-    editing_ = !cell_editing && ImGui::IsItemActive();
+    bool bar_active = ImGui::IsItemActive();
+    // If formula bar gains focus while cell editor was active, signal takeover
+    if (bar_active && cell_editing && !editing_) {
+        took_focus_ = true;
+    }
+    editing_ = bar_active;
 
     // Function signature tooltip (when cursor is inside a function call)
     if (registry && editing_ && buf_[0] == '=' && !autocomplete_.is_active()) {
@@ -132,6 +150,21 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
     }
 
     return committed;
+}
+
+void FormulaBar::insert_ref(const std::string& ref) {
+    std::size_t len = std::strlen(buf_);
+    std::size_t insert_pos = static_cast<std::size_t>(cursor_pos_);
+    if (insert_pos > len) insert_pos = len;
+    if (len + ref.size() < sizeof(buf_) - 1) {
+        std::memmove(buf_ + insert_pos + ref.size(),
+                     buf_ + insert_pos,
+                     len - insert_pos + 1);
+        std::memcpy(buf_ + insert_pos, ref.c_str(), ref.size());
+        int new_pos = static_cast<int>(insert_pos + ref.size());
+        cursor_pos_ = new_pos;
+        set_cursor_pos_ = new_pos;
+    }
 }
 
 }  // namespace magic
