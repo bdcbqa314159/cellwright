@@ -257,6 +257,29 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
         fd_r2 = std::max(state.drag.formula_drag_origin.row, state.drag.formula_drag_target.row);
     }
 
+    // Move drag: highlight target cell and show floating ghost
+    bool has_move_drag_highlight = state.drag.drag_mode == CellDragMode::Move && state.drag.drag_target.col >= 0;
+    const ImU32 move_drag_color = state.dark_theme ? IM_COL32(100, 149, 237, 100) : IM_COL32(100, 149, 237, 70);
+    if (has_move_drag_highlight) {
+        CellValue drag_val = sheet.get_value(state.drag.drag_source);
+        std::string drag_text = to_display_string(drag_val);
+        if (!drag_text.empty()) {
+            ImGui::SetNextWindowPos(ImVec2(ImGui::GetMousePos().x + 14, ImGui::GetMousePos().y + 14));
+            ImGuiWindowFlags ghost_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing |
+                ImGuiWindowFlags_NoInputs;
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 3));
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.2f, 0.3f, 0.5f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 0.9f));
+            if (ImGui::Begin("##drag_ghost", nullptr, ghost_flags)) {
+                ImGui::TextUnformatted(drag_text.c_str());
+            }
+            ImGui::End();
+            ImGui::PopStyleColor(2);
+            ImGui::PopStyleVar();
+        }
+    }
     bool has_fill_drag_highlight = state.drag.drag_mode == CellDragMode::Fill && state.drag.drag_target.col >= 0;
     int fl_c1 = 0, fl_c2 = -1, fl_r1 = 0, fl_r2 = -1;
     if (has_fill_drag_highlight) {
@@ -313,6 +336,10 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                     ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
                                            formula_drag_color);
 
+                // Move drag: highlight target cell
+                if (has_move_drag_highlight &&
+                    col == state.drag.drag_target.col && row == state.drag.drag_target.row)
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, move_drag_color);
                 // Live highlight of the fill-drag target range
                 if (has_fill_drag_highlight &&
                     col >= fl_c1 && col <= fl_c2 && row >= fl_r1 && row <= fl_r2)
