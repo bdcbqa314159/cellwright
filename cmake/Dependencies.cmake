@@ -10,7 +10,7 @@ if(EXISTS "${_plugin_arch_local}/CMakeLists.txt")
 else()
     FetchContent_Declare(plugin_arch
         GIT_REPOSITORY https://github.com/bdcbqa314159/cpp_plugin_arch.git
-        GIT_TAG        master
+        GIT_TAG        main
         GIT_SHALLOW    TRUE
     )
 endif()
