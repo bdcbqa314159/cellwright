@@ -184,7 +184,7 @@ void App::main_loop() {
             ImGui::GetStyle() = ImGuiStyle();
             setup_style();
             ImGui::GetStyle().ScaleAllSizes(dpi_scale_);
-            apply_theme(Theme::Dark);  // re-apply after style reset
+            apply_theme(state_.main_window.current_theme());
         }
 
         state_.main_window.render(state_);

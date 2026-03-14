@@ -17,6 +17,7 @@ public:
     void render(AppState& state);
 
     GridState& grid_state() { return grid_state_; }
+    Theme current_theme() const { return theme_; }
 
     // Whether user interaction is active (drags, formula mode, etc.)
     bool is_interaction_active() const {
