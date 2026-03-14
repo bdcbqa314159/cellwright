@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include <imgui.h>
 
@@ -37,7 +38,9 @@ private:
     char title_[128] = "";
     char x_label_[64] = "X";
     char y_label_[64] = "Y";
-    bool export_requested_ = false;
+    int export_countdown_ = 0;  // 2 = requested, 1 = next frame capture, 0 = idle
+    std::string export_status_;
+    float export_status_timer_ = 0.0f;
     ImVec2 plot_min_{0, 0};
     ImVec2 plot_max_{0, 0};
 };

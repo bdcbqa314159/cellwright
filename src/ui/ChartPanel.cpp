@@ -40,16 +40,23 @@ void ChartPanel::render(Sheet& sheet) {
     render_style_controls();
 
     if (ImGui::Button("Export PNG...")) {
-        export_requested_ = true;
+        export_countdown_ = 2;  // wait 2 frames for render to complete
+    }
+    if (export_status_timer_ > 0.0f) {
+        ImGui::SameLine();
+        ImGui::TextUnformatted(export_status_.c_str());
+        export_status_timer_ -= ImGui::GetIO().DeltaTime;
     }
 
     ImGui::Separator();
     render_plot(sheet);
 
-    // Capture after rendering (deferred one frame so the plot is drawn)
-    if (export_requested_) {
-        export_requested_ = false;
-        export_png();
+    // Deferred capture: countdown ensures the plot is fully rendered and
+    // swapped to the front buffer before glReadPixels captures it.
+    if (export_countdown_ > 0) {
+        --export_countdown_;
+        if (export_countdown_ == 0)
+            export_png();
     }
 
     ImGui::End();
@@ -299,7 +306,9 @@ void ChartPanel::export_png() {
     nfdfilteritem_t filter[] = {{"PNG Image", "png"}};
     auto result = NFD::SaveDialog(path, filter, 1, nullptr, "chart.png");
     if (result == NFD_OKAY && path) {
-        stbi_write_png(path.get(), pw, ph, 3, pixels.data(), row_bytes);
+        int ok = stbi_write_png(path.get(), pw, ph, 3, pixels.data(), row_bytes);
+        export_status_ = ok ? "PNG saved" : "Export failed";
+        export_status_timer_ = 3.0f;
     }
 }
 
