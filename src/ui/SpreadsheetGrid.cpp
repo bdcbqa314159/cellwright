@@ -2,10 +2,12 @@
 #include "core/Sheet.hpp"
 #include "core/CellFormat.hpp"
 #include "core/ConditionalFormat.hpp"
+#include "core/RowFilter.hpp"
 #include "formula/Tokenizer.hpp"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace magic {
 
@@ -167,9 +169,55 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
                 state.context_col = c;
                 state.context_action = ContextAction::SortDesc;
             }
+            if (state.row_filter) {
+                ImGui::Separator();
+                // Inline filter input
+                char filter_buf[64] = {};
+                auto existing = state.row_filter->get_filter(c);
+                std::strncpy(filter_buf, existing.c_str(), sizeof(filter_buf) - 1);
+                ImGui::SetNextItemWidth(120);
+                if (ImGui::InputText("Filter", filter_buf, sizeof(filter_buf),
+                                     ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    state.row_filter->set_filter(c, filter_buf);
+                    ImGui::CloseCurrentPopup();
+                }
+                if (!existing.empty() && ImGui::MenuItem("Clear Filter")) {
+                    state.row_filter->clear_filter(c);
+                }
+                if (state.row_filter->has_filters() && ImGui::MenuItem("Clear All Filters")) {
+                    state.row_filter->clear_all();
+                }
+            }
             ImGui::EndPopup();
         }
         ImGui::PopID();
+    }
+
+    // Filter row — render small InputText per column for auto-filter
+    if (state.row_filter && state.row_filter->has_filters()) {
+        // Show a filter indicator row
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextDisabled("\xf0\x9f\x94\x8d");  // magnifying glass emoji
+        for (int c = 0; c < num_cols; ++c) {
+            ImGui::TableSetColumnIndex(c + 1);
+            auto filter_text = state.row_filter->get_filter(c);
+            if (!filter_text.empty()) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.8f, 1.0f, 1.0f));
+                ImGui::TextUnformatted(filter_text.c_str());
+                ImGui::PopStyleColor();
+            }
+        }
+    }
+
+    // Compute visible rows (respects active filters).
+    // When no filters are active, skip the indirection entirely.
+    bool filtering = state.row_filter && state.row_filter->has_filters();
+    const std::vector<int32_t>* visible_rows_ptr = nullptr;
+    int visible_count = num_rows;
+    if (filtering) {
+        visible_rows_ptr = &state.row_filter->update(sheet, sheet.value_generation());
+        visible_count = static_cast<int>(visible_rows_ptr->size());
     }
 
     // Track which cell the mouse hovers this frame (for formula drag-end detection)
@@ -223,11 +271,12 @@ bool SpreadsheetGrid::render(Sheet& sheet, GridState& state, const FormatMap& fo
     bool ants_visible = false;
 
     ImGuiListClipper clipper;
-    clipper.Begin(num_rows);
+    clipper.Begin(visible_count);
 
     std::string display;
     while (clipper.Step()) {
-        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+        for (int vi = clipper.DisplayStart; vi < clipper.DisplayEnd; ++vi) {
+            int row = filtering ? (*visible_rows_ptr)[vi] : vi;
             ImGui::TableNextRow();
 
             ImGui::TableSetColumnIndex(0);

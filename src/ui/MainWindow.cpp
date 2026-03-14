@@ -546,6 +546,7 @@ void MainWindow::render(AppState& state) {
     grid_state_.registry = &state.function_registry;
     grid_state_.mono_font = state.mono_font;
     grid_state_.cond_format = &as.cond_format;
+    grid_state_.row_filter = &as.row_filter;
     grid_state_.find_matches = find_bar_.is_visible() ? &find_bar_.matches() : nullptr;
     grid_state_.find_match_index = find_bar_.current_match_index();
 

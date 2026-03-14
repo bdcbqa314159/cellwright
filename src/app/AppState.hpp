@@ -3,6 +3,7 @@
 #include "core/Workbook.hpp"
 #include "core/Command.hpp"
 #include "core/ConditionalFormat.hpp"
+#include "core/RowFilter.hpp"
 #include "core/Clipboard.hpp"
 #include "core/CellFormat.hpp"
 #include "core/DuckDBEngine.hpp"
@@ -23,6 +24,7 @@ struct PerSheetState {
     FormatMap format_map;
     DependencyGraph dep_graph;
     ConditionalFormatStore cond_format;
+    RowFilter row_filter;
 };
 
 struct AppState {

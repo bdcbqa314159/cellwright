@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace magic { class FunctionRegistry; class ConditionalFormatStore; }
+namespace magic { class FunctionRegistry; class ConditionalFormatStore; class RowFilter; }
 
 namespace magic {
 
@@ -81,6 +81,9 @@ struct GridState {
     const FunctionRegistry* registry = nullptr;
     ImFont* mono_font = nullptr;  // monospace font for formula editing
     const ConditionalFormatStore* cond_format = nullptr;  // conditional formatting rules
+
+    // Row filter (set by MainWindow each frame)
+    RowFilter* row_filter = nullptr;
 
     // Freeze panes: number of frozen rows/cols beyond the header.
     // 0 = only the header row/row-number column are frozen (default).
