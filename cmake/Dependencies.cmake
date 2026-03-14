@@ -1,9 +1,19 @@
 include(FetchContent)
 
-# ── plugin_arch (local sibling repo) ─────────────────────────────────────────
-FetchContent_Declare(plugin_arch
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../cpp_plugin_arch
-)
+# ── plugin_arch ──────────────────────────────────────────────────────────────
+# Use local sibling repo if available, otherwise fetch from GitHub.
+set(_plugin_arch_local "${CMAKE_CURRENT_SOURCE_DIR}/../cpp_plugin_arch")
+if(EXISTS "${_plugin_arch_local}/CMakeLists.txt")
+    FetchContent_Declare(plugin_arch
+        SOURCE_DIR ${_plugin_arch_local}
+    )
+else()
+    FetchContent_Declare(plugin_arch
+        GIT_REPOSITORY https://github.com/bdcbqa314159/cpp_plugin_arch.git
+        GIT_TAG        master
+        GIT_SHALLOW    TRUE
+    )
+endif()
 FetchContent_MakeAvailable(plugin_arch)
 
 # ── GLFW ─────────────────────────────────────────────────────────────────────
