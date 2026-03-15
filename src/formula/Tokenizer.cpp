@@ -5,11 +5,14 @@
 namespace magic {
 
 static bool looks_like_cell_ref(const std::string& s, size_t pos) {
-    if (pos >= s.size() || !std::isalpha(static_cast<unsigned char>(s[pos])))
-        return false;
-    // Look for pattern: letters followed by digits
     size_t i = pos;
+    // Skip optional $ before column letters
+    if (i < s.size() && s[i] == '$') ++i;
+    if (i >= s.size() || !std::isalpha(static_cast<unsigned char>(s[i])))
+        return false;
     while (i < s.size() && std::isalpha(static_cast<unsigned char>(s[i]))) ++i;
+    // Skip optional $ before row digits
+    if (i < s.size() && s[i] == '$') ++i;
     return i < s.size() && std::isdigit(static_cast<unsigned char>(s[i]));
 }
 
@@ -52,10 +55,30 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
             continue;
         }
 
+        // Cell reference with $ (absolute marker): $A$1, $A1, A$1
+        // Must check before identifier since $ is not an alpha char
+        if (ch == '$' && looks_like_cell_ref(formula, i)) {
+            size_t start = i;
+            ++i;  // skip $
+            while (i < n && std::isalpha(static_cast<unsigned char>(formula[i]))) ++i;
+            if (i < n && formula[i] == '$') ++i;  // skip $ before row
+            while (i < n && std::isdigit(static_cast<unsigned char>(formula[i]))) ++i;
+            tokens.push_back({TokenType::CELLREF, formula.substr(start, i - start)});
+            continue;
+        }
+
         // Identifier: cell ref, function name, or keyword
         if (std::isalpha(static_cast<unsigned char>(ch)) || ch == '_') {
             size_t start = i;
             while (i < n && (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '_')) ++i;
+            // Check for $ before row digits (e.g., A$1)
+            if (i < n && formula[i] == '$' && i + 1 < n &&
+                std::isdigit(static_cast<unsigned char>(formula[i + 1]))) {
+                ++i;  // consume $
+                while (i < n && std::isdigit(static_cast<unsigned char>(formula[i]))) ++i;
+                tokens.push_back({TokenType::CELLREF, formula.substr(start, i - start)});
+                continue;
+            }
             std::string text = formula.substr(start, i - start);
 
             // Check if it's a sheet reference (identifier followed by '!')

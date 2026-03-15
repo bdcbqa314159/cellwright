@@ -1,9 +1,30 @@
 #include "core/Clipboard.hpp"
+#include "core/CellAddress.hpp"
 #include "core/Sheet.hpp"
 #include "formula/Tokenizer.hpp"
+#include <cctype>
 #include <sstream>
 
 namespace magic {
+
+// Parse $ markers from a CELLREF token.
+static void parse_abs_markers(const std::string& text, bool& col_abs, bool& row_abs) {
+    col_abs = false;
+    row_abs = false;
+    size_t i = 0;
+    if (i < text.size() && text[i] == '$') { col_abs = true; ++i; }
+    while (i < text.size() && std::isalpha(static_cast<unsigned char>(text[i]))) ++i;
+    if (i < text.size() && text[i] == '$') { row_abs = true; }
+}
+
+static std::string to_a1_with_abs(const CellAddress& addr, bool col_abs, bool row_abs) {
+    std::string result;
+    if (col_abs) result += '$';
+    result += CellAddress::col_to_letters(addr.col);
+    if (row_abs) result += '$';
+    result += std::to_string(addr.row + 1);
+    return result;
+}
 
 void Clipboard::copy_single(const Sheet& sheet, const CellAddress& addr) {
     cells_.clear();
@@ -52,14 +73,16 @@ std::string Clipboard::adjust_references(const std::string& formula,
 
         for (const auto& tok : tokens) {
             if (tok.type == TokenType::CELLREF) {
+                bool col_abs, row_abs;
+                parse_abs_markers(tok.text, col_abs, row_abs);
                 auto addr = CellAddress::from_a1(tok.text);
                 if (addr) {
-                    addr->col += dcol;
-                    addr->row += drow;
+                    if (!col_abs) addr->col += dcol;
+                    if (!row_abs) addr->row += drow;
                     if (addr->col >= 0 && addr->row >= 0) {
-                        out << addr->to_a1();
+                        out << to_a1_with_abs(*addr, col_abs, row_abs);
                     } else {
-                        out << tok.text;  // keep original if adjustment goes negative
+                        out << tok.text;
                     }
                 } else {
                     out << tok.text;

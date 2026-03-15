@@ -26,10 +26,15 @@ std::optional<CellAddress> CellAddress::from_a1(const std::string& s) {
     if (s.empty()) return std::nullopt;
 
     size_t i = 0;
+    // Skip optional $ before column letters
+    if (i < s.size() && s[i] == '$') ++i;
+    size_t letters_start = i;
     while (i < s.size() && std::isalpha(static_cast<unsigned char>(s[i]))) ++i;
-    if (i == 0 || i == s.size()) return std::nullopt;
+    if (i == letters_start || i == s.size()) return std::nullopt;
 
-    std::string letters = s.substr(0, i);
+    std::string letters = s.substr(letters_start, i - letters_start);
+    // Skip optional $ before row digits
+    if (i < s.size() && s[i] == '$') ++i;
     std::string digits = s.substr(i);
     for (char ch : digits) {
         if (!std::isdigit(static_cast<unsigned char>(ch))) return std::nullopt;
