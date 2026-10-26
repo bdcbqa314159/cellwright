@@ -48,7 +48,7 @@ add_library(imgui_glfw_opengl3 STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
 
-target_include_directories(imgui_glfw_opengl3 PUBLIC
+target_include_directories(imgui_glfw_opengl3 SYSTEM PUBLIC
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
 )
@@ -76,7 +76,7 @@ add_library(implot_lib STATIC
     ${implot_SOURCE_DIR}/implot_items.cpp
 )
 
-target_include_directories(implot_lib PUBLIC ${implot_SOURCE_DIR})
+target_include_directories(implot_lib SYSTEM PUBLIC ${implot_SOURCE_DIR})
 target_link_libraries(implot_lib PUBLIC imgui_glfw_opengl3)
 
 # ── Python + pybind11 (for Python plugin adapter) ───────────────────────────
@@ -117,8 +117,10 @@ FetchContent_MakeAvailable(duckdb)
 # so anything linking `duckdb` can find duckdb.hpp without repeating the path.
 # Wrapped in BUILD_INTERFACE because duckdb carries install/export rules, and CMake
 # rejects a bare in-tree path in an exported target's INTERFACE_INCLUDE_DIRECTORIES.
+# SYSTEM so -Wall/-Wextra on our targets does not report ~141 -Wunused-parameter
+# warnings from DuckDB's own headers, which we neither own nor can fix.
 target_include_directories(duckdb
-    INTERFACE $<BUILD_INTERFACE:${duckdb_SOURCE_DIR}/src/include>)
+    SYSTEM INTERFACE $<BUILD_INTERFACE:${duckdb_SOURCE_DIR}/src/include>)
 
 # ── NFD (native file dialogs) ────────────────────────────────────────────────
 set(NFD_PORTAL OFF CACHE BOOL "" FORCE)

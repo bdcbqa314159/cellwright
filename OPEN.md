@@ -96,3 +96,29 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Fix** | Uncomment the two matrix entries once each passes a manual local build + `ctest`. Consider `ccache`/`sccache` or a prebuilt DuckDB first, so a three-platform run is minutes rather than an hour. |
 | **Re-open trigger** | Any report of a Linux or Windows build failure, or the first dependency bump after this point — a bump is exactly when the untested platforms break. |
 
+### #9 — OpenGL is deprecated on macOS; `GL_SILENCE_DEPRECATION` acknowledges it
+
+| | |
+|---|---|
+| **What** | `glReadPixels` (and the GL surface generally) is deprecated on macOS 10.14+. `CMakeLists.txt` defines `GL_SILENCE_DEPRECATION` on the `cellwright` target, which is Apple's documented acknowledgement, not a fix. |
+| **Why deferred** | The real fix is a Metal or MoltenVK backend — a rendering rewrite far beyond any warning cleanup. |
+| **Why it is a suppression and declared** | It silences a true diagnostic: Apple may remove the OpenGL surface in a future macOS, which would break rendering entirely. |
+| **Re-open trigger** | Apple announcing removal (not just deprecation) of OpenGL, or any macOS release where the GL path stops working. |
+
+### #10 — `-Werror` not enabled
+
+| | |
+|---|---|
+| **What** | Our targets build with `-Wall -Wextra` (`/W4` on MSVC) and are warning-clean, but warnings do not fail the build. |
+| **Why deferred** | Only macOS is in the CI matrix (#8). GCC and MSVC emit warnings Apple Clang does not — the missing-includes bug (#7) is exactly that shape — so enabling `-Werror` now would hard-fail the two platforms nobody can currently observe, on diagnostics nobody can read. |
+| **Fix** | Enable `-Werror` / `/WX` once Linux and Windows are back in CI and all three are warning-clean. Until then the invariant is upheld by review, not by the compiler. |
+| **Re-open trigger** | Closes together with #8. |
+
+### #11 — Vendored `stb_image_write.h` diagnostics suppressed at its include sites
+
+| | |
+|---|---|
+| **What** | `src/util/stb_image_write.h` is vendored third-party code producing 8 `-Wmissing-field-initializers` and 1 `-Wdeprecated-declarations` (`sprintf`). Both include sites (`ui/ChartPanel.cpp`, `util/stb_image_write_impl.cpp`) wrap it in `#pragma GCC diagnostic push/ignored` (`#pragma warning(push, 0)` on MSVC). |
+| **Why this shape** | The alternative was dropping those warnings for our own code, which would have hidden the 6 real `date_input_hint` cases this PR fixed. Scoped suppression keeps our sources strict. |
+| **Note** | `stb_image_write.h` uses `sprintf` in its HDR writer. We only call `stbi_write_png`, so that path is unreachable for us — but the suppression means a future vendored-code issue would also be silent. |
+| **Re-open trigger** | Updating the vendored stb copy, or needing any stb writer beyond PNG. |

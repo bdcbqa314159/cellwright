@@ -38,6 +38,21 @@ include(cmake/Dependencies.cmake)
 # Everything except main.cpp and UI code. Tests link against this
 # to avoid recompiling sources.
 
+# ── Warnings ─────────────────────────────────────────────────────
+# Applied per-target, never globally: a global add_compile_options would also
+# cover every FetchContent dependency, which emits ~149 warnings we do not own
+# and cannot fix. -Werror is deliberately NOT set yet — only macOS is in the CI
+# matrix, and GCC/MSVC emit different warnings we currently cannot see, so it
+# would break the unverified platforms on diagnostics nobody can read
+# (OPEN.md #10).
+function(cellwright_set_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra)
+    endif()
+endfunction()
+
 add_library(cellwright_core STATIC
     # core
     src/core/ArrowBridge.cpp
@@ -89,6 +104,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     endif()
 endif()
 
+cellwright_set_warnings(cellwright_core)
+
 target_link_libraries(cellwright_core PUBLIC
     plugin_arch
     pybind11::embed
@@ -125,10 +142,16 @@ target_compile_definitions(cellwright PRIVATE
     IMGUI_FONT_DIR="${imgui_SOURCE_DIR}/misc/fonts"
 )
 
+cellwright_set_warnings(cellwright)
+
+if(APPLE)
+    # OpenGL is deprecated on macOS. Acknowledged, not fixed — see OPEN.md #9.
+    target_compile_definitions(cellwright PRIVATE GL_SILENCE_DEPRECATION)
+endif()
+
 target_link_libraries(cellwright PRIVATE
     cellwright_core
-    imgui_glfw_opengl3
-    implot_lib
+    implot_lib  # carries imgui_glfw_opengl3 PUBLIC
     nfd
 )
 

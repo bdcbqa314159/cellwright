@@ -16,3 +16,9 @@ add_plugin(bond_plugin
             ${CMAKE_SOURCE_DIR}/src/core/CellValue.cpp
     INTERFACE_DIRS ${CMAKE_SOURCE_DIR}/src
 )
+
+# add_plugin comes from the plugin_arch dependency, so warnings are applied to the
+# targets it creates rather than through it.
+foreach(plugin example_stats scientific bond_plugin)
+    cellwright_set_warnings(${plugin})
+endforeach()

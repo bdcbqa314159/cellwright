@@ -189,7 +189,7 @@ TEST(ArrowBridge, ImportSetsSheetName) {
 }
 
 TEST(ArrowBridge, ImportRejectsNullInput) {
-    EXPECT_THROW(import_sheet_from_arrow(nullptr, nullptr), std::invalid_argument);
+    EXPECT_THROW((void)import_sheet_from_arrow(nullptr, nullptr), std::invalid_argument);
 }
 
 TEST(ArrowBridge, ImportRejectsNonStructSchema) {
@@ -199,7 +199,7 @@ TEST(ArrowBridge, ImportRejectsNonStructSchema) {
     ArrowArray array{};
     array.length = 0;
     array.release = nullptr;
-    EXPECT_THROW(import_sheet_from_arrow(&schema, &array), std::invalid_argument);
+    EXPECT_THROW((void)import_sheet_from_arrow(&schema, &array), std::invalid_argument);
 }
 
 TEST(ArrowBridge, ExportPaddsSparseColumns) {

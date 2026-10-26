@@ -1,7 +1,3 @@
-#ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
-#endif
-
 #include "app/App.hpp"
 #include "builtin/MathFunctions.hpp"
 #include "builtin/LogicFunctions.hpp"
