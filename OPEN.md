@@ -52,6 +52,24 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Fix** | `--parallel 2` in `ci.yml`, with a comment naming the failure mode so it is not "optimised" back. `timeout-minutes` raised 90 → 120 so the cap trades neither an OOM for a timeout. |
 | **Re-open trigger** | Re-open if any platform OOMs at `-j2`, or if the build exceeds 120 minutes — in which case the answer is caching or trimming DuckDB's build, never raising the job count. |
 
+### #6 — MSVC `__cplusplus` non-conformance defeated DuckDB's feature guard *(fixed)*
+
+| | |
+|---|---|
+| **What** | Windows failed with `error C2039: 'uncaught_exception': is not a member of 'std'` in DuckDB's `src/common/exception.cpp:55`. DuckDB guards correctly with `#if __cplusplus >= 201703L`, but **MSVC reports `__cplusplus` as `199711L`** unless `/Zc:__cplusplus` is passed, so the guard took the pre-C++17 branch and called `std::uncaught_exception()` — removed in C++20. It is compiled as C++20 because `CMakeLists.txt`'s `CMAKE_CXX_STANDARD 20` is inherited by every dependency subproject (DuckDB's own `set(... "11" CACHE ...)` cannot win: a parent non-cache variable shadows the cache). |
+| **Fix** | `add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>)` in `CMakeLists.txt`, set **before** `include(cmake/Dependencies.cmake)` so dependencies see it. This repairs the root cause (a lying `__cplusplus`) rather than suppressing the symptom. |
+| **Latent sibling, not fixed** | Imposing our C++20 on dependencies is itself the deeper issue — a dependency that expects an older standard may break in other ways. The architecturally correct fix is a per-target standard (`target_compile_features(... cxx_std_20)`) instead of the global variable. Deferred: it touches every target and is not needed while `/Zc:__cplusplus` holds. |
+| **Re-open trigger** | Any further dependency failure traceable to the inherited C++20 standard — then do the per-target conversion. |
+
+### #7 — Missing standard-library includes across `src/` *(fixed)*
+
+| | |
+|---|---|
+| **What** | 18 standard headers were used without being included across 14 files, compiling only by transitive luck on Apple's libc++. GCC's libstdc++ is stricter and broke the Linux build: `ChartPanel.cpp:335: error: 'memcpy' is not a member of 'std'`. This was the first time this code had ever been compiled by GCC. |
+| **Fix** | Added the 18 headers (`<cstring>`, `<cstdio>`, `<memory>`, `<type_traits>`, `<optional>`, `<variant>`, `<mutex>`, `<limits>`, `<new>`). Found by scanning every `src/` file for `std::` symbols against its include set, so the remaining siblings were fixed in one pass rather than one per 40-minute CI cycle. Subsumes the audit's C1 finding. |
+| **Residual risk** | The scan covers a curated symbol→header table, not the whole standard library — it is a heuristic, not a proof. MSVC may still surface a case neither libc++ nor libstdc++ needed. |
+| **Re-open trigger** | Any further missing-include error on any platform; extend the scan table rather than fixing only the reported file. |
+
 ### #4 — `main` branch protection has no required status checks
 
 | | |

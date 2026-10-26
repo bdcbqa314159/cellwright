@@ -9,6 +9,8 @@
 #include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
 #include "formula/DependencyGraph.hpp"
+#include <memory>
+#include <type_traits>
 
 namespace magic {
 

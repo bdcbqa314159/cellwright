@@ -1,5 +1,6 @@
 #include "core/CellAddress.hpp"
 #include <cctype>
+#include <optional>
 
 namespace magic {
 

@@ -5,10 +5,12 @@
 #include <imgui.h>
 #include <implot.h>
 
-#include <vector>
-#include <cmath>
-#include <string>
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>

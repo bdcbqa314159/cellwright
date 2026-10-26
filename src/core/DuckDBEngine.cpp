@@ -3,6 +3,7 @@
 #include "core/CellAddress.hpp"
 #include "duckdb.hpp"
 #include <cstdio>
+#include <memory>
 #include <unordered_map>
 
 namespace magic {

@@ -1,4 +1,5 @@
 #include "formula/AsyncRecalcEngine.hpp"
+#include <mutex>
 
 namespace magic {
 

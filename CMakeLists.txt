@@ -11,6 +11,14 @@ project(cellwright
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# MSVC reports __cplusplus as 199711L unless told otherwise, which silently defeats
+# every `#if __cplusplus >= 201703L` feature guard in our dependencies. DuckDB's
+# Exception::UncaughtException() is one: with a wrong __cplusplus it takes the pre-C++17
+# branch and calls std::uncaught_exception(), which MSVC removed in C++20 mode — and it
+# is in C++20 mode because the standard set above is inherited by every subproject.
+# Set globally and BEFORE Dependencies.cmake so dependencies see it too.
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
