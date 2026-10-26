@@ -70,6 +70,17 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Residual risk** | The scan covers a curated symbol→header table, not the whole standard library — it is a heuristic, not a proof. MSVC may still surface a case neither libc++ nor libstdc++ needed. |
 | **Re-open trigger** | Any further missing-include error on any platform; extend the scan table rather than fixing only the reported file. |
 
+### #8 — CI matrix reduced to macOS only; Linux and Windows verified manually
+
+| | |
+|---|---|
+| **What** | `ci.yml`'s matrix is commented down to `macos-latest`. Linux and Windows no longer run on push/PR. |
+| **Why** | A cold three-platform DuckDB build at `-j2` costs 40–80 minutes per push, and the dependency cache cannot warm until a job goes fully green — so every iteration paid full price. That is too slow to debug against. macOS is the development platform and the only one validated end-to-end (build + 254/254 locally and in CI). |
+| **What this costs** | The README advertises Linux and Windows support and **CI no longer proves either.** Both were genuinely broken until this PR (`#3d` OOM, `#6` MSVC `__cplusplus`), so the risk of silent regression is real, not theoretical. Owner verifies both manually before they return. |
+| **Known state at time of removal** | Linux: OOM fixed by `-j2`, then surfaced `#7` (missing includes, now fixed) — **never observed fully green.** Windows: `#3b` fixed by the DuckDB bump, then `#6` fixed by `/Zc:__cplusplus` — **never observed past the build step.** Neither platform has ever run the test suite in CI. |
+| **Fix** | Uncomment the two matrix entries once each passes a manual local build + `ctest`. Consider `ccache`/`sccache` or a prebuilt DuckDB first, so a three-platform run is minutes rather than an hour. |
+| **Re-open trigger** | Any report of a Linux or Windows build failure, or the first dependency bump after this point — a bump is exactly when the untested platforms break. |
+
 ### #4 — `main` branch protection has no required status checks
 
 | | |

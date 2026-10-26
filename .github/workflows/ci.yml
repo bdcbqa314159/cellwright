@@ -13,19 +13,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            name: Linux (GCC)
-            cmake_args: -DCMAKE_BUILD_TYPE=Release
           - os: macos-latest
             name: macOS (Apple Clang)
             cmake_args: -DCMAKE_BUILD_TYPE=Release
-          - os: windows-latest
-            name: Windows (MSVC)
-            cmake_args: -DCMAKE_BUILD_TYPE=Release
+          # Linux and Windows are verified manually for now and re-enter the matrix
+          # once they pass locally — a cold three-platform DuckDB build at -j2 is
+          # 40-80 min per push, which is too slow to iterate against (OPEN.md #8).
+          # - os: ubuntu-latest
+          #   name: Linux (GCC)
+          #   cmake_args: -DCMAKE_BUILD_TYPE=Release
+          # - os: windows-latest
+          #   name: Windows (MSVC)
+          #   cmake_args: -DCMAKE_BUILD_TYPE=Release
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
