@@ -35,14 +35,13 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 
 ## Verification gaps
 
-### #3c — macOS CI job hung to the 6-hour ceiling; no job timeout configured
+### #3c — macOS CI 6-hour hang *(resolved — it was the pre-fix build, not a hang)*
 
 | | |
 |---|---|
-| **What** | In CI run 40254262245 the `macOS (Apple Clang)` job ran **6h5m** and was killed by GitHub's hard per-job limit, while Linux failed at 4m44s and Windows at 12m20s. `ci.yml` sets no `timeout-minutes` on any job, so a hang costs the full 6 hours of runner time before anyone learns anything. |
-| **Not yet diagnosed** | Whether the hang is the same Python/dyld fault (#3), a slow cold DuckDB build, or a genuinely hanging step. The 6h kill destroyed the useful signal. |
-| **Mitigated, not fixed** | `timeout-minutes: 90` (build matrix) and `10` (layers) added to the workflows. A hang now fails inside 90 minutes with a readable log instead of consuming the 6-hour ceiling. The underlying cause is still unknown — the timeout buys a diagnosis, it is not one. |
-| **Re-open trigger** | Closes when macOS CI reports a terminal state inside its timeout. If macOS now hits the 90-minute timeout, this becomes a real hang to diagnose, not a slow build. |
+| **Original symptom** | In run 40254262245 the `macOS (Apple Clang)` job ran **6h5m** and was killed by GitHub's per-job ceiling, while Linux failed at 4m44s and Windows at 12m20s. Recorded as a possible hang of unknown cause. |
+| **Resolution** | Not a hang. After the Python/DuckDB/include fixes, macOS completed its **Build step successfully in 17m43s** (run 40354648434). The 6-hour figure was the broken pre-fix build with no timeout to stop it. |
+| **Retained guard** | `timeout-minutes: 120` stays — it is what converts any future hang into a readable failure instead of six silent hours. |
 
 ### #3d — Linux CI OOM: uncapped `--parallel` kills cc1plus *(fixed)*
 

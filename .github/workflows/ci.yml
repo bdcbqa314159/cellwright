@@ -70,7 +70,7 @@ jobs:
 
       # ── Test ───────────────────────────────────────────────────
       - name: C++ tests
-        run: ctest --test-dir build --config Release --output-on-failure --no-tests=error
+        run: ctest --test-dir build --build-config Release --output-on-failure --no-tests=error
 
       - name: Python tests
         run: python -m pytest tests/python -v
