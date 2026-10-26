@@ -45,6 +45,33 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Fix** | Set `Python3_FIND_FRAMEWORK LAST` and `PYBIND11_FINDPYTHON ON` before the `find_package`/`FetchContent_MakeAvailable(pybind11)` calls, so both resolvers agree on one non-framework interpreter. **Verified locally 2026-10-26:** build exit 0, `ctest` **254/254 passed** in 5.98s, `bin/cellwright` produced. |
 | **Re-open trigger** | Closes when the fix lands and `ci.yml` push/PR triggers are re-enabled. Re-open if any platform picks a framework Python again, or if pybind11 is upgraded (the `PYBIND11_FINDPYTHON` option could change semantics). |
 
+### #3b — Windows: DuckDB v1.1.3's vendored `fmt` does not compile with current MSVC
+
+| | |
+|---|---|
+| **What** | `_deps/duckdb-src/third_party/fmt/include/fmt/format.h:306` references `stdext::checked_array_iterator`, which Microsoft **removed** from its STL. Every DuckDB target fails with `C2653: 'stdext': is not a class or namespace name`. No file in `src/` is involved. |
+| **Evidence** | CI run 40254262245, job `Windows (MSVC)` — failed at 12m20s during `Build`. |
+| **Fix** | Bump the DuckDB pin (`cmake/Dependencies.cmake:99`) from `v1.1.3` to a current `1.4.x` release, which carries a modern `fmt`. Our DuckDB API surface is four stable types — `DuckDB`, `Connection`, `Value`, `Appender` — so migration risk is low, but the bump needs a cold local build to validate. |
+| **Re-open trigger** | Closes when Windows CI reports green. Re-open on any future DuckDB bump that reintroduces a vendored-dependency/toolchain conflict. |
+
+### #3c — macOS CI job hung to the 6-hour ceiling; no job timeout configured
+
+| | |
+|---|---|
+| **What** | In CI run 40254262245 the `macOS (Apple Clang)` job ran **6h5m** and was killed by GitHub's hard per-job limit, while Linux failed at 4m44s and Windows at 12m20s. `ci.yml` sets no `timeout-minutes` on any job, so a hang costs the full 6 hours of runner time before anyone learns anything. |
+| **Not yet diagnosed** | Whether the hang is the same Python/dyld fault (#3), a slow cold DuckDB build, or a genuinely hanging step. The 6h kill destroyed the useful signal. |
+| **Fix** | Add `timeout-minutes` to every job in `ci.yml` (a cold DuckDB build is the long pole; budget generously, e.g. 90) so a hang fails fast and leaves a readable log. Then re-characterise the macOS job. |
+| **Re-open trigger** | Closes when macOS CI reports a terminal state inside its timeout. |
+
+### #3d — Linux CI job cancelled with no cause in its own log
+
+| | |
+|---|---|
+| **What** | `Linux (GCC)` build received SIGTERM across ~25 translation units at a single timestamp (01:31:40.40) followed by `##[error]The operation was canceled.` `strategy.fail-fast` is `false`, so a failing sibling should not have cancelled it, and the log contains **no** OOM, disk-pressure, or timeout evidence. |
+| **Honest status** | Cause unknown. An earlier OOM hypothesis was checked and **rejected** — an OOM kill appears as SIGKILL (`Killed signal terminated program cc1plus`), not the graceful SIGTERM seen here. |
+| **Fix** | Re-run Linux alone once #3 and #3b land and characterise it against a clean log. Do not guess at a fix before the cause is known. |
+| **Re-open trigger** | Closes when Linux CI reports green, or converts to a specific entry once the cause is identified. |
+
 ### #4 — `main` branch protection has no required status checks
 
 | | |
