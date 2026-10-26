@@ -13,6 +13,7 @@ add_executable(cellwright_tests
     test_duckdb_engine.cpp
     test_evaluator.cpp
     test_format.cpp
+    test_framebuffer_rect.cpp
     test_hot_reload.cpp
     test_parser.cpp
     test_plugin_allowlist.cpp

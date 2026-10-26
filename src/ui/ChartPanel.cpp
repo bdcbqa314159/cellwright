@@ -1,4 +1,5 @@
 #include "ui/ChartPanel.hpp"
+#include "ui/FramebufferRect.hpp"
 #include "core/Sheet.hpp"
 #include "core/CellAddress.hpp"
 
@@ -307,21 +308,18 @@ void ChartPanel::export_png() {
 
     if (w <= 0 || h <= 0) return;
 
-    // OpenGL framebuffer Y is bottom-up; ImGui Y is top-down
-    int fb_w, fb_h;
-    auto* vp = ImGui::GetMainViewport();
-    fb_w = static_cast<int>(vp->Size.x);
-    fb_h = static_cast<int>(vp->Size.y);
+    // OpenGL framebuffer Y is bottom-up; ImGui Y is top-down. vp->Size is in
+    // logical units, so it is scaled exactly once — see FramebufferRect.hpp.
+    const auto* vp = ImGui::GetMainViewport();
+    const ImGuiIO& io = ImGui::GetIO();
 
-    // Account for DPI scaling (framebuffer may be larger than window coords)
-    ImGuiIO& io = ImGui::GetIO();
-    float scale_x = io.DisplayFramebufferScale.x;
-    float scale_y = io.DisplayFramebufferScale.y;
+    const PixelRect r = framebuffer_rect(
+        static_cast<float>(x), static_cast<float>(y_from_top),
+        static_cast<float>(w), static_cast<float>(h),
+        vp->Size.y,
+        io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
-    int px = static_cast<int>(x * scale_x);
-    int py = static_cast<int>((fb_h / scale_y - y_from_top - h) * scale_y);
-    int pw = static_cast<int>(w * scale_x);
-    int ph = static_cast<int>(h * scale_y);
+    const int px = r.x, py = r.y, pw = r.w, ph = r.h;
 
     if (pw <= 0 || ph <= 0) return;
 

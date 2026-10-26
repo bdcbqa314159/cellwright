@@ -52,14 +52,12 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Fix** | `--parallel 2` in `ci.yml`, with a comment naming the failure mode so it is not "optimised" back. `timeout-minutes` raised 90 → 120 so the cap trades neither an OOM for a timeout. |
 | **Re-open trigger** | Re-open if any platform OOMs at `-j2`, or if the build exceeds 120 minutes — in which case the answer is caching or trimming DuckDB's build, never raising the job count. |
 
-### #4 — `main` branch protection has no required status checks
+### #4 — `main` branch protection required status checks *(closed)*
 
 | | |
 |---|---|
-| **What** | Protection is live (no direct push, no force-push, no deletion, admins included, conversation resolution required) but `required_status_checks` is `null`, so a PR can be merged with no CI evidence at all. |
-| **Why it exists** | Required contexts must match real, reporting check names. Setting them before CI has ever run leaves every PR blocked on a check that never arrives. |
-| **Fix** | After #3 goes green, `PUT` the protection rule with the three contexts and `strict: true`. |
-| **Re-open trigger** | Closes with #3. |
+| **Resolved** | 2026-10-26. `main` now requires `macOS (Apple Clang)` and `Layer conformance` to pass, with `strict: true` (branch must be up to date), alongside the existing no-direct-push / no-force-push / no-deletion / `enforce_admins: true` / conversation-resolution rules and 0 required approvals. |
+| **Note** | Only macOS is a required context because only macOS is in the matrix (#8). When Linux and Windows return, add them as required contexts too, or protection will pass on evidence from one platform while advertising three. |
 
 ### #5 — Bumping a `GIT_SHALLOW` dependency re-fetches its entire history
 
