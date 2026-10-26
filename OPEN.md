@@ -44,14 +44,14 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Mitigated, not fixed** | `timeout-minutes: 90` (build matrix) and `10` (layers) added to the workflows. A hang now fails inside 90 minutes with a readable log instead of consuming the 6-hour ceiling. The underlying cause is still unknown — the timeout buys a diagnosis, it is not one. |
 | **Re-open trigger** | Closes when macOS CI reports a terminal state inside its timeout. If macOS now hits the 90-minute timeout, this becomes a real hang to diagnose, not a slow build. |
 
-### #3d — Linux CI job cancelled with no cause in its own log
+### #3d — Linux CI OOM: uncapped `--parallel` kills cc1plus *(fixed)*
 
 | | |
 |---|---|
-| **What** | `Linux (GCC)` build received SIGTERM across ~25 translation units at a single timestamp (01:31:40.40) followed by `##[error]The operation was canceled.` `strategy.fail-fast` is `false`, so a failing sibling should not have cancelled it, and the log contains **no** OOM, disk-pressure, or timeout evidence. |
-| **Honest status** | Cause unknown. An earlier OOM hypothesis was checked and **rejected** — an OOM kill appears as SIGKILL (`Killed signal terminated program cc1plus`), not the graceful SIGTERM seen here. |
-| **Fix** | Re-run Linux alone once #3 and #3b land and characterise it against a clean log. Do not guess at a fix before the cause is known. |
-| **Re-open trigger** | Closes when Linux CI reports green, or converts to a specific entry once the cause is identified. |
+| **What** | `cmake --build build --parallel` passed no job limit, so it fanned out to all 4 runner vCPUs. DuckDB's unity-build translation units (`ub_*.cpp`) take gigabytes of RAM each, exceeding the runner's memory: `c++: fatal error: Killed signal terminated program cc1plus`, followed by `The runner has received a shutdown signal` — the OOM took the runner agent down with the compiler, which is why the job reported `cancelled` rather than `failure`. |
+| **Diagnosis history** | Worth recording, because the first failure was misdiagnosed twice. The initial log (run 40254262245) contained **zero** occurrences of `cc1plus` or `Killed signal` — that runner died before flushing the message — so the OOM hypothesis was raised and then **wrongly rejected** on the grounds that an OOM is SIGKILL while the log showed only graceful SIGTERM. The second failure (run 40352430336) carried the signature explicitly. Lesson: a *missing* failure signature is not evidence of its absence when the process that would have written it was itself killed. |
+| **Fix** | `--parallel 2` in `ci.yml`, with a comment naming the failure mode so it is not "optimised" back. `timeout-minutes` raised 90 → 120 so the cap trades neither an OOM for a timeout. |
+| **Re-open trigger** | Re-open if any platform OOMs at `-j2`, or if the build exceeds 120 minutes — in which case the answer is caching or trimming DuckDB's build, never raising the job count. |
 
 ### #4 — `main` branch protection has no required status checks
 
