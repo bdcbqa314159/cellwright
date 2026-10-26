@@ -91,7 +91,6 @@ void MainWindow::action_paste_special(AppState& state, PasteMode mode) {
 // ── Menu bar ────────────────────────────────────────────────────────────────
 
 void MainWindow::render_menu_bar(AppState& state) {
-    auto& ci = state.cell_input;
     auto& as = state.active_state();
 
     if (ImGui::BeginMenuBar()) {
@@ -191,22 +190,22 @@ void MainWindow::render_menu_bar(AppState& state) {
             };
 
             if (ImGui::MenuItem("General", nullptr, current.type == FormatType::GENERAL)) {
-                apply_format({FormatType::GENERAL});
+                apply_format({.type = FormatType::GENERAL});
             }
             if (ImGui::MenuItem("Number (2 dp)", nullptr, current.type == FormatType::NUMBER)) {
-                apply_format({FormatType::NUMBER, 2});
+                apply_format({.type = FormatType::NUMBER, .decimals = 2});
             }
             if (ImGui::MenuItem("Percentage", nullptr, current.type == FormatType::PERCENTAGE)) {
-                apply_format({FormatType::PERCENTAGE, 1});
+                apply_format({.type = FormatType::PERCENTAGE, .decimals = 1});
             }
             if (ImGui::MenuItem("Currency ($)", nullptr, current.type == FormatType::CURRENCY)) {
-                apply_format({FormatType::CURRENCY, 2, "$"});
+                apply_format({.type = FormatType::CURRENCY, .decimals = 2, .currency_symbol = "$"});
             }
             if (ImGui::MenuItem("Scientific", nullptr, current.type == FormatType::SCIENTIFIC)) {
-                apply_format({FormatType::SCIENTIFIC, 2});
+                apply_format({.type = FormatType::SCIENTIFIC, .decimals = 2});
             }
             if (ImGui::MenuItem("Date (ISO)", nullptr, current.type == FormatType::DATE)) {
-                apply_format({FormatType::DATE});
+                apply_format({.type = FormatType::DATE});
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Conditional Formatting...")) {

@@ -43,3 +43,5 @@ target_link_libraries(cellwright_tests PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(cellwright_tests)
+
+cellwright_set_warnings(cellwright_tests)
