@@ -1,10 +1,11 @@
 #include "core/DateSerial.hpp"
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <optional>
 #include <regex>
-#include <algorithm>
-#include <cctype>
 
 namespace magic {
 

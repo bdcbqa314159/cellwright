@@ -11,9 +11,11 @@
 #include "util/Sha256.hpp"
 #include <nfd.hpp>
 #include <imgui.h>
-#include <cstring>
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
+#include <memory>
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>

@@ -35,42 +35,22 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 
 ## Verification gaps
 
-### #3 — macOS build fails: pybind11 links Xcode's Python 3.9 framework
+### #3c — macOS CI 6-hour hang *(resolved — it was the pre-fix build, not a hang)*
 
 | | |
 |---|---|
-| **What** | `cmake/Dependencies.cmake:83` calls `find_package(Python3 ...)` with CMake's default `Python3_FIND_FRAMEWORK=FIRST`, so a macOS **framework** Python outranks anything on `PATH` — it selects Xcode's 3.9. Independently, pybind11 runs its deprecated `FindPythonLibsNew.cmake`, which finds `/usr/bin/python3` (3.9.6) and links `Python3.framework/Versions/3.9/lib/libpython3.9.dylib`. That dylib's install name is `@rpath/Python3.framework/Versions/3.9/Python3`, but the emitted rpath is `.../Versions/3.9/lib`, so resolution yields `.../Versions/3.9/lib/Python3.framework/Versions/3.9/Python3` — which does not exist. |
-| **Symptom** | `cellwright_tests` links but **aborts on exec** with `dyld: Library not loaded`. `gtest_discover_tests` runs the binary *at build time*, so the whole build fails at 519/521, and `ctest` then sees only the `cellwright_tests_NOT_BUILT` sentinel. Net effect: **the full 254-test suite ran zero tests.** |
-| **Why it existed** | `97d78af` disabled CI auto-trigger "until builds are validated locally" — the validation never happened, so the break sat undetected from 2026-03-10 to 2026-10-26. |
-| **Fix** | Set `Python3_FIND_FRAMEWORK LAST` and `PYBIND11_FINDPYTHON ON` before the `find_package`/`FetchContent_MakeAvailable(pybind11)` calls, so both resolvers agree on one non-framework interpreter. **Verified locally 2026-10-26:** build exit 0, `ctest` **254/254 passed** in 5.98s, `bin/cellwright` produced. |
-| **Re-open trigger** | Closes when the fix lands and `ci.yml` push/PR triggers are re-enabled. Re-open if any platform picks a framework Python again, or if pybind11 is upgraded (the `PYBIND11_FINDPYTHON` option could change semantics). |
+| **Original symptom** | In run 40254262245 the `macOS (Apple Clang)` job ran **6h5m** and was killed by GitHub's per-job ceiling, while Linux failed at 4m44s and Windows at 12m20s. Recorded as a possible hang of unknown cause. |
+| **Resolution** | Not a hang. After the Python/DuckDB/include fixes, macOS completed its **Build step successfully in 17m43s** (run 40354648434). The 6-hour figure was the broken pre-fix build with no timeout to stop it. |
+| **Retained guard** | `timeout-minutes: 120` stays — it is what converts any future hang into a readable failure instead of six silent hours. |
 
-### #3b — Windows: DuckDB v1.1.3's vendored `fmt` does not compile with current MSVC
+### #3d — Linux CI OOM: uncapped `--parallel` kills cc1plus *(fixed)*
 
 | | |
 |---|---|
-| **What** | `_deps/duckdb-src/third_party/fmt/include/fmt/format.h:306` references `stdext::checked_array_iterator`, which Microsoft **removed** from its STL. Every DuckDB target fails with `C2653: 'stdext': is not a class or namespace name`. No file in `src/` is involved. |
-| **Evidence** | CI run 40254262245, job `Windows (MSVC)` — failed at 12m20s during `Build`. |
-| **Fix** | Bump the DuckDB pin (`cmake/Dependencies.cmake:99`) from `v1.1.3` to a current `1.4.x` release, which carries a modern `fmt`. Our DuckDB API surface is four stable types — `DuckDB`, `Connection`, `Value`, `Appender` — so migration risk is low, but the bump needs a cold local build to validate. |
-| **Re-open trigger** | Closes when Windows CI reports green. Re-open on any future DuckDB bump that reintroduces a vendored-dependency/toolchain conflict. |
-
-### #3c — macOS CI job hung to the 6-hour ceiling; no job timeout configured
-
-| | |
-|---|---|
-| **What** | In CI run 40254262245 the `macOS (Apple Clang)` job ran **6h5m** and was killed by GitHub's hard per-job limit, while Linux failed at 4m44s and Windows at 12m20s. `ci.yml` sets no `timeout-minutes` on any job, so a hang costs the full 6 hours of runner time before anyone learns anything. |
-| **Not yet diagnosed** | Whether the hang is the same Python/dyld fault (#3), a slow cold DuckDB build, or a genuinely hanging step. The 6h kill destroyed the useful signal. |
-| **Fix** | Add `timeout-minutes` to every job in `ci.yml` (a cold DuckDB build is the long pole; budget generously, e.g. 90) so a hang fails fast and leaves a readable log. Then re-characterise the macOS job. |
-| **Re-open trigger** | Closes when macOS CI reports a terminal state inside its timeout. |
-
-### #3d — Linux CI job cancelled with no cause in its own log
-
-| | |
-|---|---|
-| **What** | `Linux (GCC)` build received SIGTERM across ~25 translation units at a single timestamp (01:31:40.40) followed by `##[error]The operation was canceled.` `strategy.fail-fast` is `false`, so a failing sibling should not have cancelled it, and the log contains **no** OOM, disk-pressure, or timeout evidence. |
-| **Honest status** | Cause unknown. An earlier OOM hypothesis was checked and **rejected** — an OOM kill appears as SIGKILL (`Killed signal terminated program cc1plus`), not the graceful SIGTERM seen here. |
-| **Fix** | Re-run Linux alone once #3 and #3b land and characterise it against a clean log. Do not guess at a fix before the cause is known. |
-| **Re-open trigger** | Closes when Linux CI reports green, or converts to a specific entry once the cause is identified. |
+| **What** | `cmake --build build --parallel` passed no job limit, so it fanned out to all 4 runner vCPUs. DuckDB's unity-build translation units (`ub_*.cpp`) take gigabytes of RAM each, exceeding the runner's memory: `c++: fatal error: Killed signal terminated program cc1plus`, followed by `The runner has received a shutdown signal` — the OOM took the runner agent down with the compiler, which is why the job reported `cancelled` rather than `failure`. |
+| **Diagnosis history** | Worth recording, because the first failure was misdiagnosed twice. The initial log (run 40254262245) contained **zero** occurrences of `cc1plus` or `Killed signal` — that runner died before flushing the message — so the OOM hypothesis was raised and then **wrongly rejected** on the grounds that an OOM is SIGKILL while the log showed only graceful SIGTERM. The second failure (run 40352430336) carried the signature explicitly. Lesson: a *missing* failure signature is not evidence of its absence when the process that would have written it was itself killed. |
+| **Fix** | `--parallel 2` in `ci.yml`, with a comment naming the failure mode so it is not "optimised" back. `timeout-minutes` raised 90 → 120 so the cap trades neither an OOM for a timeout. |
+| **Re-open trigger** | Re-open if any platform OOMs at `-j2`, or if the build exceeds 120 minutes — in which case the answer is caching or trimming DuckDB's build, never raising the job count. |
 
 ### #4 — `main` branch protection has no required status checks
 
@@ -80,3 +60,41 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Why it exists** | Required contexts must match real, reporting check names. Setting them before CI has ever run leaves every PR blocked on a check that never arrives. |
 | **Fix** | After #3 goes green, `PUT` the protection rule with the three contexts and `strict: true`. |
 | **Re-open trigger** | Closes with #3. |
+
+### #5 — Bumping a `GIT_SHALLOW` dependency re-fetches its entire history
+
+| | |
+|---|---|
+| **What** | Every `FetchContent_Declare` in `cmake/Dependencies.cmake` uses `GIT_SHALLOW TRUE`. Changing a pinned tag in an existing build tree makes FetchContent run `git fetch --tags --force origin`, which cannot be satisfied from a depth-1 clone and pulls the dependency's full history — observed as `git index-pack` on **1,038,874 objects** while moving DuckDB `v1.1.3` → `v1.5.6`. |
+| **Impact** | Local only, and it does not affect CI: the `actions/cache` key hashes `cmake/Dependencies.cmake`, so a pin change misses the cache and does a clean shallow clone. But a developer bumping a pin in place appears to hang indefinitely. |
+| **Workaround** | `rm -rf build/_deps/<dep>-src build/_deps/<dep>-subbuild build/_deps/<dep>-build` before reconfiguring, which forces a fresh shallow clone of the new tag. |
+| **Re-open trigger** | Revisit if dependency bumps become frequent enough to justify documenting this in the README, or if a `FETCHCONTENT_UPDATES_DISCONNECTED` / unshallow strategy is adopted. |
+### #6 — MSVC `__cplusplus` non-conformance defeated DuckDB's feature guard *(fixed)*
+
+| | |
+|---|---|
+| **What** | Windows failed with `error C2039: 'uncaught_exception': is not a member of 'std'` in DuckDB's `src/common/exception.cpp:55`. DuckDB guards correctly with `#if __cplusplus >= 201703L`, but **MSVC reports `__cplusplus` as `199711L`** unless `/Zc:__cplusplus` is passed, so the guard took the pre-C++17 branch and called `std::uncaught_exception()` — removed in C++20. It is compiled as C++20 because `CMakeLists.txt`'s `CMAKE_CXX_STANDARD 20` is inherited by every dependency subproject (DuckDB's own `set(... "11" CACHE ...)` cannot win: a parent non-cache variable shadows the cache). |
+| **Fix** | `add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>)` in `CMakeLists.txt`, set **before** `include(cmake/Dependencies.cmake)` so dependencies see it. This repairs the root cause (a lying `__cplusplus`) rather than suppressing the symptom. |
+| **Latent sibling, not fixed** | Imposing our C++20 on dependencies is itself the deeper issue — a dependency that expects an older standard may break in other ways. The architecturally correct fix is a per-target standard (`target_compile_features(... cxx_std_20)`) instead of the global variable. Deferred: it touches every target and is not needed while `/Zc:__cplusplus` holds. |
+| **Re-open trigger** | Any further dependency failure traceable to the inherited C++20 standard — then do the per-target conversion. |
+
+### #7 — Missing standard-library includes across `src/` *(fixed)*
+
+| | |
+|---|---|
+| **What** | 18 standard headers were used without being included across 14 files, compiling only by transitive luck on Apple's libc++. GCC's libstdc++ is stricter and broke the Linux build: `ChartPanel.cpp:335: error: 'memcpy' is not a member of 'std'`. This was the first time this code had ever been compiled by GCC. |
+| **Fix** | Added the 18 headers (`<cstring>`, `<cstdio>`, `<memory>`, `<type_traits>`, `<optional>`, `<variant>`, `<mutex>`, `<limits>`, `<new>`). Found by scanning every `src/` file for `std::` symbols against its include set, so the remaining siblings were fixed in one pass rather than one per 40-minute CI cycle. Subsumes the audit's C1 finding. |
+| **Residual risk** | The scan covers a curated symbol→header table, not the whole standard library — it is a heuristic, not a proof. MSVC may still surface a case neither libc++ nor libstdc++ needed. |
+| **Re-open trigger** | Any further missing-include error on any platform; extend the scan table rather than fixing only the reported file. |
+
+### #8 — CI matrix reduced to macOS only; Linux and Windows verified manually
+
+| | |
+|---|---|
+| **What** | `ci.yml`'s matrix is commented down to `macos-latest`. Linux and Windows no longer run on push/PR. |
+| **Why** | A cold three-platform DuckDB build at `-j2` costs 40–80 minutes per push, and the dependency cache cannot warm until a job goes fully green — so every iteration paid full price. That is too slow to debug against. macOS is the development platform and the only one validated end-to-end (build + 254/254 locally and in CI). |
+| **What this costs** | The README advertises Linux and Windows support and **CI no longer proves either.** Both were genuinely broken until this PR (`#3d` OOM, `#6` MSVC `__cplusplus`), so the risk of silent regression is real, not theoretical. Owner verifies both manually before they return. |
+| **Known state at time of removal** | Linux: OOM fixed by `-j2`, then surfaced `#7` (missing includes, now fixed) — **never observed fully green.** Windows: `#3b` fixed by the DuckDB bump, then `#6` fixed by `/Zc:__cplusplus` — **never observed past the build step.** Neither platform has ever run the test suite in CI. |
+| **Fix** | Uncomment the two matrix entries once each passes a manual local build + `ctest`. Consider `ccache`/`sccache` or a prebuilt DuckDB first, so a three-platform run is minutes rather than an hour. |
+| **Re-open trigger** | Any report of a Linux or Windows build failure, or the first dependency bump after this point — a bump is exactly when the untested platforms break. |
+

@@ -1,11 +1,11 @@
 name: CI
 
 on:
-  workflow_dispatch:  # manual trigger only until builds are validated locally
-  # push:
-  #   branches: [master, main]
-  # pull_request:
-  #   branches: [master, main]
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
@@ -13,18 +13,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            name: Linux (GCC)
-            cmake_args: -DCMAKE_BUILD_TYPE=Release
           - os: macos-latest
             name: macOS (Apple Clang)
             cmake_args: -DCMAKE_BUILD_TYPE=Release
-          - os: windows-latest
-            name: Windows (MSVC)
-            cmake_args: -DCMAKE_BUILD_TYPE=Release
+          # Linux and Windows are verified manually for now and re-enter the matrix
+          # once they pass locally — a cold three-platform DuckDB build at -j2 is
+          # 40-80 min per push, which is too slow to iterate against (OPEN.md #8).
+          # - os: ubuntu-latest
+          #   name: Linux (GCC)
+          #   cmake_args: -DCMAKE_BUILD_TYPE=Release
+          # - os: windows-latest
+          #   name: Windows (MSVC)
+          #   cmake_args: -DCMAKE_BUILD_TYPE=Release
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -60,12 +64,16 @@ jobs:
       - name: Configure
         run: cmake -B build ${{ matrix.cmake_args }}
 
+      # --parallel is capped deliberately: DuckDB's unity-build translation units
+      # (ub_*.cpp) consume gigabytes each, and an uncapped --parallel fans out to
+      # every vCPU and gets cc1plus OOM-killed, taking the runner down with it
+      # (OPEN.md #3d). Do not raise this without checking runner memory.
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel 2
 
       # ── Test ───────────────────────────────────────────────────
       - name: C++ tests
-        run: ctest --test-dir build --config Release --output-on-failure --no-tests=error
+        run: ctest --test-dir build --build-config Release --output-on-failure --no-tests=error
 
       - name: Python tests
         run: python -m pytest tests/python -v

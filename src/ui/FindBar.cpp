@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <cctype>
+#include <memory>
 
 
 namespace magic {

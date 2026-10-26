@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <optional>
 #include <stdexcept>
+#include <type_traits>
+#include <variant>
 
 static_assert(sizeof(size_t) >= 8 || sizeof(void*) >= 8,
               "cellwright requires a 64-bit platform to avoid range size overflow");

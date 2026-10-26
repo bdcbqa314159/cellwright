@@ -3,6 +3,7 @@
 #include "core/CellValue.hpp"
 #include "formula/FunctionRegistry.hpp"
 #include <imgui.h>
+#include <cstdio>
 #include <cstring>
 
 namespace magic {
