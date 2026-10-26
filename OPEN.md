@@ -52,6 +52,23 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Fix** | `--parallel 2` in `ci.yml`, with a comment naming the failure mode so it is not "optimised" back. `timeout-minutes` raised 90 → 120 so the cap trades neither an OOM for a timeout. |
 | **Re-open trigger** | Re-open if any platform OOMs at `-j2`, or if the build exceeds 120 minutes — in which case the answer is caching or trimming DuckDB's build, never raising the job count. |
 
+### #4 — `main` branch protection has no required status checks
+
+| | |
+|---|---|
+| **What** | Protection is live (no direct push, no force-push, no deletion, admins included, conversation resolution required) but `required_status_checks` is `null`, so a PR can be merged with no CI evidence at all. |
+| **Why it exists** | Required contexts must match real, reporting check names. Setting them before CI has ever run leaves every PR blocked on a check that never arrives. |
+| **Fix** | After #3 goes green, `PUT` the protection rule with the three contexts and `strict: true`. |
+| **Re-open trigger** | Closes with #3. |
+
+### #5 — Bumping a `GIT_SHALLOW` dependency re-fetches its entire history
+
+| | |
+|---|---|
+| **What** | Every `FetchContent_Declare` in `cmake/Dependencies.cmake` uses `GIT_SHALLOW TRUE`. Changing a pinned tag in an existing build tree makes FetchContent run `git fetch --tags --force origin`, which cannot be satisfied from a depth-1 clone and pulls the dependency's full history — observed as `git index-pack` on **1,038,874 objects** while moving DuckDB `v1.1.3` → `v1.5.6`. |
+| **Impact** | Local only, and it does not affect CI: the `actions/cache` key hashes `cmake/Dependencies.cmake`, so a pin change misses the cache and does a clean shallow clone. But a developer bumping a pin in place appears to hang indefinitely. |
+| **Workaround** | `rm -rf build/_deps/<dep>-src build/_deps/<dep>-subbuild build/_deps/<dep>-build` before reconfiguring, which forces a fresh shallow clone of the new tag. |
+| **Re-open trigger** | Revisit if dependency bumps become frequent enough to justify documenting this in the README, or if a `FETCHCONTENT_UPDATES_DISCONNECTED` / unshallow strategy is adopted. |
 ### #6 — MSVC `__cplusplus` non-conformance defeated DuckDB's feature guard *(fixed)*
 
 | | |
@@ -81,20 +98,3 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Fix** | Uncomment the two matrix entries once each passes a manual local build + `ctest`. Consider `ccache`/`sccache` or a prebuilt DuckDB first, so a three-platform run is minutes rather than an hour. |
 | **Re-open trigger** | Any report of a Linux or Windows build failure, or the first dependency bump after this point — a bump is exactly when the untested platforms break. |
 
-### #4 — `main` branch protection has no required status checks
-
-| | |
-|---|---|
-| **What** | Protection is live (no direct push, no force-push, no deletion, admins included, conversation resolution required) but `required_status_checks` is `null`, so a PR can be merged with no CI evidence at all. |
-| **Why it exists** | Required contexts must match real, reporting check names. Setting them before CI has ever run leaves every PR blocked on a check that never arrives. |
-| **Fix** | After #3 goes green, `PUT` the protection rule with the three contexts and `strict: true`. |
-| **Re-open trigger** | Closes with #3. |
-
-### #5 — Bumping a `GIT_SHALLOW` dependency re-fetches its entire history
-
-| | |
-|---|---|
-| **What** | Every `FetchContent_Declare` in `cmake/Dependencies.cmake` uses `GIT_SHALLOW TRUE`. Changing a pinned tag in an existing build tree makes FetchContent run `git fetch --tags --force origin`, which cannot be satisfied from a depth-1 clone and pulls the dependency's full history — observed as `git index-pack` on **1,038,874 objects** while moving DuckDB `v1.1.3` → `v1.5.6`. |
-| **Impact** | Local only, and it does not affect CI: the `actions/cache` key hashes `cmake/Dependencies.cmake`, so a pin change misses the cache and does a clean shallow clone. But a developer bumping a pin in place appears to hang indefinitely. |
-| **Workaround** | `rm -rf build/_deps/<dep>-src build/_deps/<dep>-subbuild build/_deps/<dep>-build` before reconfiguring, which forces a fresh shallow clone of the new tag. |
-| **Re-open trigger** | Revisit if dependency bumps become frequent enough to justify documenting this in the README, or if a `FETCHCONTENT_UPDATES_DISCONNECTED` / unshallow strategy is adopted. |
