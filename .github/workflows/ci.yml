@@ -1,11 +1,11 @@
 name: CI
 
 on:
-  workflow_dispatch:  # manual trigger only until builds are validated locally
-  # push:
-  #   branches: [master, main]
-  # pull_request:
-  #   branches: [master, main]
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
@@ -25,6 +25,7 @@ jobs:
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4

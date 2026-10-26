@@ -80,6 +80,17 @@ target_include_directories(implot_lib PUBLIC ${implot_SOURCE_DIR})
 target_link_libraries(implot_lib PUBLIC imgui_glfw_opengl3)
 
 # ── Python + pybind11 (for Python plugin adapter) ───────────────────────────
+# Prefer a non-framework interpreter. CMake defaults to Python3_FIND_FRAMEWORK=FIRST
+# on macOS, which selects Xcode's Python3.framework; its libpython install name is
+# @rpath/Python3.framework/Versions/3.9/Python3 while the emitted rpath points at
+# .../Versions/3.9/lib, so the link succeeds but the binary aborts on exec.
+set(Python3_FIND_FRAMEWORK LAST)
+
+# Make pybind11 use CMake's FindPython result instead of its deprecated
+# FindPythonLibsNew.cmake, which resolves Python independently and would drag the
+# framework libpython back onto the link line regardless of the setting above.
+set(PYBIND11_FINDPYTHON ON CACHE BOOL "" FORCE)
+
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
 FetchContent_Declare(pybind11
@@ -96,10 +107,18 @@ set(BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(duckdb
     GIT_REPOSITORY https://github.com/duckdb/duckdb.git
-    GIT_TAG        v1.1.3
+    GIT_TAG        v1.5.6
     GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(duckdb)
+
+# DuckDB declares its public headers with directory-scoped include_directories(), which
+# does not propagate to consumers through target_link_libraries. Attach it to the target
+# so anything linking `duckdb` can find duckdb.hpp without repeating the path.
+# Wrapped in BUILD_INTERFACE because duckdb carries install/export rules, and CMake
+# rejects a bare in-tree path in an exported target's INTERFACE_INCLUDE_DIRECTORIES.
+target_include_directories(duckdb
+    INTERFACE $<BUILD_INTERFACE:${duckdb_SOURCE_DIR}/src/include>)
 
 # ── NFD (native file dialogs) ────────────────────────────────────────────────
 set(NFD_PORTAL OFF CACHE BOOL "" FORCE)

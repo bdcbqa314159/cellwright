@@ -6,14 +6,13 @@ on:
   pull_request:
     branches: [main]
 
-# Separate from ci.yml on purpose: this check is green today and auto-runs,
-# while the build matrix stays manual until the macOS Python link break is
-# fixed (OPEN.md #3). Auto-triggering a known-red matrix buys a red badge,
-# not information.
+# Separate from ci.yml on purpose: the layer check is seconds, platform-independent,
+# and has no dependency build, so it reports long before the matrix does.
 jobs:
   layers:
     name: Layer conformance
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

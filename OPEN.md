@@ -35,33 +35,14 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 
 ## Verification gaps
 
-### #3 — macOS build fails: pybind11 links Xcode's Python 3.9 framework
-
-| | |
-|---|---|
-| **What** | `cmake/Dependencies.cmake:83` calls `find_package(Python3 ...)` with CMake's default `Python3_FIND_FRAMEWORK=FIRST`, so a macOS **framework** Python outranks anything on `PATH` — it selects Xcode's 3.9. Independently, pybind11 runs its deprecated `FindPythonLibsNew.cmake`, which finds `/usr/bin/python3` (3.9.6) and links `Python3.framework/Versions/3.9/lib/libpython3.9.dylib`. That dylib's install name is `@rpath/Python3.framework/Versions/3.9/Python3`, but the emitted rpath is `.../Versions/3.9/lib`, so resolution yields `.../Versions/3.9/lib/Python3.framework/Versions/3.9/Python3` — which does not exist. |
-| **Symptom** | `cellwright_tests` links but **aborts on exec** with `dyld: Library not loaded`. `gtest_discover_tests` runs the binary *at build time*, so the whole build fails at 519/521, and `ctest` then sees only the `cellwright_tests_NOT_BUILT` sentinel. Net effect: **the full 254-test suite ran zero tests.** |
-| **Why it existed** | `97d78af` disabled CI auto-trigger "until builds are validated locally" — the validation never happened, so the break sat undetected from 2026-03-10 to 2026-10-26. |
-| **Fix** | Set `Python3_FIND_FRAMEWORK LAST` and `PYBIND11_FINDPYTHON ON` before the `find_package`/`FetchContent_MakeAvailable(pybind11)` calls, so both resolvers agree on one non-framework interpreter. **Verified locally 2026-10-26:** build exit 0, `ctest` **254/254 passed** in 5.98s, `bin/cellwright` produced. |
-| **Re-open trigger** | Closes when the fix lands and `ci.yml` push/PR triggers are re-enabled. Re-open if any platform picks a framework Python again, or if pybind11 is upgraded (the `PYBIND11_FINDPYTHON` option could change semantics). |
-
-### #3b — Windows: DuckDB v1.1.3's vendored `fmt` does not compile with current MSVC
-
-| | |
-|---|---|
-| **What** | `_deps/duckdb-src/third_party/fmt/include/fmt/format.h:306` references `stdext::checked_array_iterator`, which Microsoft **removed** from its STL. Every DuckDB target fails with `C2653: 'stdext': is not a class or namespace name`. No file in `src/` is involved. |
-| **Evidence** | CI run 40254262245, job `Windows (MSVC)` — failed at 12m20s during `Build`. |
-| **Fix** | Bump the DuckDB pin (`cmake/Dependencies.cmake:99`) from `v1.1.3` to a current `1.4.x` release, which carries a modern `fmt`. Our DuckDB API surface is four stable types — `DuckDB`, `Connection`, `Value`, `Appender` — so migration risk is low, but the bump needs a cold local build to validate. |
-| **Re-open trigger** | Closes when Windows CI reports green. Re-open on any future DuckDB bump that reintroduces a vendored-dependency/toolchain conflict. |
-
 ### #3c — macOS CI job hung to the 6-hour ceiling; no job timeout configured
 
 | | |
 |---|---|
 | **What** | In CI run 40254262245 the `macOS (Apple Clang)` job ran **6h5m** and was killed by GitHub's hard per-job limit, while Linux failed at 4m44s and Windows at 12m20s. `ci.yml` sets no `timeout-minutes` on any job, so a hang costs the full 6 hours of runner time before anyone learns anything. |
 | **Not yet diagnosed** | Whether the hang is the same Python/dyld fault (#3), a slow cold DuckDB build, or a genuinely hanging step. The 6h kill destroyed the useful signal. |
-| **Fix** | Add `timeout-minutes` to every job in `ci.yml` (a cold DuckDB build is the long pole; budget generously, e.g. 90) so a hang fails fast and leaves a readable log. Then re-characterise the macOS job. |
-| **Re-open trigger** | Closes when macOS CI reports a terminal state inside its timeout. |
+| **Mitigated, not fixed** | `timeout-minutes: 90` (build matrix) and `10` (layers) added to the workflows. A hang now fails inside 90 minutes with a readable log instead of consuming the 6-hour ceiling. The underlying cause is still unknown — the timeout buys a diagnosis, it is not one. |
+| **Re-open trigger** | Closes when macOS CI reports a terminal state inside its timeout. If macOS now hits the 90-minute timeout, this becomes a real hang to diagnose, not a slow build. |
 
 ### #3d — Linux CI job cancelled with no cause in its own log
 
@@ -80,3 +61,12 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Why it exists** | Required contexts must match real, reporting check names. Setting them before CI has ever run leaves every PR blocked on a check that never arrives. |
 | **Fix** | After #3 goes green, `PUT` the protection rule with the three contexts and `strict: true`. |
 | **Re-open trigger** | Closes with #3. |
+
+### #5 — Bumping a `GIT_SHALLOW` dependency re-fetches its entire history
+
+| | |
+|---|---|
+| **What** | Every `FetchContent_Declare` in `cmake/Dependencies.cmake` uses `GIT_SHALLOW TRUE`. Changing a pinned tag in an existing build tree makes FetchContent run `git fetch --tags --force origin`, which cannot be satisfied from a depth-1 clone and pulls the dependency's full history — observed as `git index-pack` on **1,038,874 objects** while moving DuckDB `v1.1.3` → `v1.5.6`. |
+| **Impact** | Local only, and it does not affect CI: the `actions/cache` key hashes `cmake/Dependencies.cmake`, so a pin change misses the cache and does a clean shallow clone. But a developer bumping a pin in place appears to hang indefinitely. |
+| **Workaround** | `rm -rf build/_deps/<dep>-src build/_deps/<dep>-subbuild build/_deps/<dep>-build` before reconfiguring, which forces a fresh shallow clone of the new tag. |
+| **Re-open trigger** | Revisit if dependency bumps become frequent enough to justify documenting this in the README, or if a `FETCHCONTENT_UPDATES_DISCONNECTED` / unshallow strategy is adopted. |
