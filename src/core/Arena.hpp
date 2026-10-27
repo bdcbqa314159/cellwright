@@ -50,6 +50,9 @@ private:
 
     std::vector<Block> blocks_;
     size_t current_offset_ = 0;
+    // Bytes consumed in blocks that are no longer the active one. bytes_used()
+    // cannot derive this from capacities: a block abandoned by growth is not full.
+    size_t retired_ = 0;
     size_t initial_block_size_;
     std::vector<DtorEntry> dtors_;
 };
