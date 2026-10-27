@@ -42,6 +42,14 @@ target_link_libraries(cellwright_tests PRIVATE
 )
 
 include(GoogleTest)
-gtest_discover_tests(cellwright_tests)
+# PRE_TEST: enumerate tests when ctest runs, not during the build. The default
+# POST_BUILD mode executes the binary at build time with a 5s timeout, which makes
+# the BUILD fail if the binary is merely slow to start — and it is: it loads
+# libpython plus a 38MB libduckdb. Observed failing on a loaded machine mid-listing,
+# and it is why an early dyld fault failed the build instead of the tests.
+gtest_discover_tests(cellwright_tests
+    DISCOVERY_MODE PRE_TEST
+    DISCOVERY_TIMEOUT 60
+)
 
 cellwright_set_warnings(cellwright_tests)
