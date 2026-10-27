@@ -16,6 +16,7 @@ LAYERS = {
     "util": 0,
     "core": 1,
     "formula": 2,
+    "services": 3,
     "builtin": 3,
     "io": 3,
     "plugin": 3,
@@ -26,8 +27,6 @@ LAYERS = {
 # Declared debt — each entry MUST have an OPEN.md row with a re-open trigger.
 # Shrinks only. See OPEN.md #1 and #2.
 ALLOWED = {
-    ("core/CellInputService.cpp", "formula"),
-    ("core/Clipboard.cpp", "formula"),
     ("core/FormulaAdjust.cpp", "formula"),
     ("ui/MainWindow.cpp", "app"),
 }

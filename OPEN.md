@@ -9,29 +9,30 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 
 ## Layering allowances
 
-### #1 — `core/` reaches up into `formula/` (3 files, 6 includes)
+### #1 — `core/FormulaAdjust.cpp` reaches up into `formula/` (1 include)
 
 | | |
 |---|---|
-| **Allowances** | `core/CellInputService.cpp` → `formula` · `core/Clipboard.cpp` → `formula` · `core/FormulaAdjust.cpp` → `formula` |
+| **Allowance** | `core/FormulaAdjust.cpp` → `formula` |
 | **Edge** | L1 → L2, upward |
-| **Why it exists** | These three are not core data structures — they are *services* that orchestrate core **and** formula. `CellInputService` tokenizes, parses, evaluates, and updates the dependency graph; `FormulaAdjust` rewrites references on row/column shift; `Clipboard` rewrites formulas on paste. They were filed under `core/` because they operate on `Sheet`, but they sit above both layers. |
-| **Fix** | Move all three into a new `src/services/` layer at L3 (above `formula`, below `ui`). No behaviour change — a pure move plus include/CMake updates. |
-| **Re-open trigger** | Immediately — this is the next scheduled PR after the scaffold lands. Also re-open if a 4th file in `core/` needs `formula/`: that is the signal the service layer is overdue, and it must **not** be added to the allowlist. |
-| **Risk if left** | `core` cannot be tested or reused without the formula engine, and the dependency direction that makes the engine substitutable is already broken. |
+| **Progress** | Was 3 files / 6 includes. `CellInputService` and `Clipboard` moved to the new `src/services/` layer (L3) on 2026-10-27 — they were genuinely misfiled services orchestrating core **and** formula, and nothing in `core/` depended on them. |
+| **Why this one could NOT move** | **`core/Sheet.cpp` includes it.** `Sheet::insert_row`/`delete_row`/`insert_col`/`delete_col` rewrite formula *text* in place via `adjust_formula_for_*`, which tokenizes. Moving `FormulaAdjust` up to L3 would make `core/Sheet` (the heart of L1) depend on L3 — strictly worse than the edge it removes. The original entry proposed moving all three; that was wrong, and this records why. |
+| **Real fix** | `Sheet` must stop rewriting formula text. Its row/column operations should shift cell *keys* and report which formulas are affected, leaving the rewrite to a caller at L3+ — or take an injected rewriting strategy. Either is a design change to a public signature, so it needs a spec before implementation, not a file move. |
+| **Re-open trigger** | Immediately when the decomposition is specified. Also re-open if a second `core/` file needs `formula/`: that must **not** be added to the allowlist. |
+| **Risk if left** | `core` still cannot be built or tested without the formula engine, because `Sheet` — not an optional extra — requires it. |
 
-### #2 — `ui/MainWindow.cpp` reaches up into `app/` (2 includes)
+### #2 — `ui/MainWindow.cpp` reaches up into `app/` (2 includes), and `app/AppState` depends back on `ui/`
 
 | | |
 |---|---|
-| **Allowances** | `ui/MainWindow.cpp` → `app` (`app/AppState.hpp`, `app/AutoSave.hpp`) |
+| **Allowance** | `ui/MainWindow.cpp` → `app` (`app/AppState.hpp`, `app/AutoSave.hpp`) |
 | **Edge** | L4 → L5, upward |
-| **Why it exists** | `AppState` is the shared session/document state and `AutoSave` the recovery timer; both were filed under `app/` next to the shell (`App`, `Settings`). `MainWindow` legitimately needs the state it renders — the misplacement is `AppState`'s, not `MainWindow`'s. |
-| **Fix** | Move `AppState` and `AutoSave` **down** out of `app/`, leaving `app/` as the shell only (`App`, `Settings`). Candidate home: the same `src/services/` layer from #1, or `src/state/` at L3. Decide when #1 lands so the two moves share one layer. |
-| **Re-open trigger** | The PR immediately after #1. Also re-open if any other `ui/` file needs `app/`. |
+| **Corrected diagnosis** | The original entry said `AppState` was simply misfiled and should "move down". **That is impossible.** `app/AppState.hpp:17-18` include `ui/MainWindow.hpp` and `ui/ToastManager.hpp`, because `AppState` *owns* `MainWindow main_window` and `ToastManager toasts` by value. So the dependency is mutual: `ui` needs `AppState` for its method signatures, and `AppState` needs `ui` for its members. Anywhere below `ui` would turn the edge into `state → ui`, upward again. |
+| **Root cause** | `AppState` is two things fused. **Document/session state:** `workbook`, `function_registry`, `plugin_manager`, `cell_input`, `async_recalc`, `clipboard`, `duckdb_engine`, `settings`, `auto_save`, `sheet_states`. **UI composition root:** `main_window`, `toasts`, `mono_font`, `font_rebuild_needed`. |
+| **Real fix** | Split it. The document state becomes a type at L3 that `ui/` may depend on downward; the UI-owning members stay in the L5 shell, which composes both. Every `MainWindow` method currently taking `AppState&` (25 of them) would take the narrower type instead — a change to public signatures across `ui/`, so it needs a spec first. |
+| **Blocks** | The `MainWindow.cpp` translation-unit split (audit B2). Attempted 2026-10-27 and **abandoned**: all five new TUs need `AppState`, so the split multiplied this single declared violation into **six**, and going green would have required adding 5 allowlist entries — which §1 forbids outright. The split is sequenced behind this fix. |
+| **Re-open trigger** | When the decomposition is specified. Also re-open if any other `ui/` file needs `app/`. |
 | **Risk if left** | The UI layer is welded to the application shell, so no panel can be tested or hosted outside the full app. |
-
----
 
 ## Verification gaps
 

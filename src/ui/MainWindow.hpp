@@ -5,8 +5,8 @@
 #include "ui/ChartPanel.hpp"
 #include "ui/SqlPanel.hpp"
 #include "ui/StyleSetup.hpp"
-#include "core/Clipboard.hpp"
-#include "core/CellInputService.hpp"
+#include "services/Clipboard.hpp"
+#include "services/CellInputService.hpp"
 #include <cstdint>
 
 namespace magic {
