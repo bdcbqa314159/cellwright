@@ -1,4 +1,6 @@
 #include "io/CsvIO.hpp"
+#include <cstdlib>
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -59,15 +61,24 @@ void CsvIO::parse(const std::string& csv, Sheet& sheet) {
             const auto& f = fields[col];
             if (f.empty()) continue;
 
-            // Try number first
-            try {
-                size_t pos = 0;
-                double d = std::stod(f, &pos);
-                if (pos == f.size()) {
-                    sheet.set_value({col, row}, CellValue{d});
-                    continue;
-                }
-            } catch (...) {}
+            // Try number first. std::strtod rather than std::stod: stod signals
+            // "not a number" by throwing, so a text-heavy CSV threw once per cell —
+            // import cost scaled with the number of text cells. strtod reports the
+            // same conditions without unwinding.
+            //
+            // Behaviour is deliberately identical (pinned by the characterization
+            // tests in tests/test_csv.cpp): the whole field must be consumed, so
+            // leading whitespace is accepted and trailing junk is not; hex and inf
+            // parse as numbers; and ERANGE reproduces stod's out_of_range on both
+            // overflow ("1e400") and underflow ("1e-400"), keeping those as text.
+            errno = 0;
+            const char* begin = f.c_str();
+            char* end = nullptr;
+            const double d = std::strtod(begin, &end);
+            if (end == begin + f.size() && end != begin && errno != ERANGE) {
+                sheet.set_value({col, row}, CellValue{d});
+                continue;
+            }
 
             sheet.set_value({col, row}, CellValue{f});
         }
