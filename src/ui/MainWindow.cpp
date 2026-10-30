@@ -1,6 +1,6 @@
 #include "ui/MainWindow.hpp"
 #include "app/AppState.hpp"
-#include "app/AutoSave.hpp"
+#include "session/AutoSave.hpp"
 #include "core/ConditionalFormat.hpp"
 #include "core/FillPattern.hpp"
 #include "core/Workbook.hpp"

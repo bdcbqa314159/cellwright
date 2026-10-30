@@ -24,9 +24,11 @@ never exercised the new path.
 ## 1. The spine (layers — dependencies point DOWN only, never up)
 
 ```
-L5  app        application shell, session state, settings, autosave
+L5  app        application shell — owns the window, the loop, and composition
 L4  ui         ImGui panels, grid, formula bar, charts — draws, never computes
-L3  builtin · io · plugin    functions, serialization, plugin loading
+L3  builtin · io · plugin · services · session
+               functions · serialization · plugin loading ·
+               orchestration across core+formula · session-scoped state
 L2  formula    tokenizer · parser · AST · evaluator · dependency graph
 L1  core       sheet · workbook · column · cell value · command · SIMD
 L0  util       hashing, config paths, third-party shims — CellWright-free
