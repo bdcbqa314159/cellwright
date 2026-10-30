@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "asan",
+      "displayName": "ASan+UBSan (Clang/GCC)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/asan",
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release", "configuration": "Release" },
+    { "name": "debug", "configurePreset": "debug", "configuration": "Debug" },
+    { "name": "asan", "configurePreset": "asan", "configuration": "Debug" }
+  ],
+  "testPresets": [
+    { "name": "release", "configurePreset": "release", "configuration": "Release",
+      "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } },
+    { "name": "debug", "configurePreset": "debug", "configuration": "Debug",
+      "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } },
+    { "name": "asan", "configurePreset": "asan", "configuration": "Debug",
+      "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } }
+  ]
+}

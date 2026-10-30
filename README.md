@@ -25,7 +25,7 @@ Cross-platform quantitative spreadsheet built with C++20 and Dear ImGui. Designe
 
 **Plugin System**
 - Three conventions: C++ (IFunction, hot-reloadable), C ABI (language-agnostic), Python (pybind11)
-- SHA-256 trust store with codesign verification (macOS)
+- SHA-256 trust store gating every `dlopen` (codesign check implemented but not yet wired into the load path — see [OPEN.md](OPEN.md) #15)
 - Hot reload with mtime polling
 - Panel plugins (custom ImGui windows)
 
@@ -78,6 +78,40 @@ cmake --build build --parallel
 |--------|---------|-------------|
 | `CELLWRIGHT_BUILD_PLUGINS` | `ON` | Build bundled plugins |
 | `CELLWRIGHT_BUILD_TESTS` | `ON` | Build test suite |
+
+### CMake presets
+
+```bash
+cmake --preset release && cmake --build --preset release && ctest --preset release
+cmake --preset asan    && cmake --build --preset asan    && ctest --preset asan
+```
+
+`release` deliberately uses `build/` with Ninja — the same directory and generator as
+CI and `tools/verify.sh`, so the two workflows do not fight over the build tree.
+`debug` and `asan` use `build/debug` and `build/asan`. Presets need CMake 3.21+; the
+build itself still only requires 3.20.
+
+### Local verification
+
+`tools/verify.sh` mirrors the CI pipeline step for step — layer check, configure,
+build, zero-warnings assertion, `ctest`, `pytest`. Run it before pushing:
+
+```bash
+tools/verify.sh            # reuse build/
+tools/verify.sh --clean    # configure from scratch, as CI does
+```
+
+### Formatting
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')
+```
+
+The tree is **not** currently formatted to `.clang-format` — doing so touches 130
+files / 4127 lines, deferred as [OPEN.md](OPEN.md) #14. Editors pick the config up
+for new code regardless.
 
 ### Platform dependencies
 

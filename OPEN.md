@@ -145,3 +145,24 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Verified in both directions** | A gate is only evidence if it has been seen to fail. Clean tree → exit 0, `ALL GREEN`. One unused variable injected into `src/core/Sheet.cpp` → exit 1, naming both resulting warnings. Both checked before this landed. |
 | **Shell footgun it already hit** | The first version counted warnings in a pipeline. Under `set -euo pipefail` a `grep` matching nothing exits 1, killing the script with no message — so the gate failed **precisely when the tree was clean**, the expected steady state. Warnings are now written to a file with `|| true` and counted with `wc -l`. Any future pipeline added to this script needs the same care. |
 | **Re-open trigger** | Any CI failure that `verify.sh` should have caught — that means the two have drifted. |
+
+### #14 — `.clang-format` added but the tree is not formatted to it
+
+| | |
+|---|---|
+| **What** | `.clang-format` (Google, `IndentWidth: 4`, `ColumnLimit: 100`) describes the intended style, but the tree has never been run through it. Measured: **130 files, 4127 changed lines**. |
+| **Why deferred** | A 4127-line reformat lands on top of every subsequent diff and makes `git blame` useless across the whole project. It is also pure churn in a repo with two open architectural decompositions (#1, #2) whose diffs would become unreadable against it. |
+| **Why the config still earns its place now** | Editors and clangd pick it up immediately for *new and edited* code, so the tree converges gradually instead of in one unreviewable commit. `IndentWidth: 4` and `AccessModifierOffset: -4` were chosen to match the code as it exists (3264 lines at indent depth 4) rather than Google's 2-space default, which alone would have touched every indented line. |
+| **Fix** | One commit, nothing else in it: `clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')`. Best done after #1 and #2 land. |
+| **Re-open trigger** | After the layering decompositions, or whenever the formatting drift starts causing review noise. |
+
+### #15 — `verify_codesign` is a security control that is never invoked
+
+| | |
+|---|---|
+| **What** | `PluginAllowlist::verify_codesign` (`PluginAllowlist.cpp:59`) shells out to `/usr/bin/codesign -v`, but **no production code calls it**. Its only callers are in `tests/test_plugin_allowlist.cpp`. `PluginManager::check_trust` consults `is_trusted` — SHA-256 only — and nothing else. |
+| **Impact** | The SHA-256 allowlist is the sole gate on every platform, macOS included. That is not nothing: a library's bytes must match a hash the user explicitly trusted. But a signed-but-tampered or unsigned library is not rejected on signature grounds, and the README claimed otherwise. |
+| **How it was found** | Writing `SECURITY.md` for this scaffold. I checked each claim before asserting it, and this one did not hold. |
+| **Also corrected** | `README.md` advertised "SHA-256 trust store with codesign verification (macOS)". Reworded to describe what is actually enforced — a security policy that contradicts the README is worse than having neither. |
+| **Fix** | Decide whether codesign is a real requirement. If yes, call it from `check_trust` on Apple platforms and add a test that a validly-hashed but unsigned library is rejected. If no, delete the function and its test rather than leaving a control that looks active. **Do not** leave it as-is. |
+| **Re-open trigger** | Immediately — this is a decision, not deferred scope. It is debt only until someone rules on it. |

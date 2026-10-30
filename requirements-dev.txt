@@ -1,0 +1,10 @@
+# Dev-only tools. Runtime/test dependencies live in requirements.txt.
+# Install into a LOCAL, gitignored virtualenv — never globally:
+#
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+#   .venv/bin/clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')
+#
+# Pinned so every developer and CI agree on formatting output — an unpinned
+# clang-format reformats the tree differently between versions.
+clang-format==20.1.8

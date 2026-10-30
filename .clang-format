@@ -1,0 +1,15 @@
+---
+# CellWright formatting. Google style, with two deliberate departures that match
+# the code as it already exists rather than mandating a tree-wide reflow:
+#   IndentWidth 4  — the tree is consistently 4-space (3264 lines at depth 4,
+#                    1842 at 8, 984 at 12); Google's default of 2 would touch
+#                    every indented line in the project.
+#   ColumnLimit 100 — same as keyward. 158 lines currently exceed it, so running
+#                    clang-format over the tree is a real diff; see OPEN.md #14.
+#
+# Apply:  clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -4   # keep `public:` flush with the class, given 4-space indent
+---
