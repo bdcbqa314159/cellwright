@@ -1,5 +1,5 @@
 #include "app/AppState.hpp"
-#include "app/AutoSave.hpp"
+#include "session/AutoSave.hpp"
 #include "io/WorkbookIO.hpp"
 #include "io/CsvIO.hpp"
 

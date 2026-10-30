@@ -32,7 +32,7 @@ Three members block a naive move, and each resolves differently:
 
 | Member | Currently | Finding | Resolution |
 |---|---|---|---|
-| `ToastManager toasts` | `ui/` (L4) | depends only on `<deque>`, `<string>` — **no `ui/` deps at all** | move down to L3; it is a message queue, not a widget |
+| `ToastManager toasts` | `ui/` (L4) | **correctly placed** — its header is clean but `ToastManager.cpp` is a full ImGui renderer (`ImGui::Begin`, `SetNextWindowPos`, `PushStyleVar`) | stays at L4; `ui/` reaches it as a sibling, not through session state |
 | `Settings`, `AutoSave` | `app/` (L5) | depend only on `util/` (L0) and `io/` (L3) | move down to L3 |
 | `mono_font`, `font_rebuild_needed` | `app/` (L5) | a real **L5↔L4 handshake**: `App` writes the font, `ui/` requests rebuilds, `App` clears | not relocatable — replace the shared fields with an explicit `MainWindow` interface |
 
@@ -40,8 +40,8 @@ Three members block a naive move, and each resolves differently:
 
 1. A `SessionState` aggregate at **L3** holding the document/session members, with
    `active_state()`, `ensure_sheet_states()`, `remove_sheet_state()` unchanged.
-2. `ToastManager`, `Settings`, `AutoSave` relocated to L3; `tools/check_layers.py` layer
-   map updated.
+2. `Settings` and `AutoSave` relocated to L3 (`src/session/`); `tools/check_layers.py`
+   layer map updated. `ToastManager` stays at L4 — see D4.
 3. Every `ui/` signature currently taking `AppState&` takes `SessionState&` instead.
 4. The font handshake replaced by `MainWindow::set_mono_font()` /
    `font_rebuild_requested()` / `clear_font_rebuild_request()`; both shared fields deleted.
@@ -88,7 +88,7 @@ Where that leaves a gap, it is declared rather than papered over.
 | D1 | `SessionState` is a plain aggregate, like `AppState` today | class with accessors; interface | It is a bag of owned subsystems; encapsulation buys nothing and would churn 100+ call sites | A second owner appears, or an invariant across members needs enforcing |
 | D2 | New `src/session/` directory at L3 | reuse `src/services/` | `services/` holds behaviour (`CellInputService`, `Clipboard`); this is state. Keeping them distinct keeps the layer map readable | `session/` stays a single header after the next two slices — then fold it into `services/` |
 | D3 | Font handshake becomes a `MainWindow` method pair | keep the fields in `SessionState` | `ImFont*` is layer-neutral so the fields *could* move, but font runtime is not document state — `CLAUDE.md` §1 says membership is semantic, and that is the same mistake `AppState` already made | A second consumer needs the font-rebuild signal |
-| D4 | `ToastManager` moves to L3 rather than being passed separately | extra `ToastManager&` parameter on 25 methods | It has zero `ui/` dependencies, so it was misfiled; moving it is smaller than widening every signature | It acquires an ImGui dependency — then it is genuinely L4 and must be passed |
+| D4 | **`ToastManager` stays at L4.** `ui/` reaches it as a sibling rather than through `SessionState` | move it to L3 (attempted, reverted) | **Amended 2026-10-30 — see Drift.** Its *header* is `<deque>`/`<string>` only, but `ToastManager.cpp` renders with ImGui. L3 placement would put ImGui drawing inside `cellwright_core` and break `CLAUDE.md` §1's semantic rule that only L4 draws — the violation class the include check cannot see | Its rendering moves out, leaving a pure message queue |
 
 ## Ratification record (2026-10-30)
 
@@ -104,6 +104,17 @@ Where that leaves a gap, it is declared rather than papered over.
 
 **Directory:** the three relocated classes land in a new `src/session/` (L3) alongside
 the future `SessionState`, per D2. `services/` stays behaviour-only.
+
+## Drift
+
+| # | Spec claimed | Reality | Change |
+|---|---|---|---|
+| 1 | D4: `ToastManager` has "zero `ui/` dependencies, so it was misfiled" and moves to L3 | Only its **header** is dependency-free. `ToastManager.cpp` calls `ImGui::Begin`, `SetNextWindowPos`, `PushStyleVar`, `TextUnformatted` — it draws. The premise came from grepping the header and not the implementation | D4 amended: `ToastManager` stays at L4. The move was made, caught by inspecting the `.cpp` before building, and reverted. `ui/` will reach toasts as a sibling once `SessionState` lands, not via session state |
+
+Caught before it shipped, but only because the ImGui check happened to run — the include
+checker would have reported this green, since `ui → session` is downward. It is a worked
+example of `CLAUDE.md` §1's warning that layer membership is semantic and the machine
+check cannot see it.
 
 ## Progress
 

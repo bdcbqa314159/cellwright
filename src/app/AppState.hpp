@@ -12,8 +12,8 @@
 #include "formula/DependencyGraph.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
 #include "plugin/PluginManager.hpp"
-#include "app/AutoSave.hpp"
-#include "app/Settings.hpp"
+#include "session/AutoSave.hpp"
+#include "session/Settings.hpp"
 #include "ui/MainWindow.hpp"
 #include "ui/ToastManager.hpp"
 
