@@ -59,9 +59,7 @@ add_library(cellwright_core STATIC
     src/core/Arena.cpp
     src/core/CellAddress.cpp
     src/core/CellFormat.cpp
-    src/core/CellInputService.cpp
     src/core/CellValue.cpp
-    src/core/Clipboard.cpp
     src/core/Column.cpp
     src/core/Command.cpp
     src/core/DateSerial.cpp
@@ -70,6 +68,9 @@ add_library(cellwright_core STATIC
     src/core/Sheet.cpp
     src/core/SimdOps.cpp
     src/core/Workbook.cpp
+    # services (orchestrate core + formula)
+    src/services/CellInputService.cpp
+    src/services/Clipboard.cpp
     # formula
     src/formula/AsyncRecalcEngine.cpp
     src/formula/DependencyGraph.cpp

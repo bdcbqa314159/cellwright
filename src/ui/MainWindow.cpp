@@ -4,7 +4,7 @@
 #include "core/ConditionalFormat.hpp"
 #include "core/FillPattern.hpp"
 #include "core/Workbook.hpp"
-#include "core/Clipboard.hpp"
+#include "services/Clipboard.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
 #include "io/CsvIO.hpp"
 #include "io/WorkbookIO.hpp"
