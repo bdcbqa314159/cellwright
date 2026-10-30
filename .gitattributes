@@ -1,0 +1,21 @@
+# Cross-platform line-ending hygiene: store text as LF in the repo, check out
+# native. Keeps a Windows clone from rewriting every file to CRLF (and back) —
+# which matters here because Windows is a supported build target.
+* text=auto
+
+# Explicit for the files we ship.
+*.hpp   text
+*.cpp   text
+*.h     text
+*.py    text
+*.txt   text
+*.md    text
+*.json  text
+*.yml   text
+*.cmake text
+*.sh    text eol=lf
+CMakeLists.txt text
+
+# Vendored third-party single-header libraries: keep them byte-stable so a diff
+# against upstream stays meaningful.
+src/util/stb_image_write.h text

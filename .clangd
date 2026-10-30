@@ -1,0 +1,17 @@
+# clangd config for CellWright. The build exports compile_commands.json into
+# build/ (CMAKE_EXPORT_COMPILE_COMMANDS is ON in CMakeLists.txt), so includes and
+# the C++ standard resolve without guessing. These settings quiet the noisy,
+# low-value diagnostics; real warnings come from -Wall/-Wextra at build time.
+CompileFlags:
+  CompilationDatabase: build   # where CMake writes compile_commands.json
+  Add: [-std=c++20]            # fallback for files not in the compile database
+
+Diagnostics:
+  UnusedIncludes: None         # too noisy against ImGui/DuckDB headers
+  MissingIncludes: None
+
+InlayHints:
+  Enabled: No
+
+Index:
+  Background: Build
