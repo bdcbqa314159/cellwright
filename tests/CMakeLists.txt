@@ -50,6 +50,10 @@ include(GoogleTest)
 gtest_discover_tests(cellwright_tests
     DISCOVERY_MODE PRE_TEST
     DISCOVERY_TIMEOUT 60
+    # No single test should take minutes. A deadlock in the async engine's shutdown
+    # path (issue #11) would otherwise hang until the CI job's own timeout, costing
+    # an hour and producing no usable log.
+    PROPERTIES TIMEOUT 120
 )
 
 cellwright_set_warnings(cellwright_tests)
