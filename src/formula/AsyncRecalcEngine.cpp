@@ -3,8 +3,17 @@
 
 namespace magic {
 
-AsyncRecalcEngine::AsyncRecalcEngine()
-    : worker_([this] { worker_loop(); }) {}
+AsyncRecalcEngine::AsyncRecalcEngine() {
+    // Started here, NOT in the member-init list. Members initialise in declaration
+    // order, and worker_ used to be declared first — so the thread began running
+    // worker_loop() before queue_mutex_, queue_cv_, pending_ and stop_ existed. It
+    // would lock an unconstructed mutex and read an uninitialised stop_; a garbage
+    // non-zero value made the worker return immediately via the
+    // `stop_ && pending_.empty()` check, so batches were silently never processed.
+    // Starting the thread after the constructor body's members are all alive makes
+    // the ordering explicit instead of a property of the declaration order.
+    worker_ = std::thread([this] { worker_loop(); });
+}
 
 AsyncRecalcEngine::~AsyncRecalcEngine() {
     // stop_ is part of the condition variable's predicate, so it must be changed

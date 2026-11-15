@@ -6,7 +6,32 @@
 #include <stdexcept>
 #include <variant>
 #include <vector>
+#include <cstddef>
 using namespace magic;
+
+namespace {
+
+// Poll until `want` results arrive or the deadline passes. The tests previously
+// looped a fixed 100 x 10ms, which silently asserts "the worker finishes within
+// ~1 second" — a timing property none of them means to test. On a loaded CI runner
+// sleep_for(10ms) oversleeps badly, and the budget expired before the worker was
+// scheduled. A wall-clock deadline keeps the real assertion (a result arrives)
+// without smuggling in a latency one.
+std::vector<RecalcResult> wait_for_results(AsyncRecalcEngine& engine, size_t want,
+                                           std::chrono::seconds budget = std::chrono::seconds(30)) {
+    std::vector<RecalcResult> out;
+    const auto deadline = std::chrono::steady_clock::now() + budget;
+    while (out.size() < want && std::chrono::steady_clock::now() < deadline) {
+        auto partial = engine.poll_results();
+        out.insert(out.end(), partial.begin(), partial.end());
+        if (out.size() >= want) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return out;
+}
+
+}  // namespace
+
 
 TEST(AsyncRecalcEngine, BasicBatch) {
     AsyncRecalcEngine engine;
@@ -23,13 +48,7 @@ TEST(AsyncRecalcEngine, BasicBatch) {
         return CellValue{CellError::VALUE};
     });
 
-    // Wait for results
-    std::vector<RecalcResult> results;
-    for (int i = 0; i < 100 && results.size() < 2; ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        auto partial = engine.poll_results();
-        results.insert(results.end(), partial.begin(), partial.end());
-    }
+    const std::vector<RecalcResult> results = wait_for_results(engine, 2);
 
     ASSERT_EQ(results.size(), 2u);
     EXPECT_DOUBLE_EQ(std::get<double>(results[0].value), 30.0);
@@ -44,11 +63,7 @@ TEST(AsyncRecalcEngine, ErrorHandling) {
         throw std::runtime_error("eval failed");
     });
 
-    std::vector<RecalcResult> results;
-    for (int i = 0; i < 100 && results.empty(); ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        results = engine.poll_results();
-    }
+    const std::vector<RecalcResult> results = wait_for_results(engine, 1);
 
     ASSERT_EQ(results.size(), 1u);
     ASSERT_TRUE(std::holds_alternative<CellError>(results[0].value));
@@ -84,23 +99,4 @@ TEST(AsyncRecalcEngine, DestroyWithWorkInFlightRepeatedly) {
                       [](const std::string&) -> CellValue { return CellValue{2.0}; });
         // Deliberately no poll and no wait — destroy immediately.
     }
-}
-
-TEST(AsyncRecalcEngine, ThrowingEvalFuncDoesNotAbortTheProcess) {
-    // An exception escaping the worker thread would reach std::terminate. eval_fn
-    // is guarded, so this must be reported as a value rather than killing us.
-    AsyncRecalcEngine engine;
-    std::vector<RecalcJob> jobs = {{{0, 0}, "boom"}};
-    engine.submit(std::move(jobs), [](const std::string&) -> CellValue {
-        throw std::runtime_error("eval exploded");
-    });
-
-    std::vector<RecalcResult> results;
-    for (int i = 0; i < 100 && results.empty(); ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        auto partial = engine.poll_results();
-        results.insert(results.end(), partial.begin(), partial.end());
-    }
-    ASSERT_EQ(results.size(), 1u);
-    EXPECT_TRUE(std::holds_alternative<CellError>(results[0].value));
 }
