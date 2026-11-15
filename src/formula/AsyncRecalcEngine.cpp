@@ -7,7 +7,15 @@ AsyncRecalcEngine::AsyncRecalcEngine()
     : worker_([this] { worker_loop(); }) {}
 
 AsyncRecalcEngine::~AsyncRecalcEngine() {
-    stop_.store(true);
+    // stop_ is part of the condition variable's predicate, so it must be changed
+    // under queue_mutex_. Setting it without the lock loses the wakeup: the worker
+    // evaluates the predicate while holding the lock, and a notify_one issued
+    // before it has actually blocked is dropped — after which join() waits forever.
+    // stop_ being atomic prevents a torn read, not a lost notification.
+    {
+        std::lock_guard lock(queue_mutex_);
+        stop_.store(true);
+    }
     queue_cv_.notify_one();
     if (worker_.joinable()) worker_.join();
 }
@@ -27,7 +35,7 @@ std::vector<RecalcResult> AsyncRecalcEngine::poll_results() {
     return out;
 }
 
-void AsyncRecalcEngine::worker_loop() {
+void AsyncRecalcEngine::worker_loop() try {
     while (true) {
         Batch batch;
         {
@@ -63,6 +71,13 @@ void AsyncRecalcEngine::worker_loop() {
 
         busy_.store(false);
     }
+} catch (...) {
+    // A thread function must not let an exception escape: that calls std::terminate
+    // and aborts the process. The per-job try below covers eval_fn, but the queue and
+    // result containers can also throw (bad_alloc). Mark the engine idle and stop,
+    // so a waiting destructor still joins instead of hanging.
+    busy_.store(false);
+    stop_.store(true);
 }
 
 }  // namespace magic

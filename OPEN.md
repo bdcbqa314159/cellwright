@@ -3,6 +3,22 @@
 Every suppression, skipped test, layering allowance, and load-bearing shortcut lives
 here with a rationale and a **re-open trigger**, or it does not exist (`CLAUDE.md` §3).
 
+**Scope (set 2026-11-14):** this file holds debt that must be visible *beside the code* —
+suppressions, allowlist rows, and the §3 invariant that `check_layers.py` allowances minus
+the layering rows below equals zero. **Schedulable work lives in GitHub Issues**, and each
+entry here links to its issue. Two trackers, one job each: Issues decide *when*, this file
+records *what is currently untrue about the code*.
+
+| Entry | Issue |
+|---|---|
+| #1 layering — `Sheet` rewrites formula text | [#12](../../issues/12) |
+| #8 CI matrix reduced to macOS | [#13](../../issues/13) |
+| #10 `-Werror` not enabled | [#14](../../issues/14) |
+| #14 tree not formatted to `.clang-format` | [#16](../../issues/16) |
+| #15 `verify_codesign` never invoked | [#15](../../issues/15) |
+| audit B2 — `MainWindow` TU split | [#17](../../issues/17) |
+| — async shutdown race | [#11](../../issues/11) *(fixed)* |
+
 Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Currently **4 − 4 = 0**.
 
 ---
