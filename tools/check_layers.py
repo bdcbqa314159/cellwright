@@ -17,6 +17,7 @@ LAYERS = {
     "core": 1,
     "formula": 2,
     "services": 3,
+    "session": 3,
     "builtin": 3,
     "io": 3,
     "plugin": 3,

@@ -68,6 +68,9 @@ add_library(cellwright_core STATIC
     src/core/Sheet.cpp
     src/core/SimdOps.cpp
     src/core/Workbook.cpp
+    # session (session-scoped state, L3)
+    src/session/Settings.cpp
+    src/session/AutoSave.cpp
     # services (orchestrate core + formula)
     src/services/CellInputService.cpp
     src/services/Clipboard.cpp
@@ -120,8 +123,6 @@ add_executable(cellwright
     # app
     src/app/App.cpp
     src/app/AppState.cpp
-    src/app/AutoSave.cpp
-    src/app/Settings.cpp
     # ui
     src/ui/AutocompletePopup.cpp
     src/ui/CellEditor.cpp
@@ -130,9 +131,9 @@ add_executable(cellwright
     src/ui/FormulaBar.cpp
     src/ui/MainWindow.cpp
     src/ui/SpreadsheetGrid.cpp
+    src/ui/ToastManager.cpp
     src/ui/SqlPanel.cpp
     src/ui/StyleSetup.cpp
-    src/ui/ToastManager.cpp
     # plugin (UI-facing)
     src/plugin/DropHandler.cpp
     # util

@@ -1,4 +1,4 @@
-#include "app/Settings.hpp"
+#include "session/Settings.hpp"
 #include "util/ConfigDir.hpp"
 #include <algorithm>
 #include <fstream>
