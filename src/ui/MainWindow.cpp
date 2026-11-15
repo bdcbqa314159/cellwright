@@ -29,9 +29,9 @@ void MainWindow::action_save(AppState& state) {
     if (!state.current_file.empty()) {
         if (WorkbookIO::save(state.current_file, state.workbook)) {
             state.mark_saved();
-            state.toasts.show("Saved");
+            toasts_.show("Saved");
         } else {
-            state.toasts.show("Save failed!");
+            toasts_.show("Save failed!");
         }
     } else {
         do_save(state);
@@ -121,7 +121,7 @@ void MainWindow::render_menu_bar(AppState& state) {
                         auto fname = std::filesystem::path(path).filename().string();
                         if (ImGui::MenuItem(fname.c_str())) {
                             if (!state.open_file(path))
-                                state.toasts.show("Failed to open file");
+                                toasts_.show("Failed to open file");
                         }
                     }
                 }
@@ -266,7 +266,7 @@ void MainWindow::render_menu_bar(AppState& state) {
                     if (ImGui::MenuItem(label, nullptr, state.settings.font_size == sz)) {
                         if (state.settings.font_size != sz) {
                             state.settings.font_size = sz;
-                            state.font_rebuild_needed = true;
+                            font_rebuild_needed_ = true;
                         }
                     }
                 }
@@ -545,7 +545,7 @@ void MainWindow::render(AppState& state) {
     bool cell_editing = grid_state_.editor.is_editing();
     const char* editor_buf = cell_editing ? grid_state_.editor.buffer() : nullptr;
     if (formula_bar_.render(sheet, grid_state_.selection.selected_cell, cell_editing,
-                            &state.function_registry, state.mono_font, editor_buf)) {
+                            &state.function_registry, mono_font_, editor_buf)) {
         ci.process(formula_bar_.buffer(), sheet, grid_state_.selection.selected_cell,
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
@@ -577,7 +577,7 @@ void MainWindow::render(AppState& state) {
     grid_state_.formula_bar = &formula_bar_;
     grid_state_.dark_theme = (theme_ == Theme::Dark);
     grid_state_.registry = &state.function_registry;
-    grid_state_.mono_font = state.mono_font;
+    grid_state_.mono_font = mono_font_;
     grid_state_.cond_format = &as.cond_format;
     grid_state_.row_filter = &as.row_filter;
     grid_state_.find_matches = find_bar_.is_visible() ? &find_bar_.matches() : nullptr;
@@ -617,7 +617,7 @@ void MainWindow::render(AppState& state) {
     ImGui::End();
 
     // Render toast notifications
-    state.toasts.render();
+    toasts_.render();
 
     render_modals(state);
 
@@ -932,7 +932,7 @@ void MainWindow::render_modals(AppState& state) {
         ImGui::Spacing();
         if (ImGui::Button("Trust & Load", ImVec2(140, 0))) {
             state.plugin_manager.trust_and_load(state.pending_plugin_path);
-            state.toasts.show("Plugin loaded");
+            toasts_.show("Plugin loaded");
             state.pending_plugin_path.clear();
             ImGui::CloseCurrentPopup();
         }
@@ -955,9 +955,9 @@ void MainWindow::render_modals(AppState& state) {
             auto path = AutoSave::recovery_path();
             if (state.open_file(path.string())) {
                 state.current_file.clear();  // don't associate with recovery file
-                state.toasts.show("Recovered unsaved work");
+                toasts_.show("Recovered unsaved work");
             } else {
-                state.toasts.show("Recovery failed");
+                toasts_.show("Recovery failed");
             }
             AutoSave::discard_recovery();
             state.show_recovery_modal = false;
@@ -1008,7 +1008,7 @@ void MainWindow::do_open(AppState& state) {
     nfdfilteritem_t filters[] = {{"CellWright", "magic"}, {"All Files", "*"}};
     if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
         if (!state.open_file(path.get()))
-            state.toasts.show("Failed to open file");
+            toasts_.show("Failed to open file");
     }
 }
 
@@ -1021,7 +1021,7 @@ void MainWindow::do_save(AppState& state) {
     if (NFD::SaveDialog(path, filters, 1, nullptr,
                         default_name.empty() ? nullptr : default_name.c_str()) == NFD_OKAY) {
         if (state.save_file(path.get()))
-            state.toasts.show("Saved");
+            toasts_.show("Saved");
     }
 }
 
@@ -1030,9 +1030,9 @@ void MainWindow::do_import_csv(AppState& state) {
     nfdfilteritem_t filters[] = {{"CSV", "csv"}, {"All Files", "*"}};
     if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
         if (state.import_csv(path.get()))
-            state.toasts.show("CSV imported");
+            toasts_.show("CSV imported");
         else
-            state.toasts.show("Failed to import CSV");
+            toasts_.show("Failed to import CSV");
     }
 }
 
@@ -1041,9 +1041,9 @@ void MainWindow::do_export_csv(AppState& state) {
     nfdfilteritem_t filters[] = {{"CSV", "csv"}};
     if (NFD::SaveDialog(path, filters, 1) == NFD_OKAY) {
         if (state.export_csv(path.get()))
-            state.toasts.show("CSV exported");
+            toasts_.show("CSV exported");
         else
-            state.toasts.show("Failed to export CSV");
+            toasts_.show("Failed to export CSV");
     }
 }
 

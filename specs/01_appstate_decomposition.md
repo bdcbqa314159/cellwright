@@ -89,13 +89,15 @@ Where that leaves a gap, it is declared rather than papered over.
 | D2 | New `src/session/` directory at L3 | reuse `src/services/` | `services/` holds behaviour (`CellInputService`, `Clipboard`); this is state. Keeping them distinct keeps the layer map readable | `session/` stays a single header after the next two slices — then fold it into `services/` |
 | D3 | Font handshake becomes a `MainWindow` method pair | keep the fields in `SessionState` | `ImFont*` is layer-neutral so the fields *could* move, but font runtime is not document state — `CLAUDE.md` §1 says membership is semantic, and that is the same mistake `AppState` already made | A second consumer needs the font-rebuild signal |
 | D4 | **`ToastManager` stays at L4.** `ui/` reaches it as a sibling rather than through `SessionState` | move it to L3 (attempted, reverted) | **Amended 2026-10-30 — see Drift.** Its *header* is `<deque>`/`<string>` only, but `ToastManager.cpp` renders with ImGui. L3 placement would put ImGui drawing inside `cellwright_core` and break `CLAUDE.md` §1's semantic rule that only L4 draws — the violation class the include check cannot see | Its rendering moves out, leaving a pure message queue |
+| D5 | **`MainWindow` owns the `ToastManager`;** `App` reaches it through an accessor | pass `ToastManager&` as a second parameter to the ~12 methods that show a toast | D4 keeps it at L4, so `SessionState` cannot hold it — yet `ui/` calls `show()` 12× and `render()` once. `MainWindow::render` is what *draws* it, making `MainWindow` the natural owner. `App.cpp:163` is the only other consumer and reaches down into `ui/`, which is legal | A third consumer appears outside `ui/`, or toasts need to outlive the window |
 
 ## Ratification record (2026-10-30)
 
-1. **Three PRs**, each independently green: **A** relocate `ToastManager`/`Settings`/
-   `AutoSave` to L3 · **B** introduce `SessionState` and rewrite the ~25 `ui/` signatures ·
-   **C** font handshake and allowlist removal. Rejected the atomic variant: a ~30-file
-   diff is not reviewable, and `CLAUDE.md` §4 already forbids mixing moves with behaviour.
+1. **Three PRs**, each independently green. **A** (merged, #10) relocated `Settings`/
+   `AutoSave` to L3. **B and C were swapped after A landed — see Drift #2:** B is now the
+   ownership moves (toasts + font), C is the `SessionState` introduction and signature
+   rewrite. Rejected the atomic variant: a ~30-file diff is not reviewable, and
+   `CLAUDE.md` §4 already forbids mixing moves with behaviour.
 2. **`AppState` is deleted.** `App` owns `SessionState` and `MainWindow` directly. The type
    existed only to fuse the two concerns this spec separates, so retaining it would
    preserve the shape being removed.
@@ -111,7 +113,9 @@ the future `SessionState`, per D2. `services/` stays behaviour-only.
 |---|---|---|---|
 | 1 | D4: `ToastManager` has "zero `ui/` dependencies, so it was misfiled" and moves to L3 | Only its **header** is dependency-free. `ToastManager.cpp` calls `ImGui::Begin`, `SetNextWindowPos`, `PushStyleVar`, `TextUnformatted` — it draws. The premise came from grepping the header and not the implementation | D4 amended: `ToastManager` stays at L4. The move was made, caught by inspecting the `.cpp` before building, and reverted. `ui/` will reach toasts as a sibling once `SessionState` lands, not via session state |
 
-Caught before it shipped, but only because the ImGui check happened to run — the include
+| 2 | PR **B** introduces `SessionState` and rewrites the ~25 `ui/` signatures; PR **C** then replaces the font handshake | The order is impossible. `ui/` reads `state.mono_font` (4×) and `state.toasts` (13×), so `AppState&` cannot be removed from those signatures while those members still live on `AppState`. The font handshake and toasts ownership are **prerequisites** of the signature rewrite, not follow-ups | **B and C swapped.** New B: `MainWindow` takes ownership of `ToastManager` and the font state, `App` uses accessors, `AppState` loses all three members — `ui/` still receives `AppState&` but no longer reads them. New C: introduce `SessionState`, rewrite the signatures, delete `AppState`, remove the allowlist entry, close `OPEN.md` #2 |
+
+Drift #1 caught before it shipped, but only because the ImGui check happened to run — the include
 checker would have reported this green, since `ui → session` is downward. It is a worked
 example of `CLAUDE.md` §1's warning that layer membership is semantic and the machine
 check cannot see it.
@@ -123,7 +127,7 @@ check cannot see it.
 | A1 | todo | | |
 | A2 | todo | | |
 | A3 | todo | | |
-| A4 | todo | | |
-| A5 | todo | | |
+| A4 | **pass** | `AppState` holds 0 of `toasts`/`mono_font`/`font_rebuild_needed`; `App.cpp` uses the 6 accessor calls | PR B |
+| A5 | partial | 276/276, no test edited | full check lands with PR C |
 | A6 | todo | | |
 | A7 | todo | | manual pass required before close |

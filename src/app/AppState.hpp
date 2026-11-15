@@ -1,5 +1,4 @@
 #pragma once
-#include <imgui.h>
 #include "core/Workbook.hpp"
 #include "core/Command.hpp"
 #include "core/ConditionalFormat.hpp"
@@ -15,7 +14,6 @@
 #include "session/AutoSave.hpp"
 #include "session/Settings.hpp"
 #include "ui/MainWindow.hpp"
-#include "ui/ToastManager.hpp"
 
 namespace magic {
 
@@ -35,14 +33,11 @@ struct AppState {
     MainWindow main_window;
     AsyncRecalcEngine async_recalc;
     Clipboard clipboard;
-    ToastManager toasts;
     DuckDBEngine duckdb_engine;
     Settings settings;
     std::string current_file;  // path to current .magic file (empty = untitled)
     std::string pending_plugin_path;  // set by DropHandler when untrusted; cleared by modal
     AutoSave auto_save;
-    ImFont* mono_font = nullptr;       // monospace font for formula editing (Cousine)
-    bool font_rebuild_needed = false;  // set by UI when font size changes
     bool show_recovery_modal = false;  // set on startup if recovery file found
 
     // Per-sheet state (indexed by sheet index, kept in sync with workbook)
