@@ -1,12 +1,13 @@
 #pragma once
-#include "core/CellAddress.hpp"
-#include "core/CellValue.hpp"
-#include "core/Sheet.hpp"
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "core/CellAddress.hpp"
+#include "core/CellValue.hpp"
+#include "core/Sheet.hpp"
 
 namespace magic {
 
@@ -36,8 +37,8 @@ using CommandPtr = std::unique_ptr<Command>;
 // Set a cell value (non-formula)
 class SetValueCommand : public Command {
 public:
-    SetValueCommand(CellAddress addr, CellValue new_val,
-                    CellValue old_val, std::string old_formula = "");
+    SetValueCommand(CellAddress addr, CellValue new_val, CellValue old_val,
+                    std::string old_formula = "");
 
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
@@ -73,12 +74,12 @@ private:
 // Insert/delete row commands
 class InsertRowCommand : public Command {
 public:
-    InsertRowCommand(int32_t row, RowColumnRewriters rw)
-        : row_(row), rw_(std::move(rw)) {}
+    InsertRowCommand(int32_t row, RowColumnRewriters rw) : row_(row), rw_(std::move(rw)) {}
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {0, row_}; }
+
 private:
     int32_t row_;
     RowColumnRewriters rw_;
@@ -91,22 +92,25 @@ public:
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {0, row_}; }
+
 private:
     int32_t row_;
     RowColumnRewriters rw_;
-    std::vector<CellValue> saved_row_values_;                       // cells in deleted row
-    std::unordered_map<int32_t, std::string> saved_row_formulas_;   // col → formula (deleted row only)
-    std::unordered_map<CellAddress, std::string> pre_delete_formulas_; // entire sheet formula snapshot
+    std::vector<CellValue> saved_row_values_;  // cells in deleted row
+    std::unordered_map<int32_t, std::string>
+        saved_row_formulas_;  // col → formula (deleted row only)
+    std::unordered_map<CellAddress, std::string>
+        pre_delete_formulas_;  // entire sheet formula snapshot
 };
 
 class InsertColumnCommand : public Command {
 public:
-    InsertColumnCommand(int32_t col, RowColumnRewriters rw)
-        : col_(col), rw_(std::move(rw)) {}
+    InsertColumnCommand(int32_t col, RowColumnRewriters rw) : col_(col), rw_(std::move(rw)) {}
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {col_, 0}; }
+
 private:
     int32_t col_;
     RowColumnRewriters rw_;
@@ -119,11 +123,13 @@ public:
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {col_, 0}; }
+
 private:
     int32_t col_;
     RowColumnRewriters rw_;
-    std::vector<CellValue> saved_col_values_;                       // cells in deleted column
-    std::unordered_map<CellAddress, std::string> pre_delete_formulas_; // entire sheet formula snapshot
+    std::vector<CellValue> saved_col_values_;  // cells in deleted column
+    std::unordered_map<CellAddress, std::string>
+        pre_delete_formulas_;  // entire sheet formula snapshot
 };
 
 // Sort a column ascending or descending (whole-row permutation)
@@ -134,10 +140,11 @@ public:
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {sort_col_, 0}; }
+
 private:
     int32_t sort_col_;
     bool ascending_;
-    int32_t data_rows_;  // number of rows with actual data
+    int32_t data_rows_;                                 // number of rows with actual data
     std::vector<std::vector<CellValue>> saved_values_;  // [col][row] snapshot for undo
     std::unordered_map<CellAddress, std::string> saved_formulas_;
     std::vector<int32_t> permutation_;  // row permutation computed in constructor

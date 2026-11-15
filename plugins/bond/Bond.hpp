@@ -16,8 +16,7 @@ struct Bond {
         double y = ytm / frequency;
         int n = static_cast<int>(maturity * frequency);
         double pv = 0.0;
-        for (int i = 1; i <= n; ++i)
-            pv += c / std::pow(1.0 + y, i);
+        for (int i = 1; i <= n; ++i) pv += c / std::pow(1.0 + y, i);
         pv += face / std::pow(1.0 + y, n);
         return pv;
     }

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "../plugins/bond/bond_plugin.hpp"
 #include "core/CellValue.hpp"
 using namespace magic;
@@ -8,9 +9,8 @@ protected:
     magic::plugins::BondPlugin plugin;
 
     std::string makeBond(double coupon, double ytm, double maturity, double freq) {
-        auto r = plugin.call("bond", {
-            CellValue{coupon}, CellValue{ytm}, CellValue{maturity}, CellValue{freq}
-        });
+        auto r = plugin.call(
+            "bond", {CellValue{coupon}, CellValue{ytm}, CellValue{maturity}, CellValue{freq}});
         EXPECT_TRUE(is_string(r));
         return as_string(r);
     }

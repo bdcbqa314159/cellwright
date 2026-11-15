@@ -1,7 +1,8 @@
 #pragma once
-#include "core/Sheet.hpp"
-#include <string>
 #include <filesystem>
+#include <string>
+
+#include "core/Sheet.hpp"
 
 namespace magic {
 

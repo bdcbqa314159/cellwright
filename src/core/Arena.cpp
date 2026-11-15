@@ -1,17 +1,14 @@
 #include "core/Arena.hpp"
+
 #include <cassert>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <cstdint>
-#include <new>
 #include <new>
 
 namespace magic {
 
-Arena::Arena(size_t initial_block)
-    : initial_block_size_(initial_block) {
-    grow(initial_block);
-}
+Arena::Arena(size_t initial_block) : initial_block_size_(initial_block) { grow(initial_block); }
 
 Arena::~Arena() {
     reset();
@@ -91,9 +88,7 @@ size_t Arena::bytes_used() const {
 }
 
 void Arena::grow(size_t min_size) {
-    size_t cap = blocks_.empty()
-        ? initial_block_size_
-        : blocks_.back().capacity * 2;
+    size_t cap = blocks_.empty() ? initial_block_size_ : blocks_.back().capacity * 2;
     if (cap < min_size) cap = min_size;
 
     auto* data = static_cast<uint8_t*>(std::malloc(cap));

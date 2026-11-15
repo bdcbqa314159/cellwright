@@ -1,8 +1,9 @@
 #pragma once
 #include <IPlugin.hpp>
-#include "core/CellValue.hpp"
 #include <string>
 #include <vector>
+
+#include "core/CellValue.hpp"
 
 namespace magic {
 

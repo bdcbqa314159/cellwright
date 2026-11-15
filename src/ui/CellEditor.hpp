@@ -1,7 +1,8 @@
 #pragma once
+#include <string>
+
 #include "core/CellAddress.hpp"
 #include "ui/AutocompletePopup.hpp"
-#include <string>
 
 namespace magic {
 

@@ -1,7 +1,9 @@
 #include "session/AutoSave.hpp"
+
+#include <iostream>
+
 #include "io/WorkbookIO.hpp"
 #include "util/ConfigDir.hpp"
-#include <iostream>
 
 namespace magic {
 

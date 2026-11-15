@@ -1,7 +1,8 @@
 #include "session/SessionState.hpp"
-#include "session/AutoSave.hpp"
-#include "io/WorkbookIO.hpp"
+
 #include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
+#include "session/AutoSave.hpp"
 
 namespace magic {
 

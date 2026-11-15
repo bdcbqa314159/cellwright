@@ -1,16 +1,19 @@
 #include "ui/FormulaBar.hpp"
-#include "core/Sheet.hpp"
-#include "core/CellValue.hpp"
-#include "formula/FunctionRegistry.hpp"
+
 #include <imgui.h>
+
 #include <cstdio>
 #include <cstring>
 
+#include "core/CellValue.hpp"
+#include "core/Sheet.hpp"
+#include "formula/FunctionRegistry.hpp"
+
 namespace magic {
 
-bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
-                         bool cell_editing, const FunctionRegistry* registry,
-                         ImFont* mono_font, const char* cell_editor_buf) {
+bool FormulaBar::render(Sheet& sheet, const CellAddress& selected, bool cell_editing,
+                        const FunctionRegistry* registry, ImFont* mono_font,
+                        const char* cell_editor_buf) {
     bool committed = false;
 
     // Clickable name box — editable InputText for Go-To navigation
@@ -57,8 +60,8 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
     // Use monospace font for formula editing
     if (mono_font) ImGui::PushFont(mono_font);
 
-    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
-                                ImGuiInputTextFlags_CallbackAlways;
+    ImGuiInputTextFlags flags =
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackAlways;
 
     // Red tint on formula bar when the cell contains an error
     CellValue val = sheet.get_value(selected);
@@ -99,8 +102,7 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
         ImGui::SetTooltip("%s", to_display_string(val).c_str());
     }
 
-    if (has_error)
-        ImGui::PopStyleColor(2);
+    if (has_error) ImGui::PopStyleColor(2);
 
     if (mono_font) ImGui::PopFont();
 
@@ -118,7 +120,8 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
             auto sig = registry->signature(func_name);
             if (!sig.empty()) {
                 ImGui::SetNextWindowPos(ImVec2(anchor.x, anchor.y + 2));
-                ImGuiWindowFlags tip_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags tip_flags =
+                    ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing;
                 ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.15f, 0.15f, 0.2f, 0.95f));
@@ -140,9 +143,8 @@ bool FormulaBar::render(Sheet& sheet, const CellAddress& selected,
             std::size_t insert_pos = static_cast<std::size_t>(cursor_pos_);
             if (len + insertion.size() < sizeof(buf_) - 1) {
                 // Shift existing text after cursor to make room, then insert
-                std::memmove(buf_ + insert_pos + insertion.size(),
-                             buf_ + insert_pos,
-                             len - insert_pos + 1); // +1 for null terminator
+                std::memmove(buf_ + insert_pos + insertion.size(), buf_ + insert_pos,
+                             len - insert_pos + 1);  // +1 for null terminator
                 std::memcpy(buf_ + insert_pos, insertion.c_str(), insertion.size());
             }
         }
@@ -158,9 +160,7 @@ void FormulaBar::insert_ref(const std::string& ref) {
     std::size_t insert_pos = static_cast<std::size_t>(cursor_pos_);
     if (insert_pos > len) insert_pos = len;
     if (len + ref.size() < sizeof(buf_) - 1) {
-        std::memmove(buf_ + insert_pos + ref.size(),
-                     buf_ + insert_pos,
-                     len - insert_pos + 1);
+        std::memmove(buf_ + insert_pos + ref.size(), buf_ + insert_pos, len - insert_pos + 1);
         std::memcpy(buf_ + insert_pos, ref.c_str(), ref.size());
         int new_pos = static_cast<int>(insert_pos + ref.size());
         cursor_pos_ = new_pos;

@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
-#include "core/Sheet.hpp"
+
 #include "core/Command.hpp"
-#include "services/FormulaAdjust.hpp"
+#include "core/Sheet.hpp"
 #include "formula/DependencyGraph.hpp"
+#include "services/FormulaAdjust.hpp"
 
 using namespace magic;
 
@@ -12,14 +13,13 @@ namespace {
 // read as they did before, and so Sheet's index behaviour can also be exercised with a
 // no-op (see SheetIndexOps below).
 const RowColumnRewriters kRewriters{
-    .insert_row    = adjust_formula_for_insert_row,
-    .delete_row    = adjust_formula_for_delete_row,
+    .insert_row = adjust_formula_for_insert_row,
+    .delete_row = adjust_formula_for_delete_row,
     .insert_column = adjust_formula_for_insert_col,
     .delete_column = adjust_formula_for_delete_col,
 };
 
 }  // namespace
-
 
 // ── FormulaAdjust free functions ──────────────────────────────────────────────
 
@@ -283,8 +283,8 @@ TEST(SheetIndexOps, DeleteRowDropsTheRowAndShiftsKeysBack) {
 
     sheet.delete_row(1, kNoRewrite);
 
-    EXPECT_FALSE(sheet.has_formula({0, 1}));   // the deleted row's formula is gone
-    EXPECT_TRUE(sheet.has_formula({0, 2}));    // the one below shifted up
+    EXPECT_FALSE(sheet.has_formula({0, 1}));  // the deleted row's formula is gone
+    EXPECT_TRUE(sheet.has_formula({0, 2}));   // the one below shifted up
     EXPECT_EQ(sheet.get_formula({0, 2}), "=B9");
 }
 

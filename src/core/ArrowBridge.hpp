@@ -48,9 +48,7 @@ void export_sheet_to_arrow(const Sheet& sheet, ArrowSchema* schema, ArrowArray* 
 
 // Import an Arrow struct array (record batch) into a new Sheet.
 // Copies data into cellwright's columnar storage.
-[[nodiscard]] Sheet import_sheet_from_arrow(
-    const ArrowSchema* schema,
-    const ArrowArray* array,
-    const std::string& sheet_name = "Imported");
+[[nodiscard]] Sheet import_sheet_from_arrow(const ArrowSchema* schema, const ArrowArray* array,
+                                            const std::string& sheet_name = "Imported");
 
 }  // namespace magic

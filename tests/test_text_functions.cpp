@@ -1,11 +1,12 @@
 #include <gtest/gtest.h>
+
+#include "builtin/StatFunctions.hpp"
+#include "builtin/TextFunctions.hpp"
 #include "core/Sheet.hpp"
-#include "formula/Tokenizer.hpp"
-#include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
 #include "formula/FunctionRegistry.hpp"
-#include "builtin/TextFunctions.hpp"
-#include "builtin/StatFunctions.hpp"
+#include "formula/Parser.hpp"
+#include "formula/Tokenizer.hpp"
 
 using namespace magic;
 
@@ -78,8 +79,7 @@ TEST_F(FuncTest, Concatenate) {
 }
 
 TEST_F(FuncTest, Stdev) {
-    for (int i = 0; i < 5; ++i)
-        sheet.set_value({0, i}, CellValue{static_cast<double>(i + 1)});
+    for (int i = 0; i < 5; ++i) sheet.set_value({0, i}, CellValue{static_cast<double>(i + 1)});
     auto r = evaluate("STDEV(A1:A5)");
     ASSERT_TRUE(is_number(r));
     EXPECT_NEAR(as_number(r), 1.5811, 0.001);

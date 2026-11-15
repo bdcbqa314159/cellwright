@@ -1,12 +1,13 @@
 #include <gtest/gtest.h>
+
+#include "builtin/LogicFunctions.hpp"
+#include "builtin/MathFunctions.hpp"
 #include "core/Sheet.hpp"
 #include "core/Workbook.hpp"
-#include "formula/Tokenizer.hpp"
-#include "formula/Parser.hpp"
 #include "formula/Evaluator.hpp"
 #include "formula/FunctionRegistry.hpp"
-#include "builtin/MathFunctions.hpp"
-#include "builtin/LogicFunctions.hpp"
+#include "formula/Parser.hpp"
+#include "formula/Tokenizer.hpp"
 
 using namespace magic;
 

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
-#include "formula/Tokenizer.hpp"
+
 #include "formula/Parser.hpp"
+#include "formula/Tokenizer.hpp"
 
 using namespace magic;
 

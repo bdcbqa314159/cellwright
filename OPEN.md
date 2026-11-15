@@ -157,15 +157,15 @@ Invariant: `tools/check_layers.py` allowances − open layering rows below = 0. 
 | **Shell footgun it already hit** | The first version counted warnings in a pipeline. Under `set -euo pipefail` a `grep` matching nothing exits 1, killing the script with no message — so the gate failed **precisely when the tree was clean**, the expected steady state. Warnings are now written to a file with `|| true` and counted with `wc -l`. Any future pipeline added to this script needs the same care. |
 | **Re-open trigger** | Any CI failure that `verify.sh` should have caught — that means the two have drifted. |
 
-### #14 — `.clang-format` added but the tree is not formatted to it
+### #14 — tree formatted to `.clang-format` *(closed 2026-11-15)*
 
 | | |
 |---|---|
-| **What** | `.clang-format` (Google, `IndentWidth: 4`, `ColumnLimit: 100`) describes the intended style, but the tree has never been run through it. Measured: **130 files, 4127 changed lines**. |
-| **Why deferred** | A 4127-line reformat lands on top of every subsequent diff and makes `git blame` useless across the whole project. It is also pure churn in a repo with two open architectural decompositions (#1, #2) whose diffs would become unreadable against it. |
-| **Why the config still earns its place now** | Editors and clangd pick it up immediately for *new and edited* code, so the tree converges gradually instead of in one unreviewable commit. `IndentWidth: 4` and `AccessModifierOffset: -4` were chosen to match the code as it exists (3264 lines at indent depth 4) rather than Google's 2-space default, which alone would have touched every indented line. |
-| **Fix** | One commit, nothing else in it: `clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')`. Best done after #1 and #2 land. |
-| **Re-open trigger** | After the layering decompositions, or whenever the formatting drift starts causing review noise. |
+| **Resolved** | 136 of 146 tracked C++ files reformatted; 4065 changed lines. Sequenced deliberately last, after the layering decompositions (specs 01/02) and the `MainWindow` split, so it did not bury those diffs. |
+| **Proof it is formatting-only** | All **37 `cellwright_core` object files are byte-identical** to the pre-format build. The compiler emitted the same machine code, so no token changed. 279/279 tests pass and the build is warning-clean. |
+| **Version pin matters** | Formatted with the pinned `clang-format==20.1.8` from `requirements-dev.txt`, not the system binary (Homebrew ships 23.1.1 here, which formats differently). Using the wrong version reintroduces a whole-tree diff. |
+| **Two passes from cold** | `IncludeBlocks: Regroup` settles include order on pass 1 and reflows around it on pass 2; pass 3 is a no-op. Noted in `requirements-dev.txt` so nobody reports a phantom diff. |
+| **Vendored exception** | `src/util/stb_image_write.h` carries an in-file `// clang-format off` guard. `.clang-format-ignore` was tried first and is **not honoured** by the pinned build — no pattern form worked — so the file-level guard is the mechanism that actually holds, and it survives editor-on-save too. |
 
 ### #15 — `verify_codesign` is a security control that is never invoked
 

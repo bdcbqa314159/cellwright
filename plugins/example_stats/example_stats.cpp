@@ -1,9 +1,11 @@
 #include "example_stats.hpp"
+
 #include <PluginExport.hpp>
 
 namespace magic::plugins {
 
-CellValue ExampleStats::call(const std::string& func_name, const std::vector<CellValue>& args) const {
+CellValue ExampleStats::call(const std::string& func_name,
+                             const std::vector<CellValue>& args) const {
     if (func_name == "ZSCORE") {
         double x = to_double(args[0]);
         double mean = to_double(args[1]);

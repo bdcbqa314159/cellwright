@@ -1,4 +1,5 @@
 #include "formula/AsyncRecalcEngine.hpp"
+
 #include <mutex>
 
 namespace magic {
@@ -73,9 +74,8 @@ void AsyncRecalcEngine::worker_loop() try {
 
         {
             std::lock_guard lock(result_mutex_);
-            results_.insert(results_.end(),
-                           std::make_move_iterator(batch_results.begin()),
-                           std::make_move_iterator(batch_results.end()));
+            results_.insert(results_.end(), std::make_move_iterator(batch_results.begin()),
+                            std::make_move_iterator(batch_results.end()));
         }
 
         busy_.store(false);

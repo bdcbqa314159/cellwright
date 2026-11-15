@@ -13,13 +13,12 @@ public:
         return {{"ZSCORE", 3, 3}};
     }
 
-    CellValue call(const std::string& func_name,
-                   const std::vector<CellValue>& args) const override;
+    CellValue call(const std::string& func_name, const std::vector<CellValue>& args) const override;
 
 private:
-    std::string name_    = "ExampleStats";
+    std::string name_ = "ExampleStats";
     std::string version_ = "1.0.0";
-    std::string type_    = "function";
+    std::string type_ = "function";
 };
 
 }  // namespace magic::plugins

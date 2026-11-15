@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/Column.hpp"
 
 using namespace magic;

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/Command.hpp"
 #include "core/Sheet.hpp"
 
@@ -9,8 +10,8 @@ TEST(UndoManager, UndoRedo) {
     UndoManager mgr;
 
     // Set A1 = 42
-    auto cmd = std::make_unique<SetValueCommand>(
-        CellAddress{0, 0}, CellValue{42.0}, CellValue{}, "");
+    auto cmd =
+        std::make_unique<SetValueCommand>(CellAddress{0, 0}, CellValue{42.0}, CellValue{}, "");
     mgr.execute(std::move(cmd), sheet);
 
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 0})), 42.0);
@@ -30,8 +31,8 @@ TEST(UndoManager, FormulaUndoRedo) {
 
     sheet.set_value({0, 0}, CellValue{10.0});
 
-    auto cmd = std::make_unique<SetFormulaCommand>(
-        CellAddress{1, 0}, "A1*2", CellValue{20.0}, CellValue{}, "");
+    auto cmd = std::make_unique<SetFormulaCommand>(CellAddress{1, 0}, "A1*2", CellValue{20.0},
+                                                   CellValue{}, "");
     mgr.execute(std::move(cmd), sheet);
 
     EXPECT_EQ(sheet.get_formula({1, 0}), "A1*2");
@@ -49,8 +50,8 @@ TEST(UndoManager, PeekUndoRedoDesc) {
     EXPECT_EQ(mgr.peek_undo_desc(), "");
     EXPECT_EQ(mgr.peek_redo_desc(), "");
 
-    auto cmd = std::make_unique<SetValueCommand>(
-        CellAddress{0, 0}, CellValue{42.0}, CellValue{}, "");
+    auto cmd =
+        std::make_unique<SetValueCommand>(CellAddress{0, 0}, CellValue{42.0}, CellValue{}, "");
     mgr.execute(std::move(cmd), sheet);
 
     EXPECT_EQ(mgr.peek_undo_desc(), "Set A1");
@@ -71,8 +72,7 @@ TEST(UndoManager, MultipleUndos) {
 
     for (int i = 0; i < 5; ++i) {
         auto cmd = std::make_unique<SetValueCommand>(
-            CellAddress{0, 0}, CellValue{static_cast<double>(i + 1)},
-            sheet.get_value({0, 0}), "");
+            CellAddress{0, 0}, CellValue{static_cast<double>(i + 1)}, sheet.get_value({0, 0}), "");
         mgr.execute(std::move(cmd), sheet);
     }
 

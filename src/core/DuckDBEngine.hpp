@@ -1,13 +1,14 @@
 #pragma once
-#include "core/CellValue.hpp"
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "core/CellValue.hpp"
+
 namespace duckdb {
 class DuckDB;
 class Connection;
-}
+}  // namespace duckdb
 
 namespace magic {
 

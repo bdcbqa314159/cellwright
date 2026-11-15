@@ -1,10 +1,12 @@
 #include "core/DuckDBEngine.hpp"
-#include "core/Sheet.hpp"
-#include "core/CellAddress.hpp"
-#include "duckdb.hpp"
+
 #include <cstdio>
 #include <memory>
 #include <unordered_map>
+
+#include "core/CellAddress.hpp"
+#include "core/Sheet.hpp"
+#include "duckdb.hpp"
 
 namespace magic {
 
@@ -12,8 +14,10 @@ static std::string escape_sql_identifier(const std::string& name) {
     std::string result;
     result.reserve(name.size());
     for (char c : name) {
-        if (c == '"') result += "\"\"";
-        else result += c;
+        if (c == '"')
+            result += "\"\"";
+        else
+            result += c;
     }
     return result;
 }
@@ -79,8 +83,7 @@ void DuckDBEngine::import_sheet(const Sheet& sheet, const std::string& table_nam
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "%.17g", as_number(val));
                 appender.Append(duckdb::Value(std::string(buf)));
-            }
-            else if (is_string(val))
+            } else if (is_string(val))
                 appender.Append(duckdb::Value(as_string(val)));
             else if (is_bool(val))
                 appender.Append(duckdb::Value(std::get<bool>(val) ? "TRUE" : "FALSE"));
@@ -108,8 +111,7 @@ QueryResult DuckDBEngine::query(const std::string& sql) {
         qr.column_names.resize(ncols);
         qr.columns.resize(ncols);
 
-        for (size_t c = 0; c < ncols; ++c)
-            qr.column_names[c] = result->ColumnName(c);
+        for (size_t c = 0; c < ncols; ++c) qr.column_names[c] = result->ColumnName(c);
 
         // Materialize all chunks
         while (true) {

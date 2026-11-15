@@ -1,4 +1,5 @@
 #include "io/WorkbookIO.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -27,12 +28,23 @@ static std::string escape_json(const std::string& s) {
     out.reserve(s.size() + 4);
     for (char ch : s) {
         switch (ch) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            default:   out += ch;
+            case '"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
+            default:
+                out += ch;
         }
     }
     return out;
@@ -44,12 +56,29 @@ static std::string unescape_json(const std::string& s) {
     for (size_t i = 0; i < s.size(); ++i) {
         if (s[i] == '\\' && i + 1 < s.size()) {
             switch (s[i + 1]) {
-                case '"':  out += '"';  ++i; break;
-                case '\\': out += '\\'; ++i; break;
-                case 'n':  out += '\n'; ++i; break;
-                case 'r':  out += '\r'; ++i; break;
-                case 't':  out += '\t'; ++i; break;
-                default:   out += s[i]; break;
+                case '"':
+                    out += '"';
+                    ++i;
+                    break;
+                case '\\':
+                    out += '\\';
+                    ++i;
+                    break;
+                case 'n':
+                    out += '\n';
+                    ++i;
+                    break;
+                case 'r':
+                    out += '\r';
+                    ++i;
+                    break;
+                case 't':
+                    out += '\t';
+                    ++i;
+                    break;
+                default:
+                    out += s[i];
+                    break;
             }
         } else {
             out += s[i];
@@ -66,8 +95,7 @@ std::string WorkbookIO::to_json(const Workbook& workbook) {
         if (si > 0) out << ',';
         const auto& sheet = workbook.sheet(si);
         out << "{\"name\":\"" << escape_json(sheet.name()) << "\""
-            << ",\"cols\":" << sheet.col_count()
-            << ",\"rows\":" << sheet.row_count();
+            << ",\"cols\":" << sheet.col_count() << ",\"rows\":" << sheet.row_count();
 
         // Cells
         out << ",\"cells\":[";
@@ -105,8 +133,8 @@ std::string WorkbookIO::to_json(const Workbook& workbook) {
 
                 if (!first_formula) out << ',';
                 first_formula = false;
-                out << "{\"c\":" << c << ",\"r\":" << r
-                    << ",\"f\":\"" << escape_json(sheet.get_formula(addr)) << "\"}";
+                out << "{\"c\":" << c << ",\"r\":" << r << ",\"f\":\""
+                    << escape_json(sheet.get_formula(addr)) << "\"}";
             }
         }
         out << "]}";
@@ -128,13 +156,19 @@ struct JsonReader {
         while (pos < s.size() && std::isspace(static_cast<unsigned char>(s[pos]))) ++pos;
     }
 
-    char peek() { skip_ws(); return pos < s.size() ? s[pos] : '\0'; }
-    char next() { skip_ws(); return pos < s.size() ? s[pos++] : '\0'; }
+    char peek() {
+        skip_ws();
+        return pos < s.size() ? s[pos] : '\0';
+    }
+    char next() {
+        skip_ws();
+        return pos < s.size() ? s[pos++] : '\0';
+    }
 
     void expect(char ch) {
         char got = next();
-        if (got != ch) throw std::runtime_error(
-            std::string("JSON: expected '") + ch + "', got '" + got + "'");
+        if (got != ch)
+            throw std::runtime_error(std::string("JSON: expected '") + ch + "', got '" + got + "'");
     }
 
     std::string read_string() {
@@ -144,12 +178,23 @@ struct JsonReader {
             if (s[pos] == '\\' && pos + 1 < s.size()) {
                 ++pos;
                 switch (s[pos]) {
-                    case '"': result += '"'; break;
-                    case '\\': result += '\\'; break;
-                    case 'n': result += '\n'; break;
-                    case 'r': result += '\r'; break;
-                    case 't': result += '\t'; break;
-                    default: result += s[pos];
+                    case '"':
+                        result += '"';
+                        break;
+                    case '\\':
+                        result += '\\';
+                        break;
+                    case 'n':
+                        result += '\n';
+                        break;
+                    case 'r':
+                        result += '\r';
+                        break;
+                    case 't':
+                        result += '\t';
+                        break;
+                    default:
+                        result += s[pos];
                 }
             } else {
                 result += s[pos];
@@ -164,8 +209,9 @@ struct JsonReader {
         skip_ws();
         size_t start = pos;
         if (pos < s.size() && (s[pos] == '-' || s[pos] == '+')) ++pos;
-        while (pos < s.size() && (std::isdigit(static_cast<unsigned char>(s[pos])) ||
-               s[pos] == '.')) ++pos;
+        while (pos < s.size() &&
+               (std::isdigit(static_cast<unsigned char>(s[pos])) || s[pos] == '.'))
+            ++pos;
         // Exponent part: e/E followed by optional sign and digits
         if (pos < s.size() && (s[pos] == 'e' || s[pos] == 'E')) {
             ++pos;
@@ -178,8 +224,14 @@ struct JsonReader {
 
     bool read_bool() {
         skip_ws();
-        if (s.compare(pos, 4, "true") == 0) { pos += 4; return true; }
-        if (s.compare(pos, 5, "false") == 0) { pos += 5; return false; }
+        if (s.compare(pos, 4, "true") == 0) {
+            pos += 4;
+            return true;
+        }
+        if (s.compare(pos, 5, "false") == 0) {
+            pos += 5;
+            return false;
+        }
         throw std::runtime_error("JSON: expected bool");
     }
 
@@ -188,7 +240,8 @@ struct JsonReader {
     // Skip key: "key":
     void read_key(const std::string& expected) {
         std::string key = read_string();
-        if (key != expected) throw std::runtime_error("JSON: expected key '" + expected + "', got '" + key + "'");
+        if (key != expected)
+            throw std::runtime_error("JSON: expected key '" + expected + "', got '" + key + "'");
         expect(':');
     }
 
@@ -207,20 +260,38 @@ struct JsonReader {
 
     void skip_value() {
         skip_ws();
-        if (s[pos] == '"') { read_string(); return; }
-        if (s[pos] == '{') { skip_object(); return; }
-        if (s[pos] == '[') { skip_array(); return; }
+        if (s[pos] == '"') {
+            read_string();
+            return;
+        }
+        if (s[pos] == '{') {
+            skip_object();
+            return;
+        }
+        if (s[pos] == '[') {
+            skip_array();
+            return;
+        }
         // number, bool, null
         while (pos < s.size() && s[pos] != ',' && s[pos] != '}' && s[pos] != ']' &&
-               !std::isspace(static_cast<unsigned char>(s[pos]))) ++pos;
+               !std::isspace(static_cast<unsigned char>(s[pos])))
+            ++pos;
     }
 
     void skip_object() {
         expect('{');
-        if (peek() == '}') { next(); return; }
+        if (peek() == '}') {
+            next();
+            return;
+        }
         while (true) {
-            read_string(); expect(':'); skip_value();
-            if (peek() == ',') { next(); continue; }
+            read_string();
+            expect(':');
+            skip_value();
+            if (peek() == ',') {
+                next();
+                continue;
+            }
             break;
         }
         expect('}');
@@ -228,10 +299,16 @@ struct JsonReader {
 
     void skip_array() {
         expect('[');
-        if (peek() == ']') { next(); return; }
+        if (peek() == ']') {
+            next();
+            return;
+        }
         while (true) {
             skip_value();
-            if (peek() == ',') { next(); continue; }
+            if (peek() == ',') {
+                next();
+                continue;
+            }
             break;
         }
         expect(']');
@@ -286,9 +363,12 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                 while (r.peek() != '}') {
                                     std::string ck = r.read_string();
                                     r.expect(':');
-                                    if (ck == "c") c = r.read_int();
-                                    else if (ck == "r") r2 = r.read_int();
-                                    else if (ck == "t") type = r.read_string();
+                                    if (ck == "c")
+                                        c = r.read_int();
+                                    else if (ck == "r")
+                                        r2 = r.read_int();
+                                    else if (ck == "t")
+                                        type = r.read_string();
                                     else if (ck == "v") {
                                         // Capture raw value text for deferred parsing
                                         size_t v_start = r.pos;
@@ -307,15 +387,18 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                 // Now interpret the value based on type
                                 CellValue val;
                                 if (has_v && !type.empty()) {
-                                    if (type == "n") val = CellValue{std::stod(raw_v)};
+                                    if (type == "n")
+                                        val = CellValue{std::stod(raw_v)};
                                     else if (type == "s") {
                                         // Strip surrounding quotes and unescape
-                                        if (raw_v.size() >= 2 && raw_v.front() == '"' && raw_v.back() == '"')
-                                            val = CellValue{unescape_json(raw_v.substr(1, raw_v.size() - 2))};
+                                        if (raw_v.size() >= 2 && raw_v.front() == '"' &&
+                                            raw_v.back() == '"')
+                                            val = CellValue{
+                                                unescape_json(raw_v.substr(1, raw_v.size() - 2))};
                                         else
                                             val = CellValue{unescape_json(raw_v)};
-                                    }
-                                    else if (type == "b") val = CellValue{raw_v == "true"};
+                                    } else if (type == "b")
+                                        val = CellValue{raw_v == "true"};
                                     else if (type == "e") {
                                         int ev = std::stoi(raw_v);
                                         if (ev >= 0 && ev <= 4)
@@ -342,10 +425,14 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                                 while (r.peek() != '}') {
                                     std::string fk = r.read_string();
                                     r.expect(':');
-                                    if (fk == "c") c = r.read_int();
-                                    else if (fk == "r") r2 = r.read_int();
-                                    else if (fk == "f") f = r.read_string();
-                                    else r.skip_value();
+                                    if (fk == "c")
+                                        c = r.read_int();
+                                    else if (fk == "r")
+                                        r2 = r.read_int();
+                                    else if (fk == "f")
+                                        f = r.read_string();
+                                    else
+                                        r.skip_value();
                                     if (r.peek() == ',') r.next();
                                 }
                                 r.expect('}');
@@ -363,8 +450,7 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
                     r.expect('}');
 
                     Sheet sheet(name, cols, rows);
-                    for (const auto& [c, row, val] : cells)
-                        sheet.set_value({c, row}, val);
+                    for (const auto& [c, row, val] : cells) sheet.set_value({c, row}, val);
                     for (const auto& [c, row, formula] : formulas)
                         sheet.set_formula({c, row}, formula);
                     sheets.push_back(std::move(sheet));
@@ -384,8 +470,7 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
         if (sheets.empty()) return false;
 
         // Remove existing sheets and add loaded ones
-        while (workbook.sheet_count() > 1)
-            workbook.remove_sheet(workbook.sheet_count() - 1);
+        while (workbook.sheet_count() > 1) workbook.remove_sheet(workbook.sheet_count() - 1);
 
         // Replace first sheet
         workbook.sheet(0) = std::move(sheets[0]);
@@ -396,8 +481,7 @@ bool WorkbookIO::from_json(const std::string& json, Workbook& workbook) {
             workbook.sheet(static_cast<int>(i)) = std::move(sheets[i]);
         }
 
-        if (active >= 0 && active < workbook.sheet_count())
-            workbook.set_active(active);
+        if (active >= 0 && active < workbook.sheet_count()) workbook.set_active(active);
         return true;
     } catch (const std::exception&) {
         return false;

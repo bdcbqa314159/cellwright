@@ -1,12 +1,13 @@
 #include <gtest/gtest.h>
-#include "formula/AsyncRecalcEngine.hpp"
-#include <thread>
-#include <chrono>
 
+#include <chrono>
+#include <cstddef>
 #include <stdexcept>
+#include <thread>
 #include <variant>
 #include <vector>
-#include <cstddef>
+
+#include "formula/AsyncRecalcEngine.hpp"
 using namespace magic;
 
 namespace {
@@ -31,7 +32,6 @@ std::vector<RecalcResult> wait_for_results(AsyncRecalcEngine& engine, size_t wan
 }
 
 }  // namespace
-
 
 TEST(AsyncRecalcEngine, BasicBatch) {
     AsyncRecalcEngine engine;
@@ -59,9 +59,8 @@ TEST(AsyncRecalcEngine, ErrorHandling) {
     AsyncRecalcEngine engine;
 
     std::vector<RecalcJob> jobs = {{{0, 0}, "bad"}};
-    engine.submit(std::move(jobs), [](const std::string&) -> CellValue {
-        throw std::runtime_error("eval failed");
-    });
+    engine.submit(std::move(jobs),
+                  [](const std::string&) -> CellValue { throw std::runtime_error("eval failed"); });
 
     const std::vector<RecalcResult> results = wait_for_results(engine, 1);
 

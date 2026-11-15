@@ -1,13 +1,14 @@
 #pragma once
-#include "core/CellAddress.hpp"
-#include "core/CellValue.hpp"
+#include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <vector>
-#include <atomic>
 #include <queue>
+#include <thread>
+#include <vector>
+
+#include "core/CellAddress.hpp"
+#include "core/CellValue.hpp"
 
 namespace magic {
 

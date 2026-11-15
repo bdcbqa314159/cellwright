@@ -3,24 +3,26 @@
 // MainWindow.hpp changed. Command actions shared by the menu and keyboard paths, plus the file
 // dialogs and the clipboard marching-ants state.
 
-#include "ui/MainWindow.hpp"
-#include "session/SessionState.hpp"
-#include "session/AutoSave.hpp"
-#include "core/ConditionalFormat.hpp"
-#include "core/FillPattern.hpp"
-#include "core/Workbook.hpp"
-#include "services/Clipboard.hpp"
-#include "formula/AsyncRecalcEngine.hpp"
-#include "io/CsvIO.hpp"
-#include "io/WorkbookIO.hpp"
-#include "util/Sha256.hpp"
-#include <nfd.hpp>
 #include <imgui.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <nfd.hpp>
+
+#include "core/ConditionalFormat.hpp"
+#include "core/FillPattern.hpp"
+#include "core/Workbook.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
+#include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
+#include "services/Clipboard.hpp"
+#include "session/AutoSave.hpp"
+#include "session/SessionState.hpp"
+#include "ui/MainWindow.hpp"
+#include "util/Sha256.hpp"
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -87,8 +89,8 @@ void MainWindow::action_paste_special(SessionState& state, PasteMode mode) {
     if (state.clipboard.has_data()) {
         auto& as = state.active_state();
         state.cell_input.paste_special(state.clipboard, state.workbook.active_sheet(),
-                                       grid_state_.selection.selected_cell, as.undo_manager, as.format_map,
-                                       as.dep_graph, state.workbook, mode);
+                                       grid_state_.selection.selected_cell, as.undo_manager,
+                                       as.format_map, as.dep_graph, state.workbook, mode);
         clear_marching_ants();
     }
 }
@@ -117,9 +119,7 @@ void MainWindow::update_marching_ants(const Clipboard& clip) {
     grid_state_.clipboard_visual.clip_max = mx;
 }
 
-void MainWindow::clear_marching_ants() {
-    grid_state_.clipboard_visual.show_marching_ants = false;
-}
+void MainWindow::clear_marching_ants() { grid_state_.clipboard_visual.show_marching_ants = false; }
 
 // ── Native file dialogs (NFD) ───────────────────────────────────────────────
 // NOTE: NFD calls are hardwired here. An abstraction layer (e.g. IFileDialog)
@@ -129,8 +129,7 @@ void MainWindow::do_open(SessionState& state) {
     NFD::UniquePath path;
     nfdfilteritem_t filters[] = {{"CellWright", "magic"}, {"All Files", "*"}};
     if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
-        if (!state.open_file(path.get()))
-            toasts_.show("Failed to open file");
+        if (!state.open_file(path.get())) toasts_.show("Failed to open file");
     }
 }
 
@@ -142,8 +141,7 @@ void MainWindow::do_save(SessionState& state) {
         default_name = std::filesystem::path(state.current_file).filename().string();
     if (NFD::SaveDialog(path, filters, 1, nullptr,
                         default_name.empty() ? nullptr : default_name.c_str()) == NFD_OKAY) {
-        if (state.save_file(path.get()))
-            toasts_.show("Saved");
+        if (state.save_file(path.get())) toasts_.show("Saved");
     }
 }
 

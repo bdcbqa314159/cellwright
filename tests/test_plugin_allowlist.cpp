@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
-#include "plugin/PluginAllowlist.hpp"
 
 #include <filesystem>
 #include <fstream>
+
+#include "plugin/PluginAllowlist.hpp"
 
 using namespace magic;
 namespace fs = std::filesystem;
@@ -17,9 +18,7 @@ protected:
         json_path_ = tmp_dir_ / "trusted_plugins.json";
     }
 
-    void TearDown() override {
-        fs::remove_all(tmp_dir_);
-    }
+    void TearDown() override { fs::remove_all(tmp_dir_); }
 
     // Write a file with known content and return its path
     std::string write_tmp_file(const std::string& name, const std::string& content) {

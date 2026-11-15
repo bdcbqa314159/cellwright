@@ -1,9 +1,10 @@
 #include "plugin/PluginAllowlist.hpp"
-#include "util/Sha256.hpp"
-#include "util/ConfigDir.hpp"
 
 #include <fstream>
 #include <iostream>
+
+#include "util/ConfigDir.hpp"
+#include "util/Sha256.hpp"
 
 #ifdef __APPLE__
 #include <spawn.h>
@@ -61,8 +62,8 @@ bool PluginAllowlist::verify_codesign(const std::string& path) {
     const char* argv[] = {"codesign", "-v", path.c_str(), nullptr};
     pid_t pid;
     int status;
-    if (posix_spawn(&pid, "/usr/bin/codesign", nullptr, nullptr,
-                    const_cast<char**>(argv), environ) != 0)
+    if (posix_spawn(&pid, "/usr/bin/codesign", nullptr, nullptr, const_cast<char**>(argv),
+                    environ) != 0)
         return false;
     waitpid(pid, &status, 0);
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
@@ -79,8 +80,7 @@ void PluginAllowlist::load() {
     std::ifstream file(json_path_);
     if (!file) return;
 
-    std::string content((std::istreambuf_iterator<char>(file)),
-                         std::istreambuf_iterator<char>());
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     // Parse a JSON array of strings: ["hash1", "hash2", ...]
     trusted_.clear();

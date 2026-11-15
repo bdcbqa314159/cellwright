@@ -1,16 +1,17 @@
 #pragma once
-#include "plugin/IFunction.hpp"
-#include "plugin/IPanel.hpp"
-#include "plugin/PyFunctionPlugin.hpp"
-#include "plugin/PluginAllowlist.hpp"
-#include "formula/FunctionRegistry.hpp"
-#include <PluginLoader.hpp>
-#include <HotPluginLoader.hpp>
 #include <DynamicLibrary.hpp>
+#include <HotPluginLoader.hpp>
 #include <PluginDescriptor.hpp>
+#include <PluginLoader.hpp>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "formula/FunctionRegistry.hpp"
+#include "plugin/IFunction.hpp"
+#include "plugin/IPanel.hpp"
+#include "plugin/PluginAllowlist.hpp"
+#include "plugin/PyFunctionPlugin.hpp"
 
 namespace magic {
 

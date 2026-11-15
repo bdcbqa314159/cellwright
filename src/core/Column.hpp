@@ -1,8 +1,9 @@
 #pragma once
-#include "core/CellValue.hpp"
-#include <vector>
-#include <unordered_map>
 #include <cstdint>
+#include <unordered_map>
+#include <vector>
+
+#include "core/CellValue.hpp"
 
 namespace magic {
 
@@ -33,8 +34,8 @@ private:
     void ensure_row(int32_t row);
     bool has_non_numeric_in_range(int32_t from, int32_t to) const;
 
-    std::vector<double> doubles_;                          // dense numeric
-    std::unordered_map<int32_t, CellValue> non_numeric_;   // sparse non-numeric
+    std::vector<double> doubles_;                         // dense numeric
+    std::unordered_map<int32_t, CellValue> non_numeric_;  // sparse non-numeric
 };
 
 }  // namespace magic

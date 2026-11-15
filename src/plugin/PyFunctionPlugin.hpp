@@ -1,9 +1,11 @@
 #pragma once
-#include "plugin/IFunction.hpp"
 #include <pybind11/embed.h>
+
 #include <filesystem>
 #include <string>
 #include <vector>
+
+#include "plugin/IFunction.hpp"
 
 namespace py = pybind11;
 
@@ -21,8 +23,7 @@ public:
     const std::string& type() const override;
 
     std::vector<FunctionDescriptor> describe_functions() const override;
-    CellValue call(const std::string& func_name,
-                   const std::vector<CellValue>& args) const override;
+    CellValue call(const std::string& func_name, const std::vector<CellValue>& args) const override;
 
     // Convert between CellValue and Python objects
     static py::object to_python(const CellValue& v);

@@ -1,8 +1,11 @@
 #include "ui/AutocompletePopup.hpp"
-#include "formula/FunctionRegistry.hpp"
+
 #include <imgui.h>
+
 #include <algorithm>
 #include <cctype>
+
+#include "formula/FunctionRegistry.hpp"
 
 namespace magic {
 
@@ -14,23 +17,20 @@ std::string AutocompletePopup::extract_token(const char* buf, int cursor_pos) {
     // Scan backward from cursor to find start of alphanumeric token
     int end = cursor_pos;
     int start = end;
-    while (start > 0 && std::isalpha(static_cast<unsigned char>(buf[start - 1])))
-        --start;
+    while (start > 0 && std::isalpha(static_cast<unsigned char>(buf[start - 1]))) --start;
 
     if (start >= end) return {};
     // Must be preceded by =, (, ,, +, -, *, /, ^, <, >, or space (function name context)
     if (start > 0) {
         char prev = buf[start - 1];
-        if (prev != '=' && prev != '(' && prev != ',' && prev != '+' &&
-            prev != '-' && prev != '*' && prev != '/' && prev != '^' &&
-            prev != '<' && prev != '>' && prev != ' ')
+        if (prev != '=' && prev != '(' && prev != ',' && prev != '+' && prev != '-' &&
+            prev != '*' && prev != '/' && prev != '^' && prev != '<' && prev != '>' && prev != ' ')
             return {};
     }
 
     std::string token(buf + start, end - start);
     // Uppercase for matching
-    for (auto& ch : token)
-        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    for (auto& ch : token) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
     return token;
 }
 
@@ -43,14 +43,17 @@ std::string AutocompletePopup::find_enclosing_function(const char* buf, int curs
     int depth = 0;
     for (int i = cursor_pos - 1; i >= 0; --i) {
         char c = buf[i];
-        if (c == ')') ++depth;
+        if (c == ')')
+            ++depth;
         else if (c == '(') {
-            if (depth > 0) { --depth; continue; }
+            if (depth > 0) {
+                --depth;
+                continue;
+            }
             // Found unmatched '(' — scan backwards for function name
             int end = i;
             int start = end;
-            while (start > 0 && std::isalpha(static_cast<unsigned char>(buf[start - 1])))
-                --start;
+            while (start > 0 && std::isalpha(static_cast<unsigned char>(buf[start - 1]))) --start;
             if (start < end) {
                 std::string name(buf + start, end - start);
                 for (auto& ch : name)
@@ -64,21 +67,19 @@ std::string AutocompletePopup::find_enclosing_function(const char* buf, int curs
 }
 
 void AutocompletePopup::update_matches(const std::string& prefix,
-                                        const FunctionRegistry& registry) {
+                                       const FunctionRegistry& registry) {
     if (prefix == prefix_ && !matches_.empty()) return;
     prefix_ = prefix;
     matches_.clear();
     if (prefix.empty()) return;
 
     for (auto& [name, _] : registry.all()) {
-        if (name.size() >= prefix.size() &&
-            name.compare(0, prefix.size(), prefix) == 0) {
+        if (name.size() >= prefix.size() && name.compare(0, prefix.size(), prefix) == 0) {
             matches_.push_back(name);
         }
     }
     std::sort(matches_.begin(), matches_.end());
-    if (matches_.size() > 10)
-        matches_.resize(10);
+    if (matches_.size() > 10) matches_.resize(10);
     selected_ = 0;
 }
 
@@ -89,9 +90,8 @@ void AutocompletePopup::reset() {
     matches_.clear();
 }
 
-bool AutocompletePopup::render(const char* buf, int cursor_pos,
-                                const FunctionRegistry& registry,
-                                ImVec2 anchor_pos, std::string& out_text) {
+bool AutocompletePopup::render(const char* buf, int cursor_pos, const FunctionRegistry& registry,
+                               ImVec2 anchor_pos, std::string& out_text) {
     std::string token = extract_token(buf, cursor_pos);
     if (token.empty() || token.size() < 1) {
         active_ = false;
@@ -131,8 +131,9 @@ bool AutocompletePopup::render(const char* buf, int cursor_pos,
     ImGui::SetNextWindowPos(ImVec2(anchor_pos.x, anchor_pos.y));
     ImGui::SetNextWindowSize(ImVec2(180, 0));
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
-                              ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
-                              ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing;
+                             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_AlwaysAutoResize |
+                             ImGuiWindowFlags_NoFocusOnAppearing;
     if (ImGui::Begin("##autocomplete", nullptr, flags)) {
         for (int i = 0; i < static_cast<int>(matches_.size()); ++i) {
             bool is_selected = (i == selected_);

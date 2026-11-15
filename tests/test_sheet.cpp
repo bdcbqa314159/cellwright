@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/Sheet.hpp"
 
 using namespace magic;

@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 #include <pybind11/embed.h>
-#include "plugin/PyFunctionPlugin.hpp"
-#include "core/CellValue.hpp"
-#include <fstream>
+
 #include <filesystem>
+#include <fstream>
+
+#include "core/CellValue.hpp"
+#include "plugin/PyFunctionPlugin.hpp"
 
 namespace py = pybind11;
 using namespace magic;
@@ -15,16 +17,17 @@ static py::scoped_interpreter* guard = nullptr;
 class PythonEnv : public ::testing::Environment {
 public:
     void SetUp() override { guard = new py::scoped_interpreter{}; }
-    void TearDown() override { delete guard; guard = nullptr; }
+    void TearDown() override {
+        delete guard;
+        guard = nullptr;
+    }
 };
 
-testing::Environment* const python_env =
-    testing::AddGlobalTestEnvironment(new PythonEnv);
+testing::Environment* const python_env = testing::AddGlobalTestEnvironment(new PythonEnv);
 
 // ── Helper: write a temp .py file ──────────────────────────────────────────
 
-static std::filesystem::path write_temp_py(const std::string& name,
-                                            const std::string& code) {
+static std::filesystem::path write_temp_py(const std::string& name, const std::string& code) {
     auto dir = std::filesystem::temp_directory_path() / "magic_py_tests";
     std::filesystem::create_directories(dir);
     auto path = dir / (name + ".py");
@@ -218,15 +221,12 @@ functions = {
 
 class PyBondTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        plugin = std::make_unique<PyFunctionPlugin>(PY_BOND_PLUGIN_PATH);
-    }
+    void SetUp() override { plugin = std::make_unique<PyFunctionPlugin>(PY_BOND_PLUGIN_PATH); }
     std::unique_ptr<PyFunctionPlugin> plugin;
 
     std::string makeBond(double coupon, double ytm, double maturity, double freq) {
-        auto r = plugin->call("pybond", {
-            CellValue{coupon}, CellValue{ytm}, CellValue{maturity}, CellValue{freq}
-        });
+        auto r = plugin->call(
+            "pybond", {CellValue{coupon}, CellValue{ytm}, CellValue{maturity}, CellValue{freq}});
         EXPECT_TRUE(is_string(r));
         return as_string(r);
     }

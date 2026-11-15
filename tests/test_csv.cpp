@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
-#include "io/CsvIO.hpp"
 
 #include <cmath>
 #include <string>
 #include <variant>
+
+#include "io/CsvIO.hpp"
 using namespace magic;
 
 TEST(CsvIO, ParseSimple) {

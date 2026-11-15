@@ -5,6 +5,10 @@
 #   .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 #   .venv/bin/clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')
 #
+#   NOTE: formatting an UNFORMATTED tree needs two passes — IncludeBlocks: Regroup
+#   settles include order on the first pass and reflows around it on the second. On an
+#   already-formatted tree a single run is a no-op. Run it twice if in doubt.
+#
 # Pinned so every developer and CI agree on formatting output — an unpinned
 # clang-format reformats the tree differently between versions.
 clang-format==20.1.8

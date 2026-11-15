@@ -1,18 +1,17 @@
 #include <gtest/gtest.h>
-#include "core/ArrowBridge.hpp"
-#include "core/Sheet.hpp"
-#include "core/CellAddress.hpp"
 
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
 
+#include "core/ArrowBridge.hpp"
+#include "core/CellAddress.hpp"
+#include "core/Sheet.hpp"
+
 using namespace magic;
 
 // Helper: check validity bitmap bit
-static bool bitmap_get(const uint8_t* bm, int64_t i) {
-    return (bm[i / 8] >> (i % 8)) & 1;
-}
+static bool bitmap_get(const uint8_t* bm, int64_t i) { return (bm[i / 8] >> (i % 8)) & 1; }
 
 TEST(ArrowBridge, ExportEmptySheet) {
     Sheet sheet("empty", 3, 0);

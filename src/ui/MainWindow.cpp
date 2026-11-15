@@ -1,22 +1,25 @@
 #include "ui/MainWindow.hpp"
-#include "services/FormulaAdjust.hpp"
-#include "session/SessionState.hpp"
-#include "session/AutoSave.hpp"
-#include "core/ConditionalFormat.hpp"
-#include "core/FillPattern.hpp"
-#include "core/Workbook.hpp"
-#include "services/Clipboard.hpp"
-#include "formula/AsyncRecalcEngine.hpp"
-#include "io/CsvIO.hpp"
-#include "io/WorkbookIO.hpp"
-#include "util/Sha256.hpp"
-#include <nfd.hpp>
+
 #include <imgui.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <nfd.hpp>
+
+#include "core/ConditionalFormat.hpp"
+#include "core/FillPattern.hpp"
+#include "core/Workbook.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
+#include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
+#include "services/Clipboard.hpp"
+#include "services/FormulaAdjust.hpp"
+#include "session/AutoSave.hpp"
+#include "session/SessionState.hpp"
+#include "util/Sha256.hpp"
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -31,15 +34,14 @@ namespace {
 // has to know about formula/ (specs/02_sheet_formula_rewriting.md).
 RowColumnRewriters row_column_rewriters() {
     return RowColumnRewriters{
-        .insert_row    = adjust_formula_for_insert_row,
-        .delete_row    = adjust_formula_for_delete_row,
+        .insert_row = adjust_formula_for_insert_row,
+        .delete_row = adjust_formula_for_delete_row,
         .insert_column = adjust_formula_for_insert_col,
         .delete_column = adjust_formula_for_delete_col,
     };
 }
 
 }  // namespace
-
 
 // ── Shared action methods ────────────────────────────────────────────────────
 
@@ -48,12 +50,9 @@ void MainWindow::render(SessionState& state) {
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
 
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar |
-                                     ImGuiWindowFlags_NoCollapse |
-                                     ImGuiWindowFlags_NoResize |
-                                     ImGuiWindowFlags_NoMove |
-                                     ImGuiWindowFlags_NoBringToFrontOnFocus |
-                                     ImGuiWindowFlags_MenuBar;
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_MenuBar;
 
     ImGui::Begin("CellWright", nullptr, window_flags);
 
@@ -120,8 +119,7 @@ void MainWindow::render(SessionState& state) {
     ImGui::Separator();
 
     // Pass formula bar to grid for reference highlighting and click-to-insert
-    grid_state_.formula_bar_buf = formula_bar_.is_formula_mode()
-        ? formula_bar_.buffer() : nullptr;
+    grid_state_.formula_bar_buf = formula_bar_.is_formula_mode() ? formula_bar_.buffer() : nullptr;
     grid_state_.formula_bar = &formula_bar_;
     grid_state_.dark_theme = (theme_ == Theme::Dark);
     grid_state_.registry = &state.function_registry;
@@ -137,23 +135,20 @@ void MainWindow::render(SessionState& state) {
         // Check if all cells are empty
         bool all_empty = true;
         for (int32_t c = 0; c < sheet.col_count() && all_empty; ++c) {
-            if (sheet.column(c).size() > 0)
-                all_empty = false;
+            if (sheet.column(c).size() > 0) all_empty = false;
         }
         if (all_empty) {
             ImVec2 avail = ImGui::GetContentRegionAvail();
             ImVec2 text_size = ImGui::CalcTextSize("Start typing, or open a file with Ctrl+O");
-            ImGui::SetCursorPos(ImVec2(
-                ImGui::GetCursorPosX() + (avail.x - text_size.x) * 0.5f,
-                ImGui::GetCursorPosY() + avail.y * 0.35f));
+            ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + (avail.x - text_size.x) * 0.5f,
+                                       ImGui::GetCursorPosY() + avail.y * 0.35f));
             ImGui::TextDisabled("Start typing, or open a file with Ctrl+O");
         }
     }
 
     // Spreadsheet grid
     if (grid_.render(sheet, grid_state_, as.format_map)) {
-        ci.process(grid_state_.editor.buffer(), sheet,
-                   grid_state_.editor.editing_cell(),
+        ci.process(grid_state_.editor.buffer(), sheet, grid_state_.editor.editing_cell(),
                    as.undo_manager, as.format_map, as.dep_graph, state.workbook);
     }
 
@@ -204,12 +199,12 @@ void MainWindow::dispatch_context_action(SessionState& state, Sheet& sheet) {
             action_paste(state);
             break;
         case ContextAction::Clear:
-            ci.process("", sheet, grid_state_.selection.selected_cell,
-                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+            ci.process("", sheet, grid_state_.selection.selected_cell, as.undo_manager,
+                       as.format_map, as.dep_graph, state.workbook);
             break;
         case ContextAction::InsertRow: {
-            auto cmd = std::make_unique<InsertRowCommand>(
-                grid_state_.selection.selected_cell.row, row_column_rewriters());
+            auto cmd = std::make_unique<InsertRowCommand>(grid_state_.selection.selected_cell.row,
+                                                          row_column_rewriters());
             as.undo_manager.execute(std::move(cmd), sheet);
             as.dep_graph.shift_rows(grid_state_.selection.selected_cell.row, 1);
             as.format_map.shift_rows(grid_state_.selection.selected_cell.row, 1);
@@ -224,8 +219,8 @@ void MainWindow::dispatch_context_action(SessionState& state, Sheet& sheet) {
             break;
         }
         case ContextAction::DeleteRow: {
-            auto cmd = std::make_unique<DeleteRowCommand>(
-                grid_state_.selection.selected_cell.row, sheet, row_column_rewriters());
+            auto cmd = std::make_unique<DeleteRowCommand>(grid_state_.selection.selected_cell.row,
+                                                          sheet, row_column_rewriters());
             as.undo_manager.execute(std::move(cmd), sheet);
             as.dep_graph.shift_rows(grid_state_.selection.selected_cell.row, -1);
             as.format_map.shift_rows(grid_state_.selection.selected_cell.row, -1);
@@ -245,13 +240,12 @@ void MainWindow::dispatch_context_action(SessionState& state, Sheet& sheet) {
             auto cmd = std::make_unique<SortColumnCommand>(grid_state_.context_col, asc, sheet);
             as.undo_manager.execute(std::move(cmd), sheet);
             std::unordered_set<CellAddress> dirty;
-            for (auto& [addr, _] : sheet.all_formulas())
-                dirty.insert(addr);
-            if (!dirty.empty())
-                ci.batch_recalc(sheet, dirty, as.dep_graph, &state.workbook);
+            for (auto& [addr, _] : sheet.all_formulas()) dirty.insert(addr);
+            if (!dirty.empty()) ci.batch_recalc(sheet, dirty, as.dep_graph, &state.workbook);
             break;
         }
-        default: break;
+        default:
+            break;
     }
 }
 
@@ -272,15 +266,14 @@ void MainWindow::handle_drag_completion(SessionState& state, Sheet& sheet) {
             int32_t dcol = tgt.col - src.col;
             int32_t drow = tgt.row - src.row;
             std::string adjusted = Clipboard::adjust_references(src_formula, dcol, drow);
-            ci.process(("=" + adjusted).c_str(), sheet, tgt,
-                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+            ci.process(("=" + adjusted).c_str(), sheet, tgt, as.undo_manager, as.format_map,
+                       as.dep_graph, state.workbook);
         } else {
             std::string display = to_display_string(src_val);
-            ci.process(display.c_str(), sheet, tgt,
-                       as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+            ci.process(display.c_str(), sheet, tgt, as.undo_manager, as.format_map, as.dep_graph,
+                       state.workbook);
         }
-        ci.process("", sheet, src,
-                   as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+        ci.process("", sheet, src, as.undo_manager, as.format_map, as.dep_graph, state.workbook);
         grid_state_.selection.selected_cell = tgt;
         grid_state_.selection.sel_anchor = tgt;
         grid_state_.selection.has_range = false;
@@ -297,8 +290,7 @@ void MainWindow::handle_drag_completion(SessionState& state, Sheet& sheet) {
         bool vertical = (r2 - r1) >= (c2 - c1);
         FillPattern pattern;
         bool use_pattern = src_formula.empty() && is_number(src_val);
-        if (use_pattern)
-            pattern = detect_pattern(sheet, src, vertical);
+        if (use_pattern) pattern = detect_pattern(sheet, src, vertical);
 
         std::unordered_set<CellAddress> changed_cells;
         for (int32_t c = c1; c <= c2; ++c) {
@@ -310,19 +302,20 @@ void MainWindow::handle_drag_completion(SessionState& state, Sheet& sheet) {
                 if (axis_dist == 0) axis_dist = vertical ? (c - src.col) : (r - src.row);
                 if (axis_dist < 0) axis_dist = -axis_dist;
                 if (!src_formula.empty()) {
-                    std::string adjusted = Clipboard::adjust_references(
-                        src_formula, c - src.col, r - src.row);
+                    std::string adjusted =
+                        Clipboard::adjust_references(src_formula, c - src.col, r - src.row);
                     ci.process_no_recalc(("=" + adjusted).c_str(), sheet, fill_addr,
-                                         as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                                         as.undo_manager, as.format_map, as.dep_graph,
+                                         state.workbook);
                 } else if (use_pattern && pattern.kind == FillPattern::Kind::Arithmetic) {
                     CellValue fv = fill_value(pattern, axis_dist);
                     std::string display = to_display_string(fv);
-                    ci.process_no_recalc(display.c_str(), sheet, fill_addr,
-                                         as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                    ci.process_no_recalc(display.c_str(), sheet, fill_addr, as.undo_manager,
+                                         as.format_map, as.dep_graph, state.workbook);
                 } else {
                     std::string display = to_display_string(src_val);
-                    ci.process_no_recalc(display.c_str(), sheet, fill_addr,
-                                         as.undo_manager, as.format_map, as.dep_graph, state.workbook);
+                    ci.process_no_recalc(display.c_str(), sheet, fill_addr, as.undo_manager,
+                                         as.format_map, as.dep_graph, state.workbook);
                 }
                 changed_cells.insert(fill_addr);
             }

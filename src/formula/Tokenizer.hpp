@@ -1,7 +1,8 @@
 #pragma once
-#include "formula/Token.hpp"
 #include <string>
 #include <vector>
+
+#include "formula/Token.hpp"
 
 namespace magic {
 

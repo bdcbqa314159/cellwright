@@ -1,7 +1,5 @@
 #include "formula/Evaluator.hpp"
-#include "core/Column.hpp"
-#include "core/Sheet.hpp"
-#include "core/Workbook.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -9,6 +7,10 @@
 #include <stdexcept>
 #include <type_traits>
 #include <variant>
+
+#include "core/Column.hpp"
+#include "core/Sheet.hpp"
+#include "core/Workbook.hpp"
 
 static_assert(sizeof(size_t) >= 8 || sizeof(void*) >= 8,
               "cellwright requires a 64-bit platform to avoid range size overflow");
@@ -28,38 +30,32 @@ CellValue Evaluator::evaluate(const ASTNode& node) {
         ~DepthGuard() { --d; }
     } guard{depth_};
 
-    return std::visit([this](const auto& v) -> CellValue {
-        using T = std::decay_t<decltype(v)>;
-        if constexpr (std::is_same_v<T, NumberNode>)      return eval_number(v);
-        if constexpr (std::is_same_v<T, StringNode>)      return eval_string(v);
-        if constexpr (std::is_same_v<T, BoolNode>)        return eval_bool(v);
-        if constexpr (std::is_same_v<T, CellRefNode>)     return eval_cellref(v);
-        if constexpr (std::is_same_v<T, RangeNode>)       return eval_range(v);
-        if constexpr (std::is_same_v<T, SheetRefNode>)    return eval_sheetref(v);
-        if constexpr (std::is_same_v<T, SheetRangeNode>)  return eval_sheetrange(v);
-        if constexpr (std::is_same_v<T, UnaryOpNode>)     return eval_unary(v);
-        if constexpr (std::is_same_v<T, BinOpNode>)       return eval_binop(v);
-        if constexpr (std::is_same_v<T, FuncCallNode>)    return eval_func(v);
-        if constexpr (std::is_same_v<T, CompareNode>)     return eval_compare(v);
-        return CellValue{CellError::VALUE};
-    }, node.value);
+    return std::visit(
+        [this](const auto& v) -> CellValue {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, NumberNode>) return eval_number(v);
+            if constexpr (std::is_same_v<T, StringNode>) return eval_string(v);
+            if constexpr (std::is_same_v<T, BoolNode>) return eval_bool(v);
+            if constexpr (std::is_same_v<T, CellRefNode>) return eval_cellref(v);
+            if constexpr (std::is_same_v<T, RangeNode>) return eval_range(v);
+            if constexpr (std::is_same_v<T, SheetRefNode>) return eval_sheetref(v);
+            if constexpr (std::is_same_v<T, SheetRangeNode>) return eval_sheetrange(v);
+            if constexpr (std::is_same_v<T, UnaryOpNode>) return eval_unary(v);
+            if constexpr (std::is_same_v<T, BinOpNode>) return eval_binop(v);
+            if constexpr (std::is_same_v<T, FuncCallNode>) return eval_func(v);
+            if constexpr (std::is_same_v<T, CompareNode>) return eval_compare(v);
+            return CellValue{CellError::VALUE};
+        },
+        node.value);
 }
 
-CellValue Evaluator::eval_number(const NumberNode& n) {
-    return CellValue{n.value};
-}
+CellValue Evaluator::eval_number(const NumberNode& n) { return CellValue{n.value}; }
 
-CellValue Evaluator::eval_string(const StringNode& n) {
-    return CellValue{n.value};
-}
+CellValue Evaluator::eval_string(const StringNode& n) { return CellValue{n.value}; }
 
-CellValue Evaluator::eval_bool(const BoolNode& n) {
-    return CellValue{n.value};
-}
+CellValue Evaluator::eval_bool(const BoolNode& n) { return CellValue{n.value}; }
 
-CellValue Evaluator::eval_cellref(const CellRefNode& n) {
-    return sheet_.get_value(n.addr);
-}
+CellValue Evaluator::eval_cellref(const CellRefNode& n) { return sheet_.get_value(n.addr); }
 
 CellValue Evaluator::eval_range(const RangeNode&) {
     // Standalone range is an error — ranges only valid inside function calls
@@ -83,14 +79,19 @@ CellValue Evaluator::eval_binop(const BinOpNode& n) {
     double r = to_double(rv);
 
     switch (n.op) {
-        case '+': return CellValue{l + r};
-        case '-': return CellValue{l - r};
-        case '*': return CellValue{l * r};
+        case '+':
+            return CellValue{l + r};
+        case '-':
+            return CellValue{l - r};
+        case '*':
+            return CellValue{l * r};
         case '/':
             if (r == 0.0) return CellValue{CellError::DIV0};
             return CellValue{l / r};
-        case '^': return CellValue{std::pow(l, r)};
-        default:  return CellValue{CellError::VALUE};
+        case '^':
+            return CellValue{std::pow(l, r)};
+        default:
+            return CellValue{CellError::VALUE};
     }
 }
 
@@ -103,35 +104,41 @@ CellValue Evaluator::eval_compare(const CompareNode& n) {
     // Type-aware comparison: strings compare lexicographically, bools by identity
     if (is_string(lv) && is_string(rv)) {
         int cmp = as_string(lv).compare(as_string(rv));
-        if (n.op == "=")       return CellValue{cmp == 0};
-        if (n.op == "<>")      return CellValue{cmp != 0};
-        if (n.op == "<")       return CellValue{cmp < 0};
-        if (n.op == ">")       return CellValue{cmp > 0};
-        if (n.op == "<=")      return CellValue{cmp <= 0};
-        if (n.op == ">=")      return CellValue{cmp >= 0};
+        if (n.op == "=") return CellValue{cmp == 0};
+        if (n.op == "<>") return CellValue{cmp != 0};
+        if (n.op == "<") return CellValue{cmp < 0};
+        if (n.op == ">") return CellValue{cmp > 0};
+        if (n.op == "<=") return CellValue{cmp <= 0};
+        if (n.op == ">=") return CellValue{cmp >= 0};
     }
 
     if (is_bool(lv) && is_bool(rv)) {
         bool lb = std::get<bool>(lv), rb = std::get<bool>(rv);
-        if (n.op == "=")       return CellValue{lb == rb};
-        if (n.op == "<>")      return CellValue{lb != rb};
+        if (n.op == "=") return CellValue{lb == rb};
+        if (n.op == "<>") return CellValue{lb != rb};
         // Booleans: FALSE < TRUE
-        if (n.op == "<")       return CellValue{!lb && rb};
-        if (n.op == ">")       return CellValue{lb && !rb};
-        if (n.op == "<=")      return CellValue{!lb || rb};
-        if (n.op == ">=")      return CellValue{lb || !rb};
+        if (n.op == "<") return CellValue{!lb && rb};
+        if (n.op == ">") return CellValue{lb && !rb};
+        if (n.op == "<=") return CellValue{!lb || rb};
+        if (n.op == ">=") return CellValue{lb || !rb};
     }
 
     double l = to_double(lv);
     double r = to_double(rv);
 
     bool result = false;
-    if (n.op == "=")       result = (l == r);
-    else if (n.op == "<>") result = (l != r);
-    else if (n.op == "<")  result = (l < r);
-    else if (n.op == ">")  result = (l > r);
-    else if (n.op == "<=") result = (l <= r);
-    else if (n.op == ">=") result = (l >= r);
+    if (n.op == "=")
+        result = (l == r);
+    else if (n.op == "<>")
+        result = (l != r);
+    else if (n.op == "<")
+        result = (l < r);
+    else if (n.op == ">")
+        result = (l > r);
+    else if (n.op == "<=")
+        result = (l <= r);
+    else if (n.op == ">=")
+        result = (l >= r);
 
     return CellValue{result};
 }
@@ -151,7 +158,8 @@ std::vector<CellValue> Evaluator::expand_range(const RangeNode& range) {
     return expand_range_on(sheet_, range.from, range.to);
 }
 
-std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& from, const CellAddress& to) {
+std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& from,
+                                                  const CellAddress& to) {
     std::vector<CellValue> result;
     int32_t c1 = std::max(std::min(from.col, to.col), int32_t{0});
     int32_t c2 = std::max(from.col, to.col);
@@ -170,7 +178,8 @@ std::vector<CellValue> Evaluator::expand_range_on(Sheet& s, const CellAddress& f
     return result;
 }
 
-void Evaluator::expand_range_into(Sheet& s, const CellAddress& from, const CellAddress& to, std::vector<CellValue>& out) {
+void Evaluator::expand_range_into(Sheet& s, const CellAddress& from, const CellAddress& to,
+                                  std::vector<CellValue>& out) {
     int32_t c1 = std::max(std::min(from.col, to.col), int32_t{0});
     int32_t c2 = std::max(from.col, to.col);
     int32_t r1 = std::max(std::min(from.row, to.row), int32_t{0});
@@ -216,11 +225,11 @@ void Evaluator::collect_args_into(const std::vector<ASTNode*>& args, std::vector
 // Column fast-path dispatch: maps builtin aggregate names to Column SIMD methods.
 // These names must match the functions registered in MathFunctions.cpp that have
 // Column-level SIMD implementations.
-static std::optional<CellValue> try_column_aggregate(
-    const std::string& name, const Column& col, int32_t from, int32_t to) {
-    if (name == "SUM")   return CellValue{col.sum(from, to)};
-    if (name == "MIN")   return CellValue{col.min(from, to)};
-    if (name == "MAX")   return CellValue{col.max(from, to)};
+static std::optional<CellValue> try_column_aggregate(const std::string& name, const Column& col,
+                                                     int32_t from, int32_t to) {
+    if (name == "SUM") return CellValue{col.sum(from, to)};
+    if (name == "MIN") return CellValue{col.min(from, to)};
+    if (name == "MAX") return CellValue{col.max(from, to)};
     if (name == "COUNT") return CellValue{static_cast<double>(col.count_numeric(from, to))};
     return std::nullopt;
 }
@@ -242,8 +251,7 @@ CellValue Evaluator::eval_func(const FuncCallNode& n) {
         }
     }
 
-    if (pool_depth_ >= args_pool_.size())
-        args_pool_.emplace_back();
+    if (pool_depth_ >= args_pool_.size()) args_pool_.emplace_back();
     auto& buf = args_pool_[pool_depth_++];
     buf.clear();
     try {
@@ -260,8 +268,7 @@ CellValue Evaluator::eval_func(const FuncCallNode& n) {
 Sheet* Evaluator::find_sheet(const std::string& name) {
     if (!workbook_) return nullptr;
     for (int i = 0; i < workbook_->sheet_count(); ++i) {
-        if (workbook_->sheet(i).name() == name)
-            return &workbook_->sheet(i);
+        if (workbook_->sheet(i).name() == name) return &workbook_->sheet(i);
     }
     return nullptr;
 }

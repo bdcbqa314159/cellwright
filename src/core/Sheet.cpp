@@ -1,4 +1,5 @@
 #include "core/Sheet.hpp"
+
 #include <stdexcept>
 
 namespace magic {
@@ -23,9 +24,7 @@ void Sheet::set_value(const CellAddress& addr, const CellValue& val) {
     mark_dirty(addr);
 }
 
-bool Sheet::has_formula(const CellAddress& addr) const {
-    return formulas_.contains(addr);
-}
+bool Sheet::has_formula(const CellAddress& addr) const { return formulas_.contains(addr); }
 
 const std::string& Sheet::get_formula(const CellAddress& addr) const {
     auto it = formulas_.find(addr);
@@ -39,22 +38,15 @@ void Sheet::set_formula(const CellAddress& addr, const std::string& formula) {
     ++value_generation_;
 }
 
-void Sheet::clear_formula(const CellAddress& addr) {
-    formulas_.erase(addr);
-}
+void Sheet::clear_formula(const CellAddress& addr) { formulas_.erase(addr); }
 
-void Sheet::mark_dirty(const CellAddress& addr) {
-    dirty_.insert(addr);
-}
+void Sheet::mark_dirty(const CellAddress& addr) { dirty_.insert(addr); }
 
-void Sheet::clear_dirty() {
-    dirty_.clear();
-}
+void Sheet::clear_dirty() { dirty_.clear(); }
 
 void Sheet::insert_row(int32_t at, const FormulaRewriter& rewrite) {
     if (at < 0) return;
-    for (auto& col : columns_)
-        col.insert_row(at);
+    for (auto& col : columns_) col.insert_row(at);
     ++row_count_;
 
     // Shift formula keys and adjust formula text references
@@ -72,8 +64,7 @@ void Sheet::insert_row(int32_t at, const FormulaRewriter& rewrite) {
 
 void Sheet::delete_row(int32_t at, const FormulaRewriter& rewrite) {
     if (at < 0) return;
-    for (auto& col : columns_)
-        col.delete_row(at);
+    for (auto& col : columns_) col.delete_row(at);
     if (row_count_ > 0) --row_count_;
 
     // Remove formulas at deleted row, shift keys and adjust formula text
@@ -126,15 +117,13 @@ void Sheet::delete_column(int32_t at, const FormulaRewriter& rewrite) {
 }
 
 Column& Sheet::column(int32_t col) {
-    if (col < 0 || col >= MAX_COL)
-        throw std::out_of_range("column index out of range");
+    if (col < 0 || col >= MAX_COL) throw std::out_of_range("column index out of range");
     while (col >= col_count()) columns_.emplace_back();
     return columns_[col];
 }
 
 const Column& Sheet::column(int32_t col) const {
-    if (col < 0 || col >= col_count())
-        throw std::out_of_range("column index out of range");
+    if (col < 0 || col >= col_count()) throw std::out_of_range("column index out of range");
     return columns_[col];
 }
 

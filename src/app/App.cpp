@@ -1,11 +1,4 @@
 #include "app/App.hpp"
-#include "builtin/MathFunctions.hpp"
-#include "builtin/LogicFunctions.hpp"
-#include "builtin/StatFunctions.hpp"
-#include "builtin/TextFunctions.hpp"
-#include "builtin/SqlFunction.hpp"
-#include "plugin/DropHandler.hpp"
-#include "ui/StyleSetup.hpp"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -13,12 +6,20 @@
 #include <imgui_impl_opengl3.h>
 #include <implot.h>
 #include <pybind11/embed.h>
-#include <nfd.hpp>
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <nfd.hpp>
 #include <stdexcept>
+
+#include "builtin/LogicFunctions.hpp"
+#include "builtin/MathFunctions.hpp"
+#include "builtin/SqlFunction.hpp"
+#include "builtin/StatFunctions.hpp"
+#include "builtin/TextFunctions.hpp"
+#include "plugin/DropHandler.hpp"
+#include "ui/StyleSetup.hpp"
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -53,8 +54,7 @@ static void glfw_error_callback(int error, const char* description) {
 
 void App::init_window() {
     glfwSetErrorCallback(glfw_error_callback);
-    if (!glfwInit())
-        throw std::runtime_error("Failed to initialize GLFW");
+    if (!glfwInit()) throw std::runtime_error("Failed to initialize GLFW");
 
     // macOS requires these hints
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -70,8 +70,7 @@ void App::init_window() {
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
     }
-    if (wr.x >= 0 && wr.y >= 0)
-        glfwSetWindowPos(window_, wr.x, wr.y);
+    if (wr.x >= 0 && wr.y >= 0) glfwSetWindowPos(window_, wr.x, wr.y);
 
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);  // vsync
@@ -134,8 +133,7 @@ void App::rebuild_fonts() {
 
     const char* mono_path = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
     if (std::ifstream(mono_path).good())
-        main_window_.set_mono_font(
-            io.Fonts->AddFontFromFileTTF(mono_path, scaled_size));
+        main_window_.set_mono_font(io.Fonts->AddFontFromFileTTF(mono_path, scaled_size));
 
     // Scale font back to logical size — fonts are rasterized at physical pixels
     // for sharpness, but layout should use logical coordinates.
@@ -147,8 +145,7 @@ void App::init_builtins() {
     register_logic_functions(state_.function_registry);
     register_stat_functions(state_.function_registry);
     register_text_functions(state_.function_registry);
-    register_sql_function(state_.function_registry, state_.duckdb_engine,
-                          state_.workbook);
+    register_sql_function(state_.function_registry, state_.duckdb_engine, state_.workbook);
 }
 
 void App::main_loop() {
@@ -220,11 +217,9 @@ void App::main_loop() {
         // During interaction (mouse held, text input, drags, async work)
         // events keep waking us immediately so responsiveness is unchanged.
         ImGuiIO& io = ImGui::GetIO();
-        bool active = io.MouseDown[0] || io.WantTextInput ||
-                      main_window_.is_interaction_active() ||
+        bool active = io.MouseDown[0] || io.WantTextInput || main_window_.is_interaction_active() ||
                       state_.async_recalc.is_busy();
-        if (!active)
-            glfwWaitEventsTimeout(0.1);
+        if (!active) glfwWaitEventsTimeout(0.1);
     }
 }
 

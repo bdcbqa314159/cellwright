@@ -1,4 +1,5 @@
 #include "core/CellValue.hpp"
+
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -13,8 +14,7 @@ std::string to_display_string(const CellValue& v) {
         // The isfinite() guard above ensures d is not NaN or Inf, which
         // protects the int64_t cast below from undefined behavior.
         constexpr double max_safe_int = 9007199254740992.0;
-        if (std::isfinite(d) && std::abs(d) <= max_safe_int &&
-            d == static_cast<int64_t>(d))
+        if (std::isfinite(d) && std::abs(d) <= max_safe_int && d == static_cast<int64_t>(d))
             return std::to_string(static_cast<int64_t>(d));
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%g", d);
@@ -24,11 +24,16 @@ std::string to_display_string(const CellValue& v) {
     if (is_bool(v)) return std::get<bool>(v) ? "true" : "false";
     if (is_error(v)) {
         switch (std::get<CellError>(v)) {
-            case CellError::REF:   return "#REF!";
-            case CellError::VALUE: return "#VALUE!";
-            case CellError::DIV0:  return "#DIV/0!";
-            case CellError::NAME:  return "#NAME?";
-            case CellError::NA:    return "#N/A";
+            case CellError::REF:
+                return "#REF!";
+            case CellError::VALUE:
+                return "#VALUE!";
+            case CellError::DIV0:
+                return "#DIV/0!";
+            case CellError::NAME:
+                return "#NAME?";
+            case CellError::NA:
+                return "#N/A";
         }
     }
     return "";
@@ -39,8 +44,11 @@ double to_double(const CellValue& v) {
     if (is_number(v)) return as_number(v);
     if (is_bool(v)) return std::get<bool>(v) ? 1.0 : 0.0;
     if (is_string(v)) {
-        try { return std::stod(as_string(v)); }
-        catch (...) { return std::nan(""); }
+        try {
+            return std::stod(as_string(v));
+        } catch (...) {
+            return std::nan("");
+        }
     }
     return std::nan("");
 }

@@ -1,3 +1,7 @@
+// clang-format off
+// ^ Vendored third-party single-header library (stb_image_write). Kept byte-stable
+//   apart from this guard so a diff against upstream stays meaningful — see
+//   .gitattributes. Do not reformat; do not reindent.
 /* stb_image_write - v1.16 - public domain - http://nothings.org/stb
    writes out PNG/BMP/TGA/JPEG/HDR images to C stdio - Sean Barrett 2010-2015
                                      no warranty implied; use at your own risk

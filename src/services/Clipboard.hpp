@@ -1,8 +1,9 @@
 #pragma once
-#include "core/CellAddress.hpp"
-#include "core/CellValue.hpp"
 #include <string>
 #include <vector>
+
+#include "core/CellAddress.hpp"
+#include "core/CellValue.hpp"
 
 namespace magic {
 
@@ -24,7 +25,10 @@ public:
     bool is_cut() const { return is_cut_; }
     void set_cut(bool v) { is_cut_ = v; }
     std::vector<CellAddress> source_cells() const;
-    void clear() { cells_.clear(); is_cut_ = false; }
+    void clear() {
+        cells_.clear();
+        is_cut_ = false;
+    }
 
     // Get cells to paste at destination, adjusting relative references
     struct PasteEntry {
@@ -36,8 +40,7 @@ public:
     std::vector<PasteEntry> paste_at_transposed(const CellAddress& dest) const;
 
     // Adjust cell references in a formula by a delta
-    static std::string adjust_references(const std::string& formula,
-                                          int32_t dcol, int32_t drow);
+    static std::string adjust_references(const std::string& formula, int32_t dcol, int32_t drow);
 
 private:
     std::vector<ClipboardCell> cells_;

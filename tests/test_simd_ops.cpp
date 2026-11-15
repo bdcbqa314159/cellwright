@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
-#include "core/SimdOps.hpp"
+
 #include <cmath>
 #include <limits>
 #include <vector>
+
+#include "core/SimdOps.hpp"
 
 using namespace magic;
 
@@ -17,9 +19,7 @@ TEST(SimdOps, SumWithNaN) {
     EXPECT_DOUBLE_EQ(simd_sum(data.data(), data.size()), 9.0);
 }
 
-TEST(SimdOps, SumEmpty) {
-    EXPECT_DOUBLE_EQ(simd_sum(nullptr, 0), 0.0);
-}
+TEST(SimdOps, SumEmpty) { EXPECT_DOUBLE_EQ(simd_sum(nullptr, 0), 0.0); }
 
 TEST(SimdOps, SumLargeArray) {
     std::vector<double> data(10000, 1.0);

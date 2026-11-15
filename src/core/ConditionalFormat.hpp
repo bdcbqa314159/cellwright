@@ -18,7 +18,7 @@ struct CondColor {
 };
 
 struct ConditionalRule {
-    int32_t column = 0;       // which column this rule applies to (-1 = all)
+    int32_t column = 0;  // which column this rule applies to (-1 = all)
     ConditionOp op = ConditionOp::GreaterThan;
     double threshold = 0.0;
     CondColor color;
@@ -28,8 +28,7 @@ class ConditionalFormatStore {
 public:
     void add_rule(const ConditionalRule& rule) { rules_.push_back(rule); }
     void remove_rule(std::size_t index) {
-        if (index < rules_.size())
-            rules_.erase(rules_.begin() + static_cast<ptrdiff_t>(index));
+        if (index < rules_.size()) rules_.erase(rules_.begin() + static_cast<ptrdiff_t>(index));
     }
     void clear() { rules_.clear(); }
 
@@ -44,12 +43,24 @@ public:
             if (rule.column != -1 && rule.column != col) continue;
             bool match = false;
             switch (rule.op) {
-                case ConditionOp::GreaterThan:  match = value > rule.threshold; break;
-                case ConditionOp::LessThan:     match = value < rule.threshold; break;
-                case ConditionOp::GreaterEqual: match = value >= rule.threshold; break;
-                case ConditionOp::LessEqual:    match = value <= rule.threshold; break;
-                case ConditionOp::Equal:        match = value == rule.threshold; break;
-                case ConditionOp::NotEqual:     match = value != rule.threshold; break;
+                case ConditionOp::GreaterThan:
+                    match = value > rule.threshold;
+                    break;
+                case ConditionOp::LessThan:
+                    match = value < rule.threshold;
+                    break;
+                case ConditionOp::GreaterEqual:
+                    match = value >= rule.threshold;
+                    break;
+                case ConditionOp::LessEqual:
+                    match = value <= rule.threshold;
+                    break;
+                case ConditionOp::Equal:
+                    match = value == rule.threshold;
+                    break;
+                case ConditionOp::NotEqual:
+                    match = value != rule.threshold;
+                    break;
             }
             if (match) return &rule.color;
         }

@@ -1,7 +1,10 @@
 #include "ui/CellEditor.hpp"
-#include "formula/FunctionRegistry.hpp"
+
 #include <imgui.h>
+
 #include <cstring>
+
+#include "formula/FunctionRegistry.hpp"
 
 namespace magic {
 
@@ -31,8 +34,8 @@ bool CellEditor::render(const FunctionRegistry* registry, ImFont* mono_font) {
 
     if (mono_font) ImGui::PushFont(mono_font);
 
-    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
-                                ImGuiInputTextFlags_CallbackAlways;
+    ImGuiInputTextFlags flags =
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackAlways;
     if (select_all_) {
         flags |= ImGuiInputTextFlags_AutoSelectAll;
         select_all_ = false;  // only auto-select on the first focus
@@ -80,7 +83,8 @@ bool CellEditor::render(const FunctionRegistry* registry, ImFont* mono_font) {
             auto sig = registry->signature(func_name);
             if (!sig.empty()) {
                 ImGui::SetNextWindowPos(ImVec2(anchor.x, anchor.y + 2));
-                ImGuiWindowFlags tip_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags tip_flags =
+                    ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing;
                 ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.15f, 0.15f, 0.2f, 0.95f));
@@ -104,9 +108,8 @@ bool CellEditor::render(const FunctionRegistry* registry, ImFont* mono_font) {
             std::size_t insert_pos = static_cast<std::size_t>(cursor_pos_);
             if (len + insertion.size() < sizeof(buf_) - 1) {
                 // Shift existing text after cursor to make room, then insert
-                std::memmove(buf_ + insert_pos + insertion.size(),
-                             buf_ + insert_pos,
-                             len - insert_pos + 1); // +1 for null terminator
+                std::memmove(buf_ + insert_pos + insertion.size(), buf_ + insert_pos,
+                             len - insert_pos + 1);  // +1 for null terminator
                 std::memcpy(buf_ + insert_pos, insertion.c_str(), insertion.size());
             }
             cursor_to_end_ = true;
@@ -154,8 +157,7 @@ void CellEditor::insert_ref(const std::string& ref) {
     if (insert_pos > len) insert_pos = len;
     if (len + ref.size() < sizeof(buf_) - 1) {
         // Shift text after cursor to make room, then insert
-        std::memmove(buf_ + insert_pos + ref.size(),
-                     buf_ + insert_pos,
+        std::memmove(buf_ + insert_pos + ref.size(), buf_ + insert_pos,
                      len - insert_pos + 1);  // +1 for null terminator
         std::memcpy(buf_ + insert_pos, ref.c_str(), ref.size());
         int new_pos = static_cast<int>(insert_pos + ref.size());

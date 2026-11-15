@@ -1,11 +1,18 @@
 #pragma once
-#include "core/CellAddress.hpp"
-#include "ui/CellEditor.hpp"
 #include <imgui.h>
+
 #include <string>
 #include <unordered_map>
 
-namespace magic { class FunctionRegistry; class ConditionalFormatStore; class RowFilter; class FormulaBar; }
+#include "core/CellAddress.hpp"
+#include "ui/CellEditor.hpp"
+
+namespace magic {
+class FunctionRegistry;
+class ConditionalFormatStore;
+class RowFilter;
+class FormulaBar;
+}  // namespace magic
 
 namespace magic {
 
@@ -14,7 +21,19 @@ class FormatMap;
 
 enum class CellZone { None, Interior, Edge, FillHandle };
 enum class CellDragMode { None, Move, Select, Fill };
-enum class ContextAction { None, Cut, Copy, Paste, Clear, InsertRow, InsertCol, DeleteRow, DeleteCol, SortAsc, SortDesc };
+enum class ContextAction {
+    None,
+    Cut,
+    Copy,
+    Paste,
+    Clear,
+    InsertRow,
+    InsertCol,
+    DeleteRow,
+    DeleteCol,
+    SortAsc,
+    SortDesc
+};
 
 struct GridState {
     // ── Selection state ──────────────────────────────────────────────────────
@@ -25,11 +44,13 @@ struct GridState {
 
         CellAddress sel_min() const {
             if (!has_range) return selected_cell;
-            return {std::min(sel_anchor.col, selected_cell.col), std::min(sel_anchor.row, selected_cell.row)};
+            return {std::min(sel_anchor.col, selected_cell.col),
+                    std::min(sel_anchor.row, selected_cell.row)};
         }
         CellAddress sel_max() const {
             if (!has_range) return selected_cell;
-            return {std::max(sel_anchor.col, selected_cell.col), std::max(sel_anchor.row, selected_cell.row)};
+            return {std::max(sel_anchor.col, selected_cell.col),
+                    std::max(sel_anchor.row, selected_cell.row)};
         }
     };
     SelectionState selection;
@@ -79,7 +100,7 @@ struct GridState {
 
     // Function registry for autocomplete (set by MainWindow each frame)
     const FunctionRegistry* registry = nullptr;
-    ImFont* mono_font = nullptr;  // monospace font for formula editing
+    ImFont* mono_font = nullptr;                          // monospace font for formula editing
     const ConditionalFormatStore* cond_format = nullptr;  // conditional formatting rules
 
     // Row filter (set by MainWindow each frame)

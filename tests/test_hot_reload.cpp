@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "formula/FunctionRegistry.hpp"
 
 using namespace magic;

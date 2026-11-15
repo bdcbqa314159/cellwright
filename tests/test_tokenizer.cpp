@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "formula/Tokenizer.hpp"
 
 using namespace magic;

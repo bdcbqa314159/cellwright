@@ -1,13 +1,14 @@
 #pragma once
-#include "core/CellAddress.hpp"
-#include "core/CellValue.hpp"
-#include "core/Column.hpp"
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include "core/CellAddress.hpp"
+#include "core/CellValue.hpp"
+#include "core/Column.hpp"
 
 namespace magic {
 
@@ -43,7 +44,10 @@ public:
     const std::unordered_map<CellAddress, std::string>& all_formulas() const { return formulas_; }
     // Replace the entire formula map (used by undo to restore pre-delete state).
     // Caller must ensure formula keys are consistent with current row/column layout.
-    void set_all_formulas(std::unordered_map<CellAddress, std::string> f) { formulas_ = std::move(f); ++value_generation_; }
+    void set_all_formulas(std::unordered_map<CellAddress, std::string> f) {
+        formulas_ = std::move(f);
+        ++value_generation_;
+    }
 
     // Dirty tracking for recalculation
     void mark_dirty(const CellAddress& addr);

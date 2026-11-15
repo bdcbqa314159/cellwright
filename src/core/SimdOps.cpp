@@ -1,4 +1,5 @@
 #include "core/SimdOps.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -116,7 +117,9 @@ double simd_sum_of_squares(const double* data, size_t count, double mean) {
 
 #ifdef _MSC_VER
 #include <intrin.h>
-static inline int portable_popcountll(unsigned long long x) { return static_cast<int>(__popcnt64(x)); }
+static inline int portable_popcountll(unsigned long long x) {
+    return static_cast<int>(__popcnt64(x));
+}
 #else
 static inline int portable_popcountll(unsigned long long x) { return __builtin_popcountll(x); }
 #endif
@@ -187,8 +190,8 @@ size_t simd_count_numeric(const double* data, size_t count) {
     for (; i + 4 <= count; i += 4) {
         __m256d v = _mm256_loadu_pd(data + i);
         __m256d mask = _mm256_cmp_pd(v, v, _CMP_EQ_OQ);
-        result += static_cast<size_t>(portable_popcountll(
-            static_cast<unsigned long long>(_mm256_movemask_pd(mask))));
+        result += static_cast<size_t>(
+            portable_popcountll(static_cast<unsigned long long>(_mm256_movemask_pd(mask))));
     }
     for (; i < count; ++i) {
         if (!std::isnan(data[i])) ++result;

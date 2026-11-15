@@ -44,7 +44,9 @@ private:
     };
 
     template <typename T>
-    static void destroy(void* p) { static_cast<T*>(p)->~T(); }
+    static void destroy(void* p) {
+        static_cast<T*>(p)->~T();
+    }
 
     void grow(size_t min_size);
 
