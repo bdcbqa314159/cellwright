@@ -56,7 +56,6 @@ private:
         EvalFunc eval_fn;
     };
 
-    std::thread worker_;
     mutable std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     std::queue<Batch> pending_;
@@ -65,6 +64,12 @@ private:
 
     std::mutex result_mutex_;
     std::vector<RecalcResult> results_;
+
+    // DECLARED LAST, DELIBERATELY. Members are initialised in declaration order, so
+    // anything declared after this would still be unconstructed while worker_loop()
+    // is already touching it. The thread is also started in the constructor BODY
+    // rather than the init list, so the ordering does not depend on this line alone.
+    std::thread worker_;
 };
 
 }  // namespace magic
