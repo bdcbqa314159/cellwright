@@ -1,5 +1,5 @@
 #include "ui/MainWindow.hpp"
-#include "app/AppState.hpp"
+#include "session/SessionState.hpp"
 #include "session/AutoSave.hpp"
 #include "core/ConditionalFormat.hpp"
 #include "core/FillPattern.hpp"
@@ -25,7 +25,7 @@ namespace magic {
 
 // ── Shared action methods ────────────────────────────────────────────────────
 
-void MainWindow::action_save(AppState& state) {
+void MainWindow::action_save(SessionState& state) {
     if (!state.current_file.empty()) {
         if (WorkbookIO::save(state.current_file, state.workbook)) {
             state.mark_saved();
@@ -38,7 +38,7 @@ void MainWindow::action_save(AppState& state) {
     }
 }
 
-void MainWindow::action_undo(AppState& state) {
+void MainWindow::action_undo(SessionState& state) {
     auto& as = state.active_state();
     auto& sheet = state.workbook.active_sheet();
     as.undo_manager.undo(sheet);
@@ -46,7 +46,7 @@ void MainWindow::action_undo(AppState& state) {
         state.cell_input.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
 }
 
-void MainWindow::action_redo(AppState& state) {
+void MainWindow::action_redo(SessionState& state) {
     auto& as = state.active_state();
     auto& sheet = state.workbook.active_sheet();
     as.undo_manager.redo(sheet);
@@ -54,21 +54,21 @@ void MainWindow::action_redo(AppState& state) {
         state.cell_input.recalc_dependents(sheet, *cell, as.dep_graph, &state.workbook);
 }
 
-void MainWindow::action_copy(AppState& state) {
+void MainWindow::action_copy(SessionState& state) {
     state.cell_input.copy(state.clipboard, state.workbook.active_sheet(),
                           grid_state_.selection.selected_cell, grid_state_.selection.has_range,
                           grid_state_.sel_min(), grid_state_.sel_max());
     update_marching_ants(state.clipboard);
 }
 
-void MainWindow::action_cut(AppState& state) {
+void MainWindow::action_cut(SessionState& state) {
     state.cell_input.cut(state.clipboard, state.workbook.active_sheet(),
                          grid_state_.selection.selected_cell, grid_state_.selection.has_range,
                          grid_state_.sel_min(), grid_state_.sel_max());
     update_marching_ants(state.clipboard);
 }
 
-void MainWindow::action_paste(AppState& state) {
+void MainWindow::action_paste(SessionState& state) {
     if (state.clipboard.has_data()) {
         auto& as = state.active_state();
         state.cell_input.paste(state.clipboard, state.workbook.active_sheet(),
@@ -78,7 +78,7 @@ void MainWindow::action_paste(AppState& state) {
     }
 }
 
-void MainWindow::action_paste_special(AppState& state, PasteMode mode) {
+void MainWindow::action_paste_special(SessionState& state, PasteMode mode) {
     if (state.clipboard.has_data()) {
         auto& as = state.active_state();
         state.cell_input.paste_special(state.clipboard, state.workbook.active_sheet(),
@@ -90,7 +90,7 @@ void MainWindow::action_paste_special(AppState& state, PasteMode mode) {
 
 // ── Menu bar ────────────────────────────────────────────────────────────────
 
-void MainWindow::render_menu_bar(AppState& state) {
+void MainWindow::render_menu_bar(SessionState& state) {
     auto& as = state.active_state();
 
     if (ImGui::BeginMenuBar()) {
@@ -282,13 +282,13 @@ void MainWindow::render_menu_bar(AppState& state) {
 
 // ── Keyboard shortcuts ──────────────────────────────────────────────────────
 
-void MainWindow::handle_keyboard(AppState& state) {
+void MainWindow::handle_keyboard(SessionState& state) {
     if (ImGui::GetIO().WantTextInput) return;
     handle_shortcuts(state);
     handle_navigation(state);
 }
 
-void MainWindow::handle_shortcuts(AppState& state) {
+void MainWindow::handle_shortcuts(SessionState& state) {
     ImGuiIO& io = ImGui::GetIO();
     bool ctrl = io.KeyCtrl;
     bool shift = io.KeyShift;
@@ -332,7 +332,7 @@ void MainWindow::handle_shortcuts(AppState& state) {
     }
 }
 
-void MainWindow::handle_navigation(AppState& state) {
+void MainWindow::handle_navigation(SessionState& state) {
     if (grid_state_.editor.is_editing()) return;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -495,7 +495,7 @@ void MainWindow::handle_navigation(AppState& state) {
 
 // ── Main render ─────────────────────────────────────────────────────────────
 
-void MainWindow::render(AppState& state) {
+void MainWindow::render(SessionState& state) {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -637,7 +637,7 @@ void MainWindow::render(AppState& state) {
 
 // ── Decomposed render sub-methods ───────────────────────────────────────────
 
-void MainWindow::dispatch_context_action(AppState& state, Sheet& sheet) {
+void MainWindow::dispatch_context_action(SessionState& state, Sheet& sheet) {
     if (grid_state_.context_action == ContextAction::None) return;
 
     auto action = grid_state_.context_action;
@@ -703,7 +703,7 @@ void MainWindow::dispatch_context_action(AppState& state, Sheet& sheet) {
     }
 }
 
-void MainWindow::handle_drag_completion(AppState& state, Sheet& sheet) {
+void MainWindow::handle_drag_completion(SessionState& state, Sheet& sheet) {
     if (!grid_state_.drag.drag_completed) return;
 
     grid_state_.drag.drag_completed = false;
@@ -780,7 +780,7 @@ void MainWindow::handle_drag_completion(AppState& state, Sheet& sheet) {
     grid_state_.drag.drag_mode = CellDragMode::None;
 }
 
-void MainWindow::render_sheet_tabs(AppState& state) {
+void MainWindow::render_sheet_tabs(SessionState& state) {
     if (ImGui::BeginTabBar("##sheets")) {
         for (int i = 0; i < state.workbook.sheet_count(); ++i) {
             bool selected = (i == state.workbook.active_index());
@@ -799,7 +799,7 @@ void MainWindow::render_sheet_tabs(AppState& state) {
     }
 }
 
-void MainWindow::render_status_bar(AppState& state, Sheet& sheet) {
+void MainWindow::render_status_bar(SessionState& state, Sheet& sheet) {
     ImGui::Separator();
     auto& as = state.active_state();
     auto fmt = as.format_map.get(grid_state_.selection.selected_cell);
@@ -855,7 +855,7 @@ void MainWindow::render_status_bar(AppState& state, Sheet& sheet) {
     }
 }
 
-void MainWindow::render_modals(AppState& state) {
+void MainWindow::render_modals(SessionState& state) {
     // Unsaved changes modal
     if (show_dirty_new_modal_ || wants_close_)
         ImGui::OpenPopup("Unsaved Changes");
@@ -1003,7 +1003,7 @@ void MainWindow::clear_marching_ants() {
 // NOTE: NFD calls are hardwired here. An abstraction layer (e.g. IFileDialog)
 // would be needed to unit-test file operations without native dialogs.
 
-void MainWindow::do_open(AppState& state) {
+void MainWindow::do_open(SessionState& state) {
     NFD::UniquePath path;
     nfdfilteritem_t filters[] = {{"CellWright", "magic"}, {"All Files", "*"}};
     if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
@@ -1012,7 +1012,7 @@ void MainWindow::do_open(AppState& state) {
     }
 }
 
-void MainWindow::do_save(AppState& state) {
+void MainWindow::do_save(SessionState& state) {
     NFD::UniquePath path;
     nfdfilteritem_t filters[] = {{"CellWright", "magic"}};
     std::string default_name;
@@ -1025,7 +1025,7 @@ void MainWindow::do_save(AppState& state) {
     }
 }
 
-void MainWindow::do_import_csv(AppState& state) {
+void MainWindow::do_import_csv(SessionState& state) {
     NFD::UniquePath path;
     nfdfilteritem_t filters[] = {{"CSV", "csv"}, {"All Files", "*"}};
     if (NFD::OpenDialog(path, filters, 2) == NFD_OKAY) {
@@ -1036,7 +1036,7 @@ void MainWindow::do_import_csv(AppState& state) {
     }
 }
 
-void MainWindow::do_export_csv(AppState& state) {
+void MainWindow::do_export_csv(SessionState& state) {
     NFD::UniquePath path;
     nfdfilteritem_t filters[] = {{"CSV", "csv"}};
     if (NFD::SaveDialog(path, filters, 1) == NFD_OKAY) {
@@ -1047,7 +1047,7 @@ void MainWindow::do_export_csv(AppState& state) {
     }
 }
 
-void MainWindow::render_cond_format_editor(AppState& state) {
+void MainWindow::render_cond_format_editor(SessionState& state) {
     auto& store = state.active_state().cond_format;
     ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Conditional Formatting", &show_cond_format_)) {

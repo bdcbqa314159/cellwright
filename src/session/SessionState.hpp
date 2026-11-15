@@ -13,7 +13,6 @@
 #include "plugin/PluginManager.hpp"
 #include "session/AutoSave.hpp"
 #include "session/Settings.hpp"
-#include "ui/MainWindow.hpp"
 
 namespace magic {
 
@@ -25,12 +24,14 @@ struct PerSheetState {
     RowFilter row_filter;
 };
 
-struct AppState {
+// Session-scoped state: the document and the subsystems that act on it. Lives at
+// L3 so ui/ can depend on it downward. Deliberately does NOT own the window or any
+// widget — composition is the application shell's job (spec 01, D1/D2).
+struct SessionState {
     Workbook workbook;
     FunctionRegistry function_registry;
     PluginManager plugin_manager{function_registry};
     CellInputService cell_input{function_registry};
-    MainWindow main_window;
     AsyncRecalcEngine async_recalc;
     Clipboard clipboard;
     DuckDBEngine duckdb_engine;

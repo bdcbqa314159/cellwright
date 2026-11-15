@@ -11,7 +11,7 @@ records *what is currently untrue about the code*.
 
 | Entry | Issue |
 |---|---|
-| #1 layering — `Sheet` rewrites formula text | [#12](../../issues/12) |
+| #1 layering — `Sheet` rewrites formula text (**the last allowance**) | [#12](../../issues/12) |
 | #8 CI matrix reduced to macOS | [#13](../../issues/13) |
 | #10 `-Werror` not enabled | [#14](../../issues/14) |
 | #14 tree not formatted to `.clang-format` | [#16](../../issues/16) |
@@ -37,18 +37,15 @@ Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Curre
 | **Re-open trigger** | Immediately when the decomposition is specified. Also re-open if a second `core/` file needs `formula/`: that must **not** be added to the allowlist. |
 | **Risk if left** | `core` still cannot be built or tested without the formula engine, because `Sheet` — not an optional extra — requires it. |
 
-### #2 — `ui/MainWindow.cpp` reaches up into `app/` (2 includes), and `app/AppState` depends back on `ui/`
+### #2 — `ui/ ↔ app/` dependency cycle *(closed 2026-11-15)*
 
 | | |
 |---|---|
-| **Allowance** | `ui/MainWindow.cpp` → `app` (`app/AppState.hpp`, `app/AutoSave.hpp`) |
-| **Edge** | L4 → L5, upward |
-| **Corrected diagnosis** | The original entry said `AppState` was simply misfiled and should "move down". **That is impossible.** `app/AppState.hpp:17-18` include `ui/MainWindow.hpp` and `ui/ToastManager.hpp`, because `AppState` *owns* `MainWindow main_window` and `ToastManager toasts` by value. So the dependency is mutual: `ui` needs `AppState` for its method signatures, and `AppState` needs `ui` for its members. Anywhere below `ui` would turn the edge into `state → ui`, upward again. |
-| **Root cause** | `AppState` is two things fused. **Document/session state:** `workbook`, `function_registry`, `plugin_manager`, `cell_input`, `async_recalc`, `clipboard`, `duckdb_engine`, `settings`, `auto_save`, `sheet_states`. **UI composition root:** `main_window`, `toasts`, `mono_font`, `font_rebuild_needed`. |
-| **Real fix** | Split it. The document state becomes a type at L3 that `ui/` may depend on downward; the UI-owning members stay in the L5 shell, which composes both. Every `MainWindow` method currently taking `AppState&` (25 of them) would take the narrower type instead — a change to public signatures across `ui/`, so it needs a spec first. |
-| **Blocks** | The `MainWindow.cpp` translation-unit split (audit B2). Attempted 2026-10-27 and **abandoned**: all five new TUs need `AppState`, so the split multiplied this single declared violation into **six**, and going green would have required adding 5 allowlist entries — which §1 forbids outright. The split is sequenced behind this fix. |
-| **Re-open trigger** | When the decomposition is specified. Also re-open if any other `ui/` file needs `app/`. |
-| **Risk if left** | The UI layer is welded to the application shell, so no panel can be tested or hosted outside the full app. |
+| **Resolved by** | `specs/01_appstate_decomposition.md`, landed as PRs #10, #19, #20. |
+| **What it was** | `ui/MainWindow.cpp` included `app/AppState.hpp` (L4 → L5, the violation), while `app/AppState.hpp` included `ui/MainWindow.hpp` because `AppState` owned `MainWindow` and `ToastManager` **by value**. The dependency was mutual, so no file move could fix it. |
+| **How it was fixed** | `AppState` was two things fused. Document/session state became `SessionState` at L3 (`src/session/`), which `ui/` now depends on downward. The UI-owning members went to their natural owners: `MainWindow` owns the `ToastManager` it draws, and the font handshake became an explicit interface instead of two shared mutable fields. `AppState` itself was **deleted** — `App` owns `SessionState` and `MainWindow` directly. |
+| **Evidence** | `grep -rn '#include "app/' src/ui/` → empty. `check_layers.py` allowances 2 → 1. No `AppState` symbol remains anywhere in `src/` or `tests/`. |
+| **Residual** | `ui/` has no automated coverage, so behaviour preservation across this change rests on the unchanged C++/Python suites plus a manual pass — recorded as criterion A7 in the spec, not claimed as proven here. |
 
 ## Verification gaps
 
