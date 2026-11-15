@@ -10,7 +10,7 @@ Every artifact carries a status — `draft` · `ratified <date>` · `current` ·
 
 | # | Artifact | Status | Governs |
 |---|----------|--------|---------|
-| 01 | [appstate-decomposition](01_appstate_decomposition.md) | **ratified 2026-10-30** | Breaking the `ui/ ↔ app/` cycle (`OPEN.md` #2) |
+| 01 | [appstate-decomposition](01_appstate_decomposition.md) | **ratified 2026-10-30** — A1-A6 pass, A7 awaiting manual pass | Breaking the `ui/ ↔ app/` cycle (`OPEN.md` #2, closed) |
 
 ## Conventions
 

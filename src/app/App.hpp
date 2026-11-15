@@ -1,5 +1,6 @@
 #pragma once
-#include "app/AppState.hpp"
+#include "session/SessionState.hpp"
+#include "ui/MainWindow.hpp"
 #include <string>
 
 struct GLFWwindow;
@@ -21,7 +22,8 @@ private:
     void rebuild_fonts();
 
     GLFWwindow* window_ = nullptr;
-    AppState state_;
+    SessionState state_;
+    MainWindow main_window_;
     float dpi_scale_ = 1.0f;
 
     // Cached title state to avoid rebuilding every frame

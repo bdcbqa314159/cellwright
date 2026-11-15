@@ -1,11 +1,11 @@
-#include "app/AppState.hpp"
+#include "session/SessionState.hpp"
 #include "session/AutoSave.hpp"
 #include "io/WorkbookIO.hpp"
 #include "io/CsvIO.hpp"
 
 namespace magic {
 
-bool AppState::open_file(const std::string& path) {
+bool SessionState::open_file(const std::string& path) {
     if (WorkbookIO::load(path, workbook)) {
         current_file = path;
         sheet_states.clear();
@@ -17,7 +17,7 @@ bool AppState::open_file(const std::string& path) {
     return false;
 }
 
-bool AppState::save_file(const std::string& path) {
+bool SessionState::save_file(const std::string& path) {
     if (WorkbookIO::save(path, workbook)) {
         current_file = path;
         mark_saved();
@@ -28,7 +28,7 @@ bool AppState::save_file(const std::string& path) {
     return false;
 }
 
-bool AppState::import_csv(const std::string& path) {
+bool SessionState::import_csv(const std::string& path) {
     auto& sheet = workbook.active_sheet();
     auto& as = active_state();
     if (CsvIO::import_file(path, sheet)) {
@@ -40,7 +40,7 @@ bool AppState::import_csv(const std::string& path) {
     return false;
 }
 
-bool AppState::export_csv(const std::string& path) {
+bool SessionState::export_csv(const std::string& path) {
     return CsvIO::export_file(path, workbook.active_sheet());
 }
 

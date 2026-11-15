@@ -77,7 +77,7 @@ Where that leaves a gap, it is declared rather than papered over.
 | A2 | No file under `src/ui/` includes `app/` | `grep -rn '#include "app/' src/ui/` → empty | mechanical |
 | A3 | No file under `src/services/` or `src/session/` includes `ui/` or `app/` | `grep -rn '#include "\(ui\|app\)/' src/services src/session` → empty | mechanical |
 | A4 | WHEN the font size changes THE UI SHALL request a rebuild without touching shared state | `grep` shows no `font_rebuild_needed` member; `MainWindow::font_rebuild_requested()` exists and is called by `App` | mechanical |
-| A5 | Behaviour is unchanged: the full suite passes with **no test edited** except include paths | `tools/verify.sh` → 273/273, and `git diff` on `tests/` touches include lines only | 3 (existing suite as reference) |
+| A5 | Behaviour is unchanged: the full suite passes with **no test edited** by this spec's slices | `tools/verify.sh` green, and `git diff -- tests/` shows nothing from these slices. (No absolute count: the suite legitimately grows and shrank by one when #21 removed a redundant test.) | 3 (existing suite as reference) |
 | A6 | `OPEN.md` layering rows equal `check_layers.py` allowances | count both → difference 0 (`CLAUDE.md` §3) | mechanical |
 | A7 | Rendering behaviour is unchanged | **UNCHECKABLE** — `ui/` has no automated coverage. Partial evidence accepted: (a) every moved method body byte-identical by SHA-256, as done for the abandoned B2 split; (b) manual launch, open a `.magic` file, edit a cell, export a chart, trigger the plugin-trust modal | — |
 
@@ -124,10 +124,27 @@ check cannot see it.
 
 | ID | Status | Oracle result | Note |
 |----|--------|---------------|------|
-| A1 | todo | | |
-| A2 | todo | | |
-| A3 | todo | | |
-| A4 | **pass** | `AppState` holds 0 of `toasts`/`mono_font`/`font_rebuild_needed`; `App.cpp` uses the 6 accessor calls | PR B |
-| A5 | partial | 276/276, no test edited | full check lands with PR C |
-| A6 | todo | | |
-| A7 | todo | | manual pass required before close |
+| A1 | **pass** | `check_layers.py`: "105 files scanned, layering acyclic, **1** declared allowance" | PR C |
+| A2 | **pass** | `grep -rn '#include "app/' src/ui/` → empty | PR C |
+| A3 | **pass** | `grep -rn '#include "\(ui\|app\)/' src/services src/session` → empty | PR C |
+| A4 | **pass** | `SessionState` holds 0 of `toasts`/`mono_font`/`font_rebuild_needed`; `App.cpp` makes 6 accessor calls | PR B |
+| A5 | **pass** | **275/275**; `git diff -- tests/` **empty** — no test edited by this slice. `ui/MainWindow.*`: 47 removed / 47 added lines, every one differing only by the type name ⇒ pure retype, no logic changed | PR C (count is 275 after #21 removed a redundant test) |
+| A6 | **pass** | allowlist entries 1 − open `OPEN.md` layering rows 1 = **0** | PR C |
+| A7 | partial | (a) satisfied — `ui/` change proven a pure retype, suites unchanged. (b) **outstanding**: owner manual pass | see below |
+
+**A7 is the only thing between this spec and `current`.** `ui/` has no automated
+coverage, so no oracle here can show the app still *renders* correctly. The manual pass
+owed: launch, open a `.magic` file, edit a cell, save (toast appears), fail an open (toast
+appears), change the font size (atlas rebuilds, formula bar stays monospace), export a
+chart, and trigger the plugin-trust modal. Until that is done the spec stays `ratified`,
+not `current` — the mechanical criteria are green, which is not the same as done.
+
+## Outcome
+
+`AppState` is deleted. The cycle is gone: `ui/` depends on `SessionState` at L3,
+downward, and `app/` holds only the shell (`App.hpp`, `App.cpp`). The allowlist is down
+to its last entry — `core/FormulaAdjust.cpp`, tracked as issue #12 — and clearing that
+empties it, which is the end state `CLAUDE.md` §1's shrink-only rule exists to reach.
+
+Unblocks issue #17 (`MainWindow` translation-unit split), which was abandoned on
+2026-10-27 precisely because this edge multiplied across the new files.

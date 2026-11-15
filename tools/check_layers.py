@@ -29,7 +29,6 @@ LAYERS = {
 # Shrinks only. See OPEN.md #1 and #2.
 ALLOWED = {
     ("core/FormulaAdjust.cpp", "formula"),
-    ("ui/MainWindow.cpp", "app"),
 }
 
 INCLUDE = re.compile(r'^\s*#\s*include\s+"([a-z_]+)/')

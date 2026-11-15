@@ -94,7 +94,7 @@ void App::init_window() {
         auto* app = static_cast<App*>(glfwGetWindowUserPointer(w));
         if (app->state_.is_dirty()) {
             glfwSetWindowShouldClose(w, GLFW_FALSE);
-            app->state_.main_window.request_close();
+            app->main_window_.request_close();
         }
     });
 }
@@ -122,7 +122,7 @@ void App::init_imgui() {
 void App::rebuild_fonts() {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
-    state_.main_window.set_mono_font(nullptr);
+    main_window_.set_mono_font(nullptr);
 
     float scaled_size = state_.settings.font_size * dpi_scale_;
 
@@ -134,7 +134,7 @@ void App::rebuild_fonts() {
 
     const char* mono_path = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
     if (std::ifstream(mono_path).good())
-        state_.main_window.set_mono_font(
+        main_window_.set_mono_font(
             io.Fonts->AddFontFromFileTTF(mono_path, scaled_size));
 
     // Scale font back to logical size — fonts are rasterized at physical pixels
@@ -152,7 +152,7 @@ void App::init_builtins() {
 }
 
 void App::main_loop() {
-    while (!glfwWindowShouldClose(window_) && !state_.main_window.should_quit()) {
+    while (!glfwWindowShouldClose(window_) && !main_window_.should_quit()) {
         glfwPollEvents();
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -161,7 +161,7 @@ void App::main_loop() {
 
         // Poll hot-reloadable plugins for changes
         if (int n = state_.plugin_manager.poll_reloads(); n > 0)
-            state_.main_window.toasts().show("Plugin reloaded");
+            main_window_.toasts().show("Plugin reloaded");
 
         // Detect DPI scale changes (e.g., window moved between monitors)
         {
@@ -169,20 +169,20 @@ void App::main_loop() {
             glfwGetWindowContentScale(window_, &new_scale, nullptr);
             if (new_scale != dpi_scale_) {
                 dpi_scale_ = new_scale;
-                state_.main_window.request_font_rebuild();
+                main_window_.request_font_rebuild();
             }
         }
 
         // Rebuild font atlas if font size or DPI changed
-        if (state_.main_window.font_rebuild_requested()) {
-            state_.main_window.clear_font_rebuild_request();
+        if (main_window_.font_rebuild_requested()) {
+            main_window_.clear_font_rebuild_request();
             rebuild_fonts();
             ImGui::GetStyle() = ImGuiStyle();
             setup_style();
-            apply_theme(state_.main_window.current_theme());
+            apply_theme(main_window_.current_theme());
         }
 
-        state_.main_window.render(state_);
+        main_window_.render(state_);
 
         ImGui::Render();
         int display_w, display_h;
@@ -221,7 +221,7 @@ void App::main_loop() {
         // events keep waking us immediately so responsiveness is unchanged.
         ImGuiIO& io = ImGui::GetIO();
         bool active = io.MouseDown[0] || io.WantTextInput ||
-                      state_.main_window.is_interaction_active() ||
+                      main_window_.is_interaction_active() ||
                       state_.async_recalc.is_busy();
         if (!active)
             glfwWaitEventsTimeout(0.1);

@@ -70,6 +70,7 @@ add_library(cellwright_core STATIC
     src/core/Workbook.cpp
     # session (session-scoped state, L3)
     src/session/Settings.cpp
+    src/session/SessionState.cpp
     src/session/AutoSave.cpp
     # services (orchestrate core + formula)
     src/services/CellInputService.cpp
@@ -122,7 +123,6 @@ add_executable(cellwright
     src/main.cpp
     # app
     src/app/App.cpp
-    src/app/AppState.cpp
     # ui
     src/ui/AutocompletePopup.cpp
     src/ui/CellEditor.cpp

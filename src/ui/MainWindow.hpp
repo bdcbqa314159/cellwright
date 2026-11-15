@@ -13,11 +13,11 @@
 
 namespace magic {
 
-struct AppState;
+struct SessionState;
 
 class MainWindow {
 public:
-    void render(AppState& state);
+    void render(SessionState& state);
 
     GridState& grid_state() { return grid_state_; }
     Theme current_theme() const { return theme_; }
@@ -34,7 +34,7 @@ public:
 
     // Font handshake with the application shell. The monospace font is owned by
     // the ImGui atlas, which App rebuilds; the UI only reads it and asks for a
-    // rebuild. Replaces the shared AppState fields these two used to trade
+    // rebuild. Replaces the shared SessionState fields these two used to trade
     // through (spec 01 D3).
     void set_mono_font(ImFont* font) { mono_font_ = font; }
     void request_font_rebuild() { font_rebuild_needed_ = true; }
@@ -46,32 +46,32 @@ public:
     bool should_quit() const { return should_quit_; }
 
 private:
-    void render_menu_bar(AppState& state);
-    void handle_keyboard(AppState& state);
-    void handle_shortcuts(AppState& state);
-    void handle_navigation(AppState& state);
+    void render_menu_bar(SessionState& state);
+    void handle_keyboard(SessionState& state);
+    void handle_shortcuts(SessionState& state);
+    void handle_navigation(SessionState& state);
     void update_marching_ants(const Clipboard& clip);
     void clear_marching_ants();
-    void do_open(AppState& state);
-    void do_save(AppState& state);
-    void do_import_csv(AppState& state);
-    void do_export_csv(AppState& state);
+    void do_open(SessionState& state);
+    void do_save(SessionState& state);
+    void do_import_csv(SessionState& state);
+    void do_export_csv(SessionState& state);
 
     // Shared action methods (called by both menu and keyboard handlers)
-    void action_save(AppState& state);
-    void action_undo(AppState& state);
-    void action_redo(AppState& state);
-    void action_copy(AppState& state);
-    void action_cut(AppState& state);
-    void action_paste(AppState& state);
-    void action_paste_special(AppState& state, PasteMode mode);
+    void action_save(SessionState& state);
+    void action_undo(SessionState& state);
+    void action_redo(SessionState& state);
+    void action_copy(SessionState& state);
+    void action_cut(SessionState& state);
+    void action_paste(SessionState& state);
+    void action_paste_special(SessionState& state, PasteMode mode);
 
     // Decomposed render sub-methods
-    void dispatch_context_action(AppState& state, Sheet& sheet);
-    void handle_drag_completion(AppState& state, Sheet& sheet);
-    void render_sheet_tabs(AppState& state);
-    void render_status_bar(AppState& state, Sheet& sheet);
-    void render_modals(AppState& state);
+    void dispatch_context_action(SessionState& state, Sheet& sheet);
+    void handle_drag_completion(SessionState& state, Sheet& sheet);
+    void render_sheet_tabs(SessionState& state);
+    void render_status_bar(SessionState& state, Sheet& sheet);
+    void render_modals(SessionState& state);
 
     SpreadsheetGrid grid_;
     FormulaBar formula_bar_;
@@ -105,7 +105,7 @@ private:
     bool wants_close_ = false;
     bool should_quit_ = false;
 
-    void render_cond_format_editor(AppState& state);
+    void render_cond_format_editor(SessionState& state);
 };
 
 }  // namespace magic
