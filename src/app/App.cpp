@@ -122,7 +122,7 @@ void App::init_imgui() {
 void App::rebuild_fonts() {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
-    state_.mono_font = nullptr;
+    state_.main_window.set_mono_font(nullptr);
 
     float scaled_size = state_.settings.font_size * dpi_scale_;
 
@@ -134,7 +134,8 @@ void App::rebuild_fonts() {
 
     const char* mono_path = IMGUI_FONT_DIR "/Cousine-Regular.ttf";
     if (std::ifstream(mono_path).good())
-        state_.mono_font = io.Fonts->AddFontFromFileTTF(mono_path, scaled_size);
+        state_.main_window.set_mono_font(
+            io.Fonts->AddFontFromFileTTF(mono_path, scaled_size));
 
     // Scale font back to logical size — fonts are rasterized at physical pixels
     // for sharpness, but layout should use logical coordinates.
@@ -160,7 +161,7 @@ void App::main_loop() {
 
         // Poll hot-reloadable plugins for changes
         if (int n = state_.plugin_manager.poll_reloads(); n > 0)
-            state_.toasts.show("Plugin reloaded");
+            state_.main_window.toasts().show("Plugin reloaded");
 
         // Detect DPI scale changes (e.g., window moved between monitors)
         {
@@ -168,13 +169,13 @@ void App::main_loop() {
             glfwGetWindowContentScale(window_, &new_scale, nullptr);
             if (new_scale != dpi_scale_) {
                 dpi_scale_ = new_scale;
-                state_.font_rebuild_needed = true;
+                state_.main_window.request_font_rebuild();
             }
         }
 
         // Rebuild font atlas if font size or DPI changed
-        if (state_.font_rebuild_needed) {
-            state_.font_rebuild_needed = false;
+        if (state_.main_window.font_rebuild_requested()) {
+            state_.main_window.clear_font_rebuild_request();
             rebuild_fonts();
             ImGui::GetStyle() = ImGuiStyle();
             setup_style();

@@ -4,9 +4,11 @@
 #include "ui/FindBar.hpp"
 #include "ui/ChartPanel.hpp"
 #include "ui/SqlPanel.hpp"
+#include "ui/ToastManager.hpp"
 #include "ui/StyleSetup.hpp"
 #include "services/Clipboard.hpp"
 #include "services/CellInputService.hpp"
+#include <imgui.h>
 #include <cstdint>
 
 namespace magic {
@@ -25,6 +27,19 @@ public:
         return grid_state_.drag.drag_mode != CellDragMode::None ||
                grid_state_.drag.formula_dragging;
     }
+
+    // Toasts are owned here because MainWindow::render is what draws them (D5).
+    // App reaches them downward through this accessor.
+    ToastManager& toasts() { return toasts_; }
+
+    // Font handshake with the application shell. The monospace font is owned by
+    // the ImGui atlas, which App rebuilds; the UI only reads it and asks for a
+    // rebuild. Replaces the shared AppState fields these two used to trade
+    // through (spec 01 D3).
+    void set_mono_font(ImFont* font) { mono_font_ = font; }
+    void request_font_rebuild() { font_rebuild_needed_ = true; }
+    bool font_rebuild_requested() const { return font_rebuild_needed_; }
+    void clear_font_rebuild_request() { font_rebuild_needed_ = false; }
 
     // Signal that the user wants to close but has unsaved changes
     void request_close() { wants_close_ = true; }
@@ -65,8 +80,12 @@ private:
     FindBar find_bar_;
     SqlPanel sql_panel_;
 
+    ToastManager toasts_;
+
     Theme theme_ = Theme::Dark;
     float zoom_ = 1.0f;
+    ImFont* mono_font_ = nullptr;        // owned by the ImGui atlas, set by App
+    bool font_rebuild_needed_ = false;   // set here, consumed and cleared by App
 
     // Cached selection stats (recomputed only when selection or data changes)
     CellAddress cached_sel_min_{-1, -1};
