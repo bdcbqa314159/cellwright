@@ -58,13 +58,14 @@ std::string SetFormulaCommand::description() const {
 
 // ── InsertRowCommand ────────────────────────────────────────────────────
 
-void InsertRowCommand::execute(Sheet& sheet) { sheet.insert_row(row_); }
-void InsertRowCommand::undo(Sheet& sheet) { sheet.delete_row(row_); }
+void InsertRowCommand::execute(Sheet& sheet) { sheet.insert_row(row_, rw_.insert_row); }
+void InsertRowCommand::undo(Sheet& sheet) { sheet.delete_row(row_, rw_.delete_row); }
 std::string InsertRowCommand::description() const { return "Insert Row " + std::to_string(row_ + 1); }
 
 // ── DeleteRowCommand ────────────────────────────────────────────────────
 
-DeleteRowCommand::DeleteRowCommand(int32_t row, Sheet& sheet) : row_(row) {
+DeleteRowCommand::DeleteRowCommand(int32_t row, Sheet& sheet, RowColumnRewriters rw)
+    : row_(row), rw_(std::move(rw)) {
     // Save cells in the deleted row
     for (int32_t c = 0; c < sheet.col_count(); ++c) {
         saved_row_values_.push_back(sheet.get_value({c, row}));
@@ -76,10 +77,10 @@ DeleteRowCommand::DeleteRowCommand(int32_t row, Sheet& sheet) : row_(row) {
     pre_delete_formulas_ = sheet.all_formulas();
 }
 
-void DeleteRowCommand::execute(Sheet& sheet) { sheet.delete_row(row_); }
+void DeleteRowCommand::execute(Sheet& sheet) { sheet.delete_row(row_, rw_.delete_row); }
 
 void DeleteRowCommand::undo(Sheet& sheet) {
-    sheet.insert_row(row_);
+    sheet.insert_row(row_, rw_.insert_row);
     // Restore cells in the re-inserted row
     for (int32_t c = 0; c < static_cast<int32_t>(saved_row_values_.size()); ++c) {
         sheet.set_value({c, row_}, saved_row_values_[c]);
@@ -92,13 +93,14 @@ std::string DeleteRowCommand::description() const { return "Delete Row " + std::
 
 // ── InsertColumnCommand ─────────────────────────────────────────────────
 
-void InsertColumnCommand::execute(Sheet& sheet) { sheet.insert_column(col_); }
-void InsertColumnCommand::undo(Sheet& sheet) { sheet.delete_column(col_); }
+void InsertColumnCommand::execute(Sheet& sheet) { sheet.insert_column(col_, rw_.insert_column); }
+void InsertColumnCommand::undo(Sheet& sheet) { sheet.delete_column(col_, rw_.delete_column); }
 std::string InsertColumnCommand::description() const { return "Insert Col " + CellAddress::col_to_letters(col_); }
 
 // ── DeleteColumnCommand ─────────────────────────────────────────────────
 
-DeleteColumnCommand::DeleteColumnCommand(int32_t col, Sheet& sheet) : col_(col) {
+DeleteColumnCommand::DeleteColumnCommand(int32_t col, Sheet& sheet, RowColumnRewriters rw)
+    : col_(col), rw_(std::move(rw)) {
     // Save cells in the deleted column
     for (int32_t r = 0; r < sheet.column(col).size(); ++r) {
         saved_col_values_.push_back(sheet.get_value({col, r}));
@@ -107,10 +109,10 @@ DeleteColumnCommand::DeleteColumnCommand(int32_t col, Sheet& sheet) : col_(col) 
     pre_delete_formulas_ = sheet.all_formulas();
 }
 
-void DeleteColumnCommand::execute(Sheet& sheet) { sheet.delete_column(col_); }
+void DeleteColumnCommand::execute(Sheet& sheet) { sheet.delete_column(col_, rw_.delete_column); }
 
 void DeleteColumnCommand::undo(Sheet& sheet) {
-    sheet.insert_column(col_);
+    sheet.insert_column(col_, rw_.insert_column);
     // Restore cells in the re-inserted column
     for (int32_t r = 0; r < static_cast<int32_t>(saved_col_values_.size()); ++r) {
         sheet.set_value({col_, r}, saved_col_values_[r]);

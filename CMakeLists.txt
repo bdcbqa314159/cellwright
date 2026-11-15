@@ -64,7 +64,6 @@ add_library(cellwright_core STATIC
     src/core/Command.cpp
     src/core/DateSerial.cpp
     src/core/DuckDBEngine.cpp
-    src/core/FormulaAdjust.cpp
     src/core/Sheet.cpp
     src/core/SimdOps.cpp
     src/core/Workbook.cpp
@@ -74,6 +73,7 @@ add_library(cellwright_core STATIC
     src/session/AutoSave.cpp
     # services (orchestrate core + formula)
     src/services/CellInputService.cpp
+    src/services/FormulaAdjust.cpp
     src/services/Clipboard.cpp
     # formula
     src/formula/AsyncRecalcEngine.cpp

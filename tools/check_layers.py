@@ -27,9 +27,10 @@ LAYERS = {
 
 # Declared debt — each entry MUST have an OPEN.md row with a re-open trigger.
 # Shrinks only. See OPEN.md #1 and #2.
-ALLOWED = {
-    ("core/FormulaAdjust.cpp", "formula"),
-}
+# EMPTY, and it stays that way. Every entry that was ever here is closed in OPEN.md;
+# adding one back requires a matching ledger row with a re-open trigger, and CLAUDE.md §1
+# forbids adding one to buy a green check.
+ALLOWED: set[tuple[str, str]] = set()
 
 INCLUDE = re.compile(r'^\s*#\s*include\s+"([a-z_]+)/')
 
