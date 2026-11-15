@@ -130,6 +130,11 @@ add_executable(cellwright
     src/ui/FindBar.cpp
     src/ui/FormulaBar.cpp
     src/ui/MainWindow.cpp
+    src/ui/MainWindowActions.cpp
+    src/ui/MainWindowChrome.cpp
+    src/ui/MainWindowInput.cpp
+    src/ui/MainWindowMenu.cpp
+    src/ui/MainWindowModals.cpp
     src/ui/SpreadsheetGrid.cpp
     src/ui/ToastManager.cpp
     src/ui/SqlPanel.cpp
