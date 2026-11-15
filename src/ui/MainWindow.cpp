@@ -1,4 +1,5 @@
 #include "ui/MainWindow.hpp"
+#include "services/FormulaAdjust.hpp"
 #include "session/SessionState.hpp"
 #include "session/AutoSave.hpp"
 #include "core/ConditionalFormat.hpp"
@@ -22,6 +23,23 @@
 #endif
 
 namespace magic {
+
+namespace {
+
+// The concrete rewriters, built here because this is above L2 where the formula
+// tokenizer lives. core/Sheet takes them as a required parameter precisely so it never
+// has to know about formula/ (specs/02_sheet_formula_rewriting.md).
+RowColumnRewriters row_column_rewriters() {
+    return RowColumnRewriters{
+        .insert_row    = adjust_formula_for_insert_row,
+        .delete_row    = adjust_formula_for_delete_row,
+        .insert_column = adjust_formula_for_insert_col,
+        .delete_column = adjust_formula_for_delete_col,
+    };
+}
+
+}  // namespace
+
 
 // ── Shared action methods ────────────────────────────────────────────────────
 
@@ -190,28 +208,32 @@ void MainWindow::dispatch_context_action(SessionState& state, Sheet& sheet) {
                        as.undo_manager, as.format_map, as.dep_graph, state.workbook);
             break;
         case ContextAction::InsertRow: {
-            auto cmd = std::make_unique<InsertRowCommand>(grid_state_.selection.selected_cell.row);
+            auto cmd = std::make_unique<InsertRowCommand>(
+                grid_state_.selection.selected_cell.row, row_column_rewriters());
             as.undo_manager.execute(std::move(cmd), sheet);
             as.dep_graph.shift_rows(grid_state_.selection.selected_cell.row, 1);
             as.format_map.shift_rows(grid_state_.selection.selected_cell.row, 1);
             break;
         }
         case ContextAction::InsertCol: {
-            auto cmd = std::make_unique<InsertColumnCommand>(grid_state_.selection.selected_cell.col);
+            auto cmd = std::make_unique<InsertColumnCommand>(
+                grid_state_.selection.selected_cell.col, row_column_rewriters());
             as.undo_manager.execute(std::move(cmd), sheet);
             as.dep_graph.shift_cols(grid_state_.selection.selected_cell.col, 1);
             as.format_map.shift_cols(grid_state_.selection.selected_cell.col, 1);
             break;
         }
         case ContextAction::DeleteRow: {
-            auto cmd = std::make_unique<DeleteRowCommand>(grid_state_.selection.selected_cell.row, sheet);
+            auto cmd = std::make_unique<DeleteRowCommand>(
+                grid_state_.selection.selected_cell.row, sheet, row_column_rewriters());
             as.undo_manager.execute(std::move(cmd), sheet);
             as.dep_graph.shift_rows(grid_state_.selection.selected_cell.row, -1);
             as.format_map.shift_rows(grid_state_.selection.selected_cell.row, -1);
             break;
         }
         case ContextAction::DeleteCol: {
-            auto cmd = std::make_unique<DeleteColumnCommand>(grid_state_.selection.selected_cell.col, sheet);
+            auto cmd = std::make_unique<DeleteColumnCommand>(
+                grid_state_.selection.selected_cell.col, sheet, row_column_rewriters());
             as.undo_manager.execute(std::move(cmd), sheet);
             as.dep_graph.shift_cols(grid_state_.selection.selected_cell.col, -1);
             as.format_map.shift_cols(grid_state_.selection.selected_cell.col, -1);

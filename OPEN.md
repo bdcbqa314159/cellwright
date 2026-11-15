@@ -11,7 +11,7 @@ records *what is currently untrue about the code*.
 
 | Entry | Issue |
 |---|---|
-| #1 layering — `Sheet` rewrites formula text (**the last allowance**) | [#12](../../issues/12) |
+| #1 layering — `Sheet` rewrites formula text *(closed)* | [#12](../../issues/12) |
 | #8 CI matrix reduced to macOS | [#13](../../issues/13) |
 | #10 `-Werror` not enabled | [#14](../../issues/14) |
 | #14 tree not formatted to `.clang-format` | [#16](../../issues/16) |
@@ -19,23 +19,21 @@ records *what is currently untrue about the code*.
 | audit B2 — `MainWindow` TU split | [#17](../../issues/17) |
 | — async shutdown race | [#11](../../issues/11) *(fixed)* |
 
-Invariant: `tools/check_layers.py` allowances − layering rows below = 0. Currently **4 − 4 = 0**.
+Invariant: `tools/check_layers.py` allowances − open layering rows below = 0. Currently **0 − 0 = 0** — the allowlist is **empty**, which is the end state `CLAUDE.md` §1's shrink-only rule exists to reach.
 
 ---
 
 ## Layering allowances
 
-### #1 — `core/FormulaAdjust.cpp` reaches up into `formula/` (1 include)
+### #1 — `core/Sheet` rewrote formula text *(closed 2026-11-15)*
 
 | | |
 |---|---|
-| **Allowance** | `core/FormulaAdjust.cpp` → `formula` |
-| **Edge** | L1 → L2, upward |
-| **Progress** | Was 3 files / 6 includes. `CellInputService` and `Clipboard` moved to the new `src/services/` layer (L3) on 2026-10-27 — they were genuinely misfiled services orchestrating core **and** formula, and nothing in `core/` depended on them. |
-| **Why this one could NOT move** | **`core/Sheet.cpp` includes it.** `Sheet::insert_row`/`delete_row`/`insert_col`/`delete_col` rewrite formula *text* in place via `adjust_formula_for_*`, which tokenizes. Moving `FormulaAdjust` up to L3 would make `core/Sheet` (the heart of L1) depend on L3 — strictly worse than the edge it removes. The original entry proposed moving all three; that was wrong, and this records why. |
-| **Real fix** | `Sheet` must stop rewriting formula text. Its row/column operations should shift cell *keys* and report which formulas are affected, leaving the rewrite to a caller at L3+ — or take an injected rewriting strategy. Either is a design change to a public signature, so it needs a spec before implementation, not a file move. |
-| **Re-open trigger** | Immediately when the decomposition is specified. Also re-open if a second `core/` file needs `formula/`: that must **not** be added to the allowlist. |
-| **Risk if left** | `core` still cannot be built or tested without the formula engine, because `Sheet` — not an optional extra — requires it. |
+| **Resolved by** | `specs/02_sheet_formula_rewriting.md`. |
+| **What it was** | `Sheet::insert_row`/`delete_row`/`insert_column`/`delete_column` each did two jobs: index arithmetic (L1) and formula-text rewriting via `FormulaAdjust` → `Tokenizer` (L2). The last upward edge in the tree. |
+| **Why the obvious fix failed twice** | Moving `FormulaAdjust` up to L3 would have made `core/Sheet` depend on L3 — worse than the edge removed. And the only production callers were the row/column commands in `core/Command.cpp`, also L1, so deleting the rewrite from `Sheet` merely relocated the same edge. |
+| **How it was fixed** | The rewriter is **injected**: `Sheet`'s four methods take a `FormulaRewriter` callable whose type lives at L1, so `core/` never includes `formula/`. `FormulaAdjust` moved to `src/services/` (L3) and the concrete rewriters are supplied at the `ui/` construction site. Chosen over narrowing `Sheet` or moving the commands because a required parameter makes it **impossible** to shift formula keys and forget the text — which would silently corrupt every formula. |
+| **Evidence** | `check_layers.py`: **0 declared allowances** — the allowlist is empty. `grep -rn '#include "formula/' src/core/` → empty. |
 
 ### #2 — `ui/ ↔ app/` dependency cycle *(closed 2026-11-15)*
 

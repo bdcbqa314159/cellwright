@@ -3,12 +3,21 @@
 #include "core/CellValue.hpp"
 #include "core/Column.hpp"
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace magic {
+
+// Rewrites one formula's cell references for a structural edit at index `at`.
+// Supplied by the caller because the rewrite needs the formula tokenizer (L2) and
+// Sheet is L1 — see specs/02_sheet_formula_rewriting.md. It is a REQUIRED parameter
+// rather than optional: shifting formula keys without rewriting their text leaves
+// every formula pointing at the wrong cell, so the signature makes it impossible to
+// do half the job.
+using FormulaRewriter = std::function<std::string(const std::string& formula, int32_t at)>;
 
 class Sheet {
 public:
@@ -42,10 +51,10 @@ public:
     void clear_dirty();
 
     // Row/column insertion and deletion
-    void insert_row(int32_t at);
-    void delete_row(int32_t at);
-    void insert_column(int32_t at);
-    void delete_column(int32_t at);
+    void insert_row(int32_t at, const FormulaRewriter& rewrite);
+    void delete_row(int32_t at, const FormulaRewriter& rewrite);
+    void insert_column(int32_t at, const FormulaRewriter& rewrite);
+    void delete_column(int32_t at, const FormulaRewriter& rewrite);
 
     Column& column(int32_t col);
     const Column& column(int32_t col) const;

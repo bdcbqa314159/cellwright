@@ -1,5 +1,4 @@
 #include "core/Sheet.hpp"
-#include "core/FormulaAdjust.hpp"
 #include <stdexcept>
 
 namespace magic {
@@ -52,7 +51,7 @@ void Sheet::clear_dirty() {
     dirty_.clear();
 }
 
-void Sheet::insert_row(int32_t at) {
+void Sheet::insert_row(int32_t at, const FormulaRewriter& rewrite) {
     if (at < 0) return;
     for (auto& col : columns_)
         col.insert_row(at);
@@ -61,7 +60,7 @@ void Sheet::insert_row(int32_t at) {
     // Shift formula keys and adjust formula text references
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
-        std::string adjusted = adjust_formula_for_insert_row(formula, at);
+        std::string adjusted = rewrite(formula, at);
         if (addr.row >= at)
             shifted[{addr.col, addr.row + 1}] = std::move(adjusted);
         else
@@ -71,7 +70,7 @@ void Sheet::insert_row(int32_t at) {
     ++value_generation_;
 }
 
-void Sheet::delete_row(int32_t at) {
+void Sheet::delete_row(int32_t at, const FormulaRewriter& rewrite) {
     if (at < 0) return;
     for (auto& col : columns_)
         col.delete_row(at);
@@ -81,7 +80,7 @@ void Sheet::delete_row(int32_t at) {
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
         if (addr.row == at) continue;  // deleted
-        std::string adjusted = adjust_formula_for_delete_row(formula, at);
+        std::string adjusted = rewrite(formula, at);
         if (addr.row > at)
             shifted[{addr.col, addr.row - 1}] = std::move(adjusted);
         else
@@ -91,14 +90,14 @@ void Sheet::delete_row(int32_t at) {
     ++value_generation_;
 }
 
-void Sheet::insert_column(int32_t at) {
+void Sheet::insert_column(int32_t at, const FormulaRewriter& rewrite) {
     if (at < 0 || at > col_count()) return;
     columns_.insert(columns_.begin() + at, Column{});
 
     // Shift formula keys and adjust formula text references
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
-        std::string adjusted = adjust_formula_for_insert_col(formula, at);
+        std::string adjusted = rewrite(formula, at);
         if (addr.col >= at)
             shifted[{addr.col + 1, addr.row}] = std::move(adjusted);
         else
@@ -108,7 +107,7 @@ void Sheet::insert_column(int32_t at) {
     ++value_generation_;
 }
 
-void Sheet::delete_column(int32_t at) {
+void Sheet::delete_column(int32_t at, const FormulaRewriter& rewrite) {
     if (at < 0 || at >= col_count()) return;
     columns_.erase(columns_.begin() + at);
 
@@ -116,7 +115,7 @@ void Sheet::delete_column(int32_t at) {
     std::unordered_map<CellAddress, std::string> shifted;
     for (auto& [addr, formula] : formulas_) {
         if (addr.col == at) continue;  // deleted
-        std::string adjusted = adjust_formula_for_delete_col(formula, at);
+        std::string adjusted = rewrite(formula, at);
         if (addr.col > at)
             shifted[{addr.col - 1, addr.row}] = std::move(adjusted);
         else

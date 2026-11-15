@@ -104,13 +104,29 @@ stronger "no test file touched" that spec 01 could claim.
    says do not abstract yet. Promote if a second shape appears.
 3. Non-blocking, settled — **one PR**. The diff is small enough.
 
+## Drift
+
+| # | Spec claimed | Reality | Change |
+|---|---|---|---|
+| 1 | D2: the four commands "hold the injected rewriter" (singular) | Each runs one operation on `execute` and its **inverse** on `undo` — `InsertRowCommand::undo` calls `delete_row` — so each needs **two** rewriters, not one | Introduced `RowColumnRewriters`, a four-field bundle of the callables, built once at the call site and held by each command. Same decision (inject a callable), applied to four operations instead of one |
+
 ## Progress
 
 | ID | Status | Oracle result | Note |
 |----|--------|---------------|------|
-| B1 | todo | | |
-| B2 | todo | | |
-| B3 | todo | | |
-| B4 | todo | | |
-| B5 | todo | | |
-| B6 | todo | | |
+| B1 | **pass** | `check_layers.py`: "110 files scanned, layering acyclic, **0** declared allowance(s)" | allowlist **empty** |
+| B2 | **pass** | `grep -rn '#include "formula/' src/core/` → empty | |
+| B3 | **pass** | `diff` of all `EXPECT_`/`ASSERT_` lines in `test_row_col_ops.cpp` before vs after → **identical**; only call sites changed | the weaker oracle the spec predicted |
+| B4 | **pass** | 4 new `SheetIndexOps` tests; the oracle failed to **compile** against the old `Sheet` (`error: unknown type name 'FormulaRewriter'`) | red-before-green shown |
+| B5 | **pass** | allowlist 0 − open `OPEN.md` layering rows 0 = **0** | `CLAUDE.md` §3 |
+| B6 | **pass** | `tools/verify.sh` ALL GREEN | see PR |
+
+## Outcome
+
+**The allowlist is empty.** Every layering allowance this project ever declared is closed:
+`core → formula` via the services extraction (#8) and this slice, and `ui → app` via
+spec 01. `CLAUDE.md` §1's shrink-only rule has reached its end state.
+
+`Sheet` is now independently testable without the formula engine — the `SheetIndexOps`
+tests exercise the index arithmetic with a no-op rewriter, which was structurally
+impossible before. Unblocks issue #16 (tree-wide `clang-format`).

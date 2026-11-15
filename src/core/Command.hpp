@@ -1,6 +1,7 @@
 #pragma once
 #include "core/CellAddress.hpp"
 #include "core/CellValue.hpp"
+#include "core/Sheet.hpp"
 #include <memory>
 #include <optional>
 #include <string>
@@ -10,6 +11,16 @@
 namespace magic {
 
 class Sheet;
+
+// The row/column commands run one structural operation on execute and its inverse on
+// undo, so each carries BOTH rewriters. Bundled so a caller builds the set once rather
+// than threading four callables through every construction.
+struct RowColumnRewriters {
+    FormulaRewriter insert_row;
+    FormulaRewriter delete_row;
+    FormulaRewriter insert_column;
+    FormulaRewriter delete_column;
+};
 
 class Command {
 public:
@@ -62,24 +73,27 @@ private:
 // Insert/delete row commands
 class InsertRowCommand : public Command {
 public:
-    InsertRowCommand(int32_t row) : row_(row) {}
+    InsertRowCommand(int32_t row, RowColumnRewriters rw)
+        : row_(row), rw_(std::move(rw)) {}
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {0, row_}; }
 private:
     int32_t row_;
+    RowColumnRewriters rw_;
 };
 
 class DeleteRowCommand : public Command {
 public:
-    DeleteRowCommand(int32_t row, Sheet& sheet);
+    DeleteRowCommand(int32_t row, Sheet& sheet, RowColumnRewriters rw);
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {0, row_}; }
 private:
     int32_t row_;
+    RowColumnRewriters rw_;
     std::vector<CellValue> saved_row_values_;                       // cells in deleted row
     std::unordered_map<int32_t, std::string> saved_row_formulas_;   // col → formula (deleted row only)
     std::unordered_map<CellAddress, std::string> pre_delete_formulas_; // entire sheet formula snapshot
@@ -87,24 +101,27 @@ private:
 
 class InsertColumnCommand : public Command {
 public:
-    InsertColumnCommand(int32_t col) : col_(col) {}
+    InsertColumnCommand(int32_t col, RowColumnRewriters rw)
+        : col_(col), rw_(std::move(rw)) {}
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {col_, 0}; }
 private:
     int32_t col_;
+    RowColumnRewriters rw_;
 };
 
 class DeleteColumnCommand : public Command {
 public:
-    DeleteColumnCommand(int32_t col, Sheet& sheet);
+    DeleteColumnCommand(int32_t col, Sheet& sheet, RowColumnRewriters rw);
     void execute(Sheet& sheet) override;
     void undo(Sheet& sheet) override;
     std::string description() const override;
     CellAddress cell() const override { return {col_, 0}; }
 private:
     int32_t col_;
+    RowColumnRewriters rw_;
     std::vector<CellValue> saved_col_values_;                       // cells in deleted column
     std::unordered_map<CellAddress, std::string> pre_delete_formulas_; // entire sheet formula snapshot
 };

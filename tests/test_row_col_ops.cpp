@@ -1,10 +1,25 @@
 #include <gtest/gtest.h>
 #include "core/Sheet.hpp"
 #include "core/Command.hpp"
-#include "core/FormulaAdjust.hpp"
+#include "services/FormulaAdjust.hpp"
 #include "formula/DependencyGraph.hpp"
 
 using namespace magic;
+
+namespace {
+
+// The rewriters the production code injects. Declared once here so the call sites below
+// read as they did before, and so Sheet's index behaviour can also be exercised with a
+// no-op (see SheetIndexOps below).
+const RowColumnRewriters kRewriters{
+    .insert_row    = adjust_formula_for_insert_row,
+    .delete_row    = adjust_formula_for_delete_row,
+    .insert_column = adjust_formula_for_insert_col,
+    .delete_column = adjust_formula_for_delete_col,
+};
+
+}  // namespace
+
 
 // ── FormulaAdjust free functions ──────────────────────────────────────────────
 
@@ -58,7 +73,7 @@ TEST(Sheet, InsertRowShiftsValues) {
     sheet.set_value({0, 1}, CellValue{2.0});
     sheet.set_value({0, 2}, CellValue{3.0});
 
-    sheet.insert_row(1);
+    sheet.insert_row(1, kRewriters.insert_row);
 
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 0})), 1.0);
     EXPECT_TRUE(is_empty(sheet.get_value({0, 1})));  // new empty row
@@ -72,7 +87,7 @@ TEST(Sheet, DeleteRowShiftsValues) {
     sheet.set_value({0, 1}, CellValue{2.0});
     sheet.set_value({0, 2}, CellValue{3.0});
 
-    sheet.delete_row(1);
+    sheet.delete_row(1, kRewriters.delete_row);
 
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 0})), 1.0);
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 1})), 3.0);
@@ -82,7 +97,7 @@ TEST(Sheet, InsertRowShiftsFormulas) {
     Sheet sheet("Test", 2, 5);
     sheet.set_formula({0, 2}, "=A2");  // A3 references A2
 
-    sheet.insert_row(1);
+    sheet.insert_row(1, kRewriters.insert_row);
 
     // Formula key shifted from row 2 → row 3
     EXPECT_TRUE(sheet.has_formula({0, 3}));
@@ -94,7 +109,7 @@ TEST(Sheet, DeleteRowAdjustsFormulas) {
     Sheet sheet("Test", 2, 5);
     sheet.set_formula({0, 3}, "=A3");  // A4 references A3
 
-    sheet.delete_row(1);
+    sheet.delete_row(1, kRewriters.delete_row);
 
     // Formula key shifted from row 3 → row 2
     EXPECT_TRUE(sheet.has_formula({0, 2}));
@@ -107,7 +122,7 @@ TEST(Sheet, InsertColumnShiftsValues) {
     sheet.set_value({0, 0}, CellValue{1.0});
     sheet.set_value({1, 0}, CellValue{2.0});
 
-    sheet.insert_column(1);
+    sheet.insert_column(1, kRewriters.insert_column);
 
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 0})), 1.0);
     EXPECT_TRUE(is_empty(sheet.get_value({1, 0})));  // new empty column
@@ -120,7 +135,7 @@ TEST(Sheet, DeleteColumnShiftsValues) {
     sheet.set_value({1, 0}, CellValue{2.0});
     sheet.set_value({2, 0}, CellValue{3.0});
 
-    sheet.delete_column(1);
+    sheet.delete_column(1, kRewriters.delete_column);
 
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 0})), 1.0);
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({1, 0})), 3.0);
@@ -134,7 +149,7 @@ TEST(InsertRowCommand, UndoRestoresState) {
     sheet.set_value({0, 1}, CellValue{2.0});
 
     UndoManager mgr;
-    auto cmd = std::make_unique<InsertRowCommand>(1);
+    auto cmd = std::make_unique<InsertRowCommand>(1, kRewriters);
     mgr.execute(std::move(cmd), sheet);
 
     EXPECT_TRUE(is_empty(sheet.get_value({0, 1})));
@@ -153,7 +168,7 @@ TEST(DeleteRowCommand, UndoRestoresRowAndFormulas) {
     sheet.set_formula({0, 2}, "=A2");
 
     UndoManager mgr;
-    auto cmd = std::make_unique<DeleteRowCommand>(1, sheet);
+    auto cmd = std::make_unique<DeleteRowCommand>(1, sheet, kRewriters);
     mgr.execute(std::move(cmd), sheet);
 
     // Row 1 deleted; row 2 shifted to row 1
@@ -176,7 +191,7 @@ TEST(DeleteColumnCommand, UndoRestoresColumn) {
     sheet.set_value({2, 0}, CellValue{3.0});
 
     UndoManager mgr;
-    auto cmd = std::make_unique<DeleteColumnCommand>(1, sheet);
+    auto cmd = std::make_unique<DeleteColumnCommand>(1, sheet, kRewriters);
     mgr.execute(std::move(cmd), sheet);
 
     EXPECT_DOUBLE_EQ(as_number(sheet.get_value({0, 0})), 1.0);
@@ -235,4 +250,65 @@ TEST(DependencyGraph, ShiftColsInsert) {
     auto deps = graph.dependents_of(a1);
     ASSERT_EQ(deps.size(), 1u);
     EXPECT_EQ(deps[0], c1);
+}
+
+// ── Sheet's index work, independent of the formula engine ───────────────────
+//
+// These could not be written before specs/02_sheet_formula_rewriting.md: Sheet
+// always rewrote formula text itself, so there was no way to exercise the structural
+// half alone. With the rewriter injected, a no-op isolates the index arithmetic —
+// which is exactly the property that lets core/ stop depending on formula/.
+
+namespace {
+const FormulaRewriter kNoRewrite = [](const std::string& f, int32_t) { return f; };
+}  // namespace
+
+TEST(SheetIndexOps, InsertRowShiftsKeysAndLeavesTextUntouched) {
+    Sheet sheet;
+    sheet.set_formula({0, 2}, "=A3");
+
+    sheet.insert_row(1, kNoRewrite);
+
+    // The key moved down one row...
+    EXPECT_TRUE(sheet.has_formula({0, 3}));
+    EXPECT_FALSE(sheet.has_formula({0, 2}));
+    // ...and the text is byte-identical, because the rewriter declined to change it.
+    EXPECT_EQ(sheet.get_formula({0, 3}), "=A3");
+}
+
+TEST(SheetIndexOps, DeleteRowDropsTheRowAndShiftsKeysBack) {
+    Sheet sheet;
+    sheet.set_formula({0, 1}, "=B1");
+    sheet.set_formula({0, 3}, "=B9");
+
+    sheet.delete_row(1, kNoRewrite);
+
+    EXPECT_FALSE(sheet.has_formula({0, 1}));   // the deleted row's formula is gone
+    EXPECT_TRUE(sheet.has_formula({0, 2}));    // the one below shifted up
+    EXPECT_EQ(sheet.get_formula({0, 2}), "=B9");
+}
+
+TEST(SheetIndexOps, InsertColumnShiftsKeysAndLeavesTextUntouched) {
+    Sheet sheet;
+    sheet.set_formula({2, 0}, "=C1");
+
+    sheet.insert_column(1, kNoRewrite);
+
+    EXPECT_TRUE(sheet.has_formula({3, 0}));
+    EXPECT_EQ(sheet.get_formula({3, 0}), "=C1");
+}
+
+TEST(SheetIndexOps, RewriterIsAppliedExactlyOncePerFormula) {
+    Sheet sheet;
+    sheet.set_formula({0, 0}, "=A1");
+    sheet.set_formula({0, 1}, "=A2");
+
+    int calls = 0;
+    const FormulaRewriter counting = [&calls](const std::string& f, int32_t) {
+        ++calls;
+        return f;
+    };
+    sheet.insert_row(0, counting);
+
+    EXPECT_EQ(calls, 2);  // one call per existing formula, not per cell
 }
