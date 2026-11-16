@@ -100,9 +100,3 @@ TEST_F(PluginAllowlistTest, PersistenceRoundTrip) {
     EXPECT_TRUE(al2.is_trusted(path));
 }
 
-// ── verify_codesign ─────────────────────────────────────────────────────────
-
-TEST_F(PluginAllowlistTest, CodesignUnsignedFile) {
-    auto path = write_tmp_file("unsigned.dylib", "not a real dylib");
-    EXPECT_FALSE(PluginAllowlist::verify_codesign(path));
-}

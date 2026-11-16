@@ -15,7 +15,7 @@ records *what is currently untrue about the code*.
 | #8 CI matrix reduced to macOS | [#13](../../issues/13) |
 | #10 `-Werror` not enabled | [#14](../../issues/14) |
 | #14 tree not formatted to `.clang-format` | [#16](../../issues/16) |
-| #15 `verify_codesign` never invoked | [#15](../../issues/15) |
+| #15 `verify_codesign` never invoked *(closed — removed)* | [#15](../../issues/15) |
 | audit B2 — `MainWindow` TU split | [#17](../../issues/17) |
 | — async shutdown race | [#11](../../issues/11) *(fixed)* |
 
@@ -167,13 +167,13 @@ Invariant: `tools/check_layers.py` allowances − open layering rows below = 0. 
 | **Two passes from cold** | `IncludeBlocks: Regroup` settles include order on pass 1 and reflows around it on pass 2; pass 3 is a no-op. Noted in `requirements-dev.txt` so nobody reports a phantom diff. |
 | **Vendored exception** | `src/util/stb_image_write.h` carries an in-file `// clang-format off` guard. `.clang-format-ignore` was tried first and is **not honoured** by the pinned build — no pattern form worked — so the file-level guard is the mechanism that actually holds, and it survives editor-on-save too. |
 
-### #15 — `verify_codesign` is a security control that is never invoked
+### #15 — `verify_codesign` dead security control *(closed 2026-11-16 — removed)*
 
 | | |
 |---|---|
-| **What** | `PluginAllowlist::verify_codesign` (`PluginAllowlist.cpp:59`) shells out to `/usr/bin/codesign -v`, but **no production code calls it**. Its only callers are in `tests/test_plugin_allowlist.cpp`. `PluginManager::check_trust` consults `is_trusted` — SHA-256 only — and nothing else. |
-| **Impact** | The SHA-256 allowlist is the sole gate on every platform, macOS included. That is not nothing: a library's bytes must match a hash the user explicitly trusted. But a signed-but-tampered or unsigned library is not rejected on signature grounds, and the README claimed otherwise. |
-| **How it was found** | Writing `SECURITY.md` for this scaffold. I checked each claim before asserting it, and this one did not hold. |
-| **Also corrected** | `README.md` advertised "SHA-256 trust store with codesign verification (macOS)". Reworded to describe what is actually enforced — a security policy that contradicts the README is worse than having neither. |
-| **Fix** | Decide whether codesign is a real requirement. If yes, call it from `check_trust` on Apple platforms and add a test that a validly-hashed but unsigned library is rejected. If no, delete the function and its test rather than leaving a control that looks active. **Do not** leave it as-is. |
-| **Re-open trigger** | Immediately — this is a decision, not deferred scope. It is debt only until someone rules on it. |
+| **Resolved** | `verify_codesign` and its test deleted. The SHA-256 allowlist is the sole, documented gate. `SECURITY.md` now states the trust model positively rather than listing the absence of signing as a gap. |
+| **Why removed rather than wired in** | Three defects made it unfixable as-is, and the threat model made fixing it unwarranted. (1) The `#else` branch returned `false`, so as a gate it would have rejected **every** plugin on Linux and Windows. (2) On macOS it accepted **ad-hoc** signatures — measured: `Signature=adhoc`, `TeamIdentifier=not set`, and `codesign -f -s -` forges one in a single command — so it proved integrity, never provenance. (3) `codesign -v -R '=anchor apple generic'` correctly rejects our own ad-hoc-signed plugins (exit 3), confirming plain `-v` discriminates nothing. |
+| **Why not replace it** | Code signing answers "who published this?", which matters for untrusted distribution. There is no marketplace; plugins are self-built or shared within an organisation, where author and operator coincide. And there is **no portable mechanism** — Linux has no OS-level code signing for shared libraries, so "correct on all platforms" would require detached signatures with a distributed key: a different design, not an extension. |
+| **What the allowlist already provides** | Explicit per-artifact human consent; automatic revocation on any byte change, which catches the realistic failure (a stale or overwritten build, not an adversary); identical behaviour on all three platforms; no secrets or CA infrastructure. |
+| **Future path, recorded not lost** | If a marketplace ever exists: detached Ed25519 signatures verified against a published key, with the allowlist retained for self-built plugins. Documented in `SECURITY.md`. |
+
