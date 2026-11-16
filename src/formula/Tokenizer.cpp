@@ -1,4 +1,5 @@
 #include "formula/Tokenizer.hpp"
+
 #include <cctype>
 #include <stdexcept>
 
@@ -8,8 +9,7 @@ static bool looks_like_cell_ref(const std::string& s, size_t pos) {
     size_t i = pos;
     // Skip optional $ before column letters
     if (i < s.size() && s[i] == '$') ++i;
-    if (i >= s.size() || !std::isalpha(static_cast<unsigned char>(s[i])))
-        return false;
+    if (i >= s.size() || !std::isalpha(static_cast<unsigned char>(s[i]))) return false;
     while (i < s.size() && std::isalpha(static_cast<unsigned char>(s[i]))) ++i;
     // Skip optional $ before row digits
     if (i < s.size() && s[i] == '$') ++i;
@@ -26,13 +26,18 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
         char ch = formula[i];
 
         // Skip whitespace
-        if (std::isspace(static_cast<unsigned char>(ch))) { ++i; continue; }
+        if (std::isspace(static_cast<unsigned char>(ch))) {
+            ++i;
+            continue;
+        }
 
         // Number
-        if (std::isdigit(static_cast<unsigned char>(ch)) || (ch == '.' && i + 1 < n && std::isdigit(static_cast<unsigned char>(formula[i + 1])))) {
+        if (std::isdigit(static_cast<unsigned char>(ch)) ||
+            (ch == '.' && i + 1 < n && std::isdigit(static_cast<unsigned char>(formula[i + 1])))) {
             size_t start = i;
             bool has_dot = false;
-            while (i < n && (std::isdigit(static_cast<unsigned char>(formula[i])) || formula[i] == '.')) {
+            while (i < n &&
+                   (std::isdigit(static_cast<unsigned char>(formula[i])) || formula[i] == '.')) {
                 if (formula[i] == '.') {
                     if (has_dot) break;  // stop at second decimal point
                     has_dot = true;
@@ -70,7 +75,9 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
         // Identifier: cell ref, function name, or keyword
         if (std::isalpha(static_cast<unsigned char>(ch)) || ch == '_') {
             size_t start = i;
-            while (i < n && (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '_')) ++i;
+            while (i < n &&
+                   (std::isalnum(static_cast<unsigned char>(formula[i])) || formula[i] == '_'))
+                ++i;
             // Check for $ before row digits (e.g., A$1)
             if (i < n && formula[i] == '$' && i + 1 < n &&
                 std::isdigit(static_cast<unsigned char>(formula[i + 1]))) {
@@ -103,7 +110,10 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
                 while (k < text.size() && std::isalpha(static_cast<unsigned char>(text[k]))) ++k;
                 bool all_digits = k < text.size();
                 for (size_t m = k; m < text.size(); ++m) {
-                    if (!std::isdigit(static_cast<unsigned char>(text[m]))) { all_digits = false; break; }
+                    if (!std::isdigit(static_cast<unsigned char>(text[m]))) {
+                        all_digits = false;
+                        break;
+                    }
                 }
                 if (all_digits) {
                     tokens.push_back({TokenType::CELLREF, text});
@@ -117,30 +127,65 @@ std::vector<Token> Tokenizer::tokenize(const std::string& formula) {
 
         // Operators and punctuation
         switch (ch) {
-            case '+': tokens.push_back({TokenType::PLUS, "+"}); ++i; continue;
-            case '-': tokens.push_back({TokenType::MINUS, "-"}); ++i; continue;
-            case '*': tokens.push_back({TokenType::STAR, "*"}); ++i; continue;
-            case '/': tokens.push_back({TokenType::SLASH, "/"}); ++i; continue;
-            case '^': tokens.push_back({TokenType::CARET, "^"}); ++i; continue;
-            case '(': tokens.push_back({TokenType::LPAREN, "("}); ++i; continue;
-            case ')': tokens.push_back({TokenType::RPAREN, ")"}); ++i; continue;
-            case ',': tokens.push_back({TokenType::COMMA, ","}); ++i; continue;
-            case ':': tokens.push_back({TokenType::COLON, ":"}); ++i; continue;
-            case '=': tokens.push_back({TokenType::EQ, "="}); ++i; continue;
+            case '+':
+                tokens.push_back({TokenType::PLUS, "+"});
+                ++i;
+                continue;
+            case '-':
+                tokens.push_back({TokenType::MINUS, "-"});
+                ++i;
+                continue;
+            case '*':
+                tokens.push_back({TokenType::STAR, "*"});
+                ++i;
+                continue;
+            case '/':
+                tokens.push_back({TokenType::SLASH, "/"});
+                ++i;
+                continue;
+            case '^':
+                tokens.push_back({TokenType::CARET, "^"});
+                ++i;
+                continue;
+            case '(':
+                tokens.push_back({TokenType::LPAREN, "("});
+                ++i;
+                continue;
+            case ')':
+                tokens.push_back({TokenType::RPAREN, ")"});
+                ++i;
+                continue;
+            case ',':
+                tokens.push_back({TokenType::COMMA, ","});
+                ++i;
+                continue;
+            case ':':
+                tokens.push_back({TokenType::COLON, ":"});
+                ++i;
+                continue;
+            case '=':
+                tokens.push_back({TokenType::EQ, "="});
+                ++i;
+                continue;
             case '<':
                 if (i + 1 < n && formula[i + 1] == '=') {
-                    tokens.push_back({TokenType::LTE, "<="}); i += 2;
+                    tokens.push_back({TokenType::LTE, "<="});
+                    i += 2;
                 } else if (i + 1 < n && formula[i + 1] == '>') {
-                    tokens.push_back({TokenType::NEQ, "<>"}); i += 2;
+                    tokens.push_back({TokenType::NEQ, "<>"});
+                    i += 2;
                 } else {
-                    tokens.push_back({TokenType::LT, "<"}); ++i;
+                    tokens.push_back({TokenType::LT, "<"});
+                    ++i;
                 }
                 continue;
             case '>':
                 if (i + 1 < n && formula[i + 1] == '=') {
-                    tokens.push_back({TokenType::GTE, ">="}); i += 2;
+                    tokens.push_back({TokenType::GTE, ">="});
+                    i += 2;
                 } else {
-                    tokens.push_back({TokenType::GT, ">"}); ++i;
+                    tokens.push_back({TokenType::GT, ">"});
+                    ++i;
                 }
                 continue;
             default:

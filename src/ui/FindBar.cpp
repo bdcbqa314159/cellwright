@@ -1,18 +1,20 @@
 #include "ui/FindBar.hpp"
-#include "core/Sheet.hpp"
-#include "core/Command.hpp"
+
 #include <imgui.h>
+
 #include <algorithm>
 #include <cctype>
 #include <memory>
 
+#include "core/Command.hpp"
+#include "core/Sheet.hpp"
 
 namespace magic {
 
 // Case-insensitive search. Returns iterator to match start, or haystack.end().
-static std::string::const_iterator icase_find(const std::string& haystack, const std::string& needle) {
-    return std::search(haystack.begin(), haystack.end(),
-                       needle.begin(), needle.end(),
+static std::string::const_iterator icase_find(const std::string& haystack,
+                                              const std::string& needle) {
+    return std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(),
                        [](char a, char b) {
                            return std::tolower(static_cast<unsigned char>(a)) ==
                                   std::tolower(static_cast<unsigned char>(b));
@@ -44,8 +46,7 @@ void FindBar::do_search(Sheet& sheet) {
                 continue;
             }
             if (sheet.has_formula(addr)) {
-                if (icase_contains(sheet.get_formula(addr), query))
-                    matches_.push_back(addr);
+                if (icase_contains(sheet.get_formula(addr), query)) matches_.push_back(addr);
             }
         }
     }
@@ -65,7 +66,8 @@ void FindBar::find_next() {
 
 void FindBar::find_prev() {
     if (matches_.empty()) return;
-    match_idx_ = (match_idx_ - 1 + static_cast<int>(matches_.size())) % static_cast<int>(matches_.size());
+    match_idx_ =
+        (match_idx_ - 1 + static_cast<int>(matches_.size())) % static_cast<int>(matches_.size());
     nav_target_ = matches_[match_idx_];
     has_nav_ = true;
 }
@@ -77,7 +79,7 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
 
     ImGui::SetNextItemWidth(200);
     bool search_enter = ImGui::InputText("##search", search_buf_, sizeof(search_buf_),
-                                          ImGuiInputTextFlags_EnterReturnsTrue);
+                                         ImGuiInputTextFlags_EnterReturnsTrue);
     if (search_enter) {
         if (std::string(search_buf_) != last_search_)
             do_search(sheet);
@@ -122,8 +124,10 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
                     text.replace(pos, needle.size(), replacement);
                     CellValue new_val{text};
                     if (undo) {
-                        std::string old_formula = sheet.has_formula(addr) ? sheet.get_formula(addr) : "";
-                        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, val, old_formula);
+                        std::string old_formula =
+                            sheet.has_formula(addr) ? sheet.get_formula(addr) : "";
+                        auto cmd =
+                            std::make_unique<SetValueCommand>(addr, new_val, val, old_formula);
                         undo->execute(std::move(cmd), sheet);
                     } else {
                         sheet.set_value(addr, new_val);
@@ -144,13 +148,12 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
                 size_t search_pos = 0;
                 bool changed = false;
                 while (search_pos <= text.size()) {
-                    auto match_it = std::search(
-                        text.begin() + static_cast<ptrdiff_t>(search_pos), text.end(),
-                        needle.begin(), needle.end(),
-                        [](char a, char b) {
-                            return std::tolower(static_cast<unsigned char>(a)) ==
-                                   std::tolower(static_cast<unsigned char>(b));
-                        });
+                    auto match_it =
+                        std::search(text.begin() + static_cast<ptrdiff_t>(search_pos), text.end(),
+                                    needle.begin(), needle.end(), [](char a, char b) {
+                                        return std::tolower(static_cast<unsigned char>(a)) ==
+                                               std::tolower(static_cast<unsigned char>(b));
+                                    });
                     if (match_it == text.end()) break;
                     auto pos = static_cast<size_t>(match_it - text.begin());
                     text.replace(pos, needle.size(), replacement);
@@ -160,8 +163,10 @@ void FindBar::render(Sheet& sheet, UndoManager* undo) {
                 if (changed) {
                     CellValue new_val{text};
                     if (undo) {
-                        std::string old_formula = sheet.has_formula(addr) ? sheet.get_formula(addr) : "";
-                        auto cmd = std::make_unique<SetValueCommand>(addr, new_val, val, old_formula);
+                        std::string old_formula =
+                            sheet.has_formula(addr) ? sheet.get_formula(addr) : "";
+                        auto cmd =
+                            std::make_unique<SetValueCommand>(addr, new_val, val, old_formula);
                         undo->execute(std::move(cmd), sheet);
                     } else {
                         sheet.set_value(addr, new_val);

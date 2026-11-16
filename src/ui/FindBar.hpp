@@ -1,7 +1,8 @@
 #pragma once
-#include "core/CellAddress.hpp"
 #include <string>
 #include <vector>
+
+#include "core/CellAddress.hpp"
 
 namespace magic {
 
@@ -13,13 +14,25 @@ public:
     void render(Sheet& sheet, UndoManager* undo = nullptr);
 
     bool is_visible() const { return visible_; }
-    void show_find() { visible_ = true; show_replace_ = false; }
-    void show_replace() { visible_ = true; show_replace_ = true; }
-    void hide() { visible_ = false; matches_.clear(); }
+    void show_find() {
+        visible_ = true;
+        show_replace_ = false;
+    }
+    void show_replace() {
+        visible_ = true;
+        show_replace_ = true;
+    }
+    void hide() {
+        visible_ = false;
+        matches_.clear();
+    }
 
     // Navigation target after find (consumed by MainWindow)
     bool has_nav_target() const { return has_nav_; }
-    CellAddress consume_nav_target() { has_nav_ = false; return nav_target_; }
+    CellAddress consume_nav_target() {
+        has_nav_ = false;
+        return nav_target_;
+    }
 
     // Match list for highlight rendering
     const std::vector<CellAddress>& matches() const { return matches_; }

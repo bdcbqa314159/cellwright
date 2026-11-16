@@ -1,35 +1,66 @@
 #pragma once
-#include "core/Arena.hpp"
-#include "core/CellAddress.hpp"
 #include <string>
 #include <variant>
 #include <vector>
 
+#include "core/Arena.hpp"
+#include "core/CellAddress.hpp"
+
 namespace magic {
 
-struct NumberNode   { double value; };
-struct StringNode   { std::string value; };
-struct BoolNode     { bool value; };
-struct CellRefNode  { CellAddress addr; };
-struct RangeNode    { CellAddress from; CellAddress to; };
-struct SheetRefNode { std::string sheet_name; CellAddress addr; };
-struct SheetRangeNode { std::string sheet_name; CellAddress from; CellAddress to; };
+struct NumberNode {
+    double value;
+};
+struct StringNode {
+    std::string value;
+};
+struct BoolNode {
+    bool value;
+};
+struct CellRefNode {
+    CellAddress addr;
+};
+struct RangeNode {
+    CellAddress from;
+    CellAddress to;
+};
+struct SheetRefNode {
+    std::string sheet_name;
+    CellAddress addr;
+};
+struct SheetRangeNode {
+    std::string sheet_name;
+    CellAddress from;
+    CellAddress to;
+};
 
 struct ASTNode;
 
-struct UnaryOpNode  { char op; ASTNode* operand; };
-struct BinOpNode    { char op; ASTNode* left; ASTNode* right; };
-struct FuncCallNode { std::string name; std::vector<ASTNode*> args; };
+struct UnaryOpNode {
+    char op;
+    ASTNode* operand;
+};
+struct BinOpNode {
+    char op;
+    ASTNode* left;
+    ASTNode* right;
+};
+struct FuncCallNode {
+    std::string name;
+    std::vector<ASTNode*> args;
+};
 
 // A single comparison operator stored as string to support <=, >=, <>
-struct CompareNode  { std::string op; ASTNode* left; ASTNode* right; };
+struct CompareNode {
+    std::string op;
+    ASTNode* left;
+    ASTNode* right;
+};
 
 struct ASTNode {
-    using Value = std::variant<
-        NumberNode, StringNode, BoolNode,
-        CellRefNode, RangeNode, SheetRefNode, SheetRangeNode,
-        UnaryOpNode, BinOpNode, FuncCallNode, CompareNode
-    >;
+    using Value =
+        std::variant<NumberNode, StringNode, BoolNode, CellRefNode, RangeNode, SheetRefNode,
+                     SheetRangeNode, UnaryOpNode, BinOpNode, FuncCallNode, CompareNode>;
     Value value;
 
     template <typename T>

@@ -1,13 +1,14 @@
 #include "formula/Parser.hpp"
-#include "core/CellAddress.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
 
+#include "core/CellAddress.hpp"
+
 namespace magic {
 
-Parser::Parser(const std::vector<Token>& tokens, Arena& arena)
-    : tokens_(tokens), arena_(arena) {}
+Parser::Parser(const std::vector<Token>& tokens, Arena& arena) : tokens_(tokens), arena_(arena) {}
 
 ParsedFormula Parser::parse(const std::vector<Token>& tokens) {
     ParsedFormula result;
@@ -40,17 +41,14 @@ void Parser::expect(TokenType type) {
 }
 
 // expression → comparison
-ASTNode* Parser::parse_expression() {
-    return parse_comparison();
-}
+ASTNode* Parser::parse_expression() { return parse_comparison(); }
 
 // comparison → addition ( (= | <> | < | > | <= | >=) addition )?
 ASTNode* Parser::parse_comparison() {
     auto* left = parse_addition();
 
     auto t = current().type;
-    if (t == TokenType::EQ || t == TokenType::NEQ ||
-        t == TokenType::LT || t == TokenType::GT ||
+    if (t == TokenType::EQ || t == TokenType::NEQ || t == TokenType::LT || t == TokenType::GT ||
         t == TokenType::LTE || t == TokenType::GTE) {
         std::string op = current().text;
         advance();
@@ -185,7 +183,8 @@ ASTNode* Parser::parse_atom() {
     if (current().type == TokenType::FUNC) {
         std::string name = current().text;
         // Uppercase the function name for case-insensitive lookup
-        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::toupper(c); });
+        std::transform(name.begin(), name.end(), name.begin(),
+                       [](unsigned char c) { return std::toupper(c); });
         advance();
         expect(TokenType::LPAREN);
 
@@ -204,7 +203,8 @@ ASTNode* Parser::parse_atom() {
     if (current().type == TokenType::IDENT) {
         std::string text = current().text;
         std::string upper = text;
-        std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return std::toupper(c); });
+        std::transform(upper.begin(), upper.end(), upper.begin(),
+                       [](unsigned char c) { return std::toupper(c); });
         advance();
         if (upper == "TRUE") return make_node(arena_, BoolNode{true});
         if (upper == "FALSE") return make_node(arena_, BoolNode{false});

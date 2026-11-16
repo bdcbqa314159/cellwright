@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
-#include "services/Clipboard.hpp"
+
 #include "core/Sheet.hpp"
+#include "services/Clipboard.hpp"
 
 using namespace magic;
 

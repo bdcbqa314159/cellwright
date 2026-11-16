@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "io/WorkbookIO.hpp"
 
 using namespace magic;

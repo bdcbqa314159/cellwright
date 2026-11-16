@@ -1,9 +1,10 @@
 #pragma once
-#include "core/Sheet.hpp"
 #include <algorithm>
-#include <vector>
-#include <string>
 #include <stdexcept>
+#include <string>
+#include <vector>
+
+#include "core/Sheet.hpp"
 
 namespace magic {
 
@@ -18,8 +19,12 @@ public:
     void set_active(int idx);
 
     // Access sheet by index. Out-of-range indices are silently clamped to [0, sheet_count()-1].
-    Sheet& sheet(int idx) { return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)]; }
-    const Sheet& sheet(int idx) const { return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)]; }
+    Sheet& sheet(int idx) {
+        return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)];
+    }
+    const Sheet& sheet(int idx) const {
+        return sheets_[std::clamp(idx, 0, static_cast<int>(sheets_.size()) - 1)];
+    }
 
     // Checked accessor — throws std::out_of_range for invalid indices.
     Sheet& sheet_checked(int idx) {

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/CellFormat.hpp"
 #include "core/DateSerial.hpp"
 

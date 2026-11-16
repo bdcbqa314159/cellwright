@@ -1,9 +1,10 @@
 #pragma once
-#include "core/CellValue.hpp"
 #include <functional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "core/CellValue.hpp"
 
 namespace magic {
 

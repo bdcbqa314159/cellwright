@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
+
+#include <cmath>
+
+#include "core/CellValue.hpp"
+#include "formula/FunctionRegistry.hpp"
 #include "plugin/IFunction.hpp"
 #include "plugin/PluginManager.hpp"
-#include "formula/FunctionRegistry.hpp"
-#include "core/CellValue.hpp"
-#include <cmath>
 
 using namespace magic;
 
@@ -32,9 +34,9 @@ public:
     }
 
 private:
-    std::string name_    = "MockStats";
+    std::string name_ = "MockStats";
     std::string version_ = "1.0.0";
-    std::string type_    = "function";
+    std::string type_ = "function";
 };
 
 // ── Direct plugin tests (no dynamic loading) ───────────────────────────────
@@ -101,12 +103,14 @@ protected:
             int min_args = fd.min_args;
             int max_args = fd.max_args;
             registry.register_function(fd.name,
-                [inst, fn_name, min_args, max_args](const std::vector<CellValue>& args) -> CellValue {
-                    int n = static_cast<int>(args.size());
-                    if (n < min_args) return CellValue{CellError::VALUE};
-                    if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
-                    return inst->call(fn_name, args);
-                });
+                                       [inst, fn_name, min_args,
+                                        max_args](const std::vector<CellValue>& args) -> CellValue {
+                                           int n = static_cast<int>(args.size());
+                                           if (n < min_args) return CellValue{CellError::VALUE};
+                                           if (max_args >= 0 && n > max_args)
+                                               return CellValue{CellError::VALUE};
+                                           return inst->call(fn_name, args);
+                                       });
         }
     }
 
@@ -120,15 +124,14 @@ TEST_F(PluginWrapperTest, TooFewArgs) {
 }
 
 TEST_F(PluginWrapperTest, TooManyArgs) {
-    auto result = registry.call("ZSCORE",
-        {CellValue{1.0}, CellValue{2.0}, CellValue{3.0}, CellValue{4.0}});
+    auto result =
+        registry.call("ZSCORE", {CellValue{1.0}, CellValue{2.0}, CellValue{3.0}, CellValue{4.0}});
     ASSERT_TRUE(is_error(result));
     EXPECT_EQ(std::get<CellError>(result), CellError::VALUE);
 }
 
 TEST_F(PluginWrapperTest, ExactArgCount) {
-    auto result = registry.call("ZSCORE",
-        {CellValue{85.0}, CellValue{70.0}, CellValue{10.0}});
+    auto result = registry.call("ZSCORE", {CellValue{85.0}, CellValue{70.0}, CellValue{10.0}});
     ASSERT_TRUE(is_number(result));
     EXPECT_DOUBLE_EQ(as_number(result), 1.5);
 }
@@ -139,13 +142,9 @@ TEST(CAbiSignatureTest, TwoArgs) {
     EXPECT_EQ(count_args_from_signature("double(double, double)"), 2);
 }
 
-TEST(CAbiSignatureTest, ZeroArgs) {
-    EXPECT_EQ(count_args_from_signature("double()"), 0);
-}
+TEST(CAbiSignatureTest, ZeroArgs) { EXPECT_EQ(count_args_from_signature("double()"), 0); }
 
-TEST(CAbiSignatureTest, OneArg) {
-    EXPECT_EQ(count_args_from_signature("double(double)"), 1);
-}
+TEST(CAbiSignatureTest, OneArg) { EXPECT_EQ(count_args_from_signature("double(double)"), 1); }
 
 TEST(CAbiSignatureTest, ThreeArgs) {
     EXPECT_EQ(count_args_from_signature("double(double, double, double)"), 3);
@@ -155,6 +154,4 @@ TEST(CAbiSignatureTest, FourArgs) {
     EXPECT_EQ(count_args_from_signature("int(int, int, int, int)"), 4);
 }
 
-TEST(CAbiSignatureTest, VoidSignature) {
-    EXPECT_EQ(count_args_from_signature("void()"), 0);
-}
+TEST(CAbiSignatureTest, VoidSignature) { EXPECT_EQ(count_args_from_signature("void()"), 0); }

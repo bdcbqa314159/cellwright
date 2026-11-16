@@ -24,10 +24,8 @@ struct PixelRect {
 // Pure and header-only on purpose: ChartPanel.cpp is linked only into the
 // application (it needs ImGui/ImPlot/GL), so this is the only way the geometry
 // can carry a test.
-constexpr PixelRect framebuffer_rect(float win_x, float win_y_from_top,
-                                     float win_w, float win_h,
-                                     float viewport_h_logical,
-                                     float scale_x, float scale_y) {
+constexpr PixelRect framebuffer_rect(float win_x, float win_y_from_top, float win_w, float win_h,
+                                     float viewport_h_logical, float scale_x, float scale_y) {
     const float y_from_bottom = viewport_h_logical - win_y_from_top - win_h;
     return PixelRect{
         static_cast<int>(win_x * scale_x),

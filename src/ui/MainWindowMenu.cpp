@@ -2,24 +2,26 @@
 // unit readable (issue #17). Same class, same behaviour, and no declaration in
 // MainWindow.hpp changed. Menu bar rendering.
 
-#include "ui/MainWindow.hpp"
-#include "session/SessionState.hpp"
-#include "session/AutoSave.hpp"
-#include "core/ConditionalFormat.hpp"
-#include "core/FillPattern.hpp"
-#include "core/Workbook.hpp"
-#include "services/Clipboard.hpp"
-#include "formula/AsyncRecalcEngine.hpp"
-#include "io/CsvIO.hpp"
-#include "io/WorkbookIO.hpp"
-#include "util/Sha256.hpp"
-#include <nfd.hpp>
 #include <imgui.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <nfd.hpp>
+
+#include "core/ConditionalFormat.hpp"
+#include "core/FillPattern.hpp"
+#include "core/Workbook.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
+#include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
+#include "services/Clipboard.hpp"
+#include "session/AutoSave.hpp"
+#include "session/SessionState.hpp"
+#include "ui/MainWindow.hpp"
+#include "util/Sha256.hpp"
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -59,8 +61,7 @@ void MainWindow::render_menu_bar(SessionState& state) {
                     for (const auto& path : recent) {
                         auto fname = std::filesystem::path(path).filename().string();
                         if (ImGui::MenuItem(fname.c_str())) {
-                            if (!state.open_file(path))
-                                toasts_.show("Failed to open file");
+                            if (!state.open_file(path)) toasts_.show("Failed to open file");
                         }
                     }
                 }
@@ -78,11 +79,9 @@ void MainWindow::render_menu_bar(SessionState& state) {
 
         if (ImGui::BeginMenu("Edit")) {
             std::string undo_label = "Undo";
-            if (as.undo_manager.can_undo())
-                undo_label += " " + as.undo_manager.peek_undo_desc();
+            if (as.undo_manager.can_undo()) undo_label += " " + as.undo_manager.peek_undo_desc();
             std::string redo_label = "Redo";
-            if (as.undo_manager.can_redo())
-                redo_label += " " + as.undo_manager.peek_redo_desc();
+            if (as.undo_manager.can_redo()) redo_label += " " + as.undo_manager.peek_redo_desc();
 
             if (ImGui::MenuItem(undo_label.c_str(), "Ctrl+Z", false, as.undo_manager.can_undo())) {
                 action_undo(state);
@@ -105,8 +104,7 @@ void MainWindow::render_menu_bar(SessionState& state) {
                     action_paste_special(state, PasteMode::ValuesOnly);
                 if (ImGui::MenuItem("Formulas Only"))
                     action_paste_special(state, PasteMode::FormulasOnly);
-                if (ImGui::MenuItem("Transpose"))
-                    action_paste_special(state, PasteMode::Transpose);
+                if (ImGui::MenuItem("Transpose")) action_paste_special(state, PasteMode::Transpose);
                 ImGui::EndMenu();
             }
             ImGui::EndMenu();
@@ -216,7 +214,6 @@ void MainWindow::render_menu_bar(SessionState& state) {
 
         ImGui::EndMenuBar();
     }
-
 }
 
 // ── Keyboard shortcuts ──────────────────────────────────────────────────────

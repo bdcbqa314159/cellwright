@@ -1,10 +1,12 @@
 #include "plugin/PluginManager.hpp"
-#include "core/Workbook.hpp"
-#include "util/Sha256.hpp"
+
 #include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <memory>
+
+#include "core/Workbook.hpp"
+#include "util/Sha256.hpp"
 
 namespace magic {
 
@@ -28,22 +30,22 @@ int count_args_from_signature(const char* sig) {
 // Registers a plugin function with arity checks, avoiding lambda duplication.
 
 template <typename Callable>
-static void register_ifunc_bridge(FunctionRegistry& registry, const std::string& name,
-                                   int min_args, int max_args, Callable&& callable) {
+static void register_ifunc_bridge(FunctionRegistry& registry, const std::string& name, int min_args,
+                                  int max_args, Callable&& callable) {
     registry.register_function(name,
-        [callable = std::forward<Callable>(callable), min_args, max_args]
-        (const std::vector<CellValue>& args) -> CellValue {
-            int n = static_cast<int>(args.size());
-            if (n < min_args) return CellValue{CellError::VALUE};
-            if (max_args >= 0 && n > max_args) return CellValue{CellError::VALUE};
-            return callable(args);
-        });
+                               [callable = std::forward<Callable>(callable), min_args,
+                                max_args](const std::vector<CellValue>& args) -> CellValue {
+                                   int n = static_cast<int>(args.size());
+                                   if (n < min_args) return CellValue{CellError::VALUE};
+                                   if (max_args >= 0 && n > max_args)
+                                       return CellValue{CellError::VALUE};
+                                   return callable(args);
+                               });
 }
 
 // ── Constructors ────────────────────────────────────────────────────────────
 
-PluginManager::PluginManager(FunctionRegistry& registry)
-    : registry_(registry) {}
+PluginManager::PluginManager(FunctionRegistry& registry) : registry_(registry) {}
 
 PluginManager::PluginManager(FunctionRegistry& registry, std::filesystem::path allowlist_path)
     : registry_(registry), allowlist_(std::move(allowlist_path)) {}
@@ -64,7 +66,7 @@ bool PluginManager::check_trust(const std::string& path) {
 
 PluginKind PluginManager::probe_kind(plugin_arch::DynamicLibrary& lib) {
     if (lib.has("plugin_describe")) return PluginKind::CABI;
-    if (lib.has("allocator"))       return PluginKind::IFunction;  // tentative
+    if (lib.has("allocator")) return PluginKind::IFunction;  // tentative
     return PluginKind::Unknown;
 }
 
@@ -96,21 +98,21 @@ bool PluginManager::load(const std::string& path) {
     PluginKind kind = probe_kind(*probe);
 
     switch (kind) {
-    case PluginKind::CABI:
-        // Reuse the probe handle directly — total: 1 dlopen
-        return load_cabi(std::move(probe));
+        case PluginKind::CABI:
+            // Reuse the probe handle directly — total: 1 dlopen
+            return load_cabi(std::move(probe));
 
-    case PluginKind::IFunction:
-        // PluginLoader<T> needs its own dlopen, so release probe first
-        probe.reset();
-        if (load_ifunction(path)) return true;
-        // Fallback: maybe it's an IPanel with an allocator symbol
-        return load_ipanel(path);
+        case PluginKind::IFunction:
+            // PluginLoader<T> needs its own dlopen, so release probe first
+            probe.reset();
+            if (load_ifunction(path)) return true;
+            // Fallback: maybe it's an IPanel with an allocator symbol
+            return load_ipanel(path);
 
-    case PluginKind::IPanel:
-    case PluginKind::Unknown:
-        std::cerr << "[PluginManager] Unknown plugin type: " << path << "\n";
-        return false;
+        case PluginKind::IPanel:
+        case PluginKind::Unknown:
+            std::cerr << "[PluginManager] Unknown plugin type: " << path << "\n";
+            return false;
     }
     return false;
 }
@@ -141,9 +143,9 @@ bool PluginManager::load_ifunction(const std::string& path) {
             auto hot_ref = hot;
             std::string fn_name = fd.name;
             register_ifunc_bridge(registry_, fd.name, fd.min_args, fd.max_args,
-                [hot_ref, fn_name](const std::vector<CellValue>& args) {
-                    return hot_ref->get_instance()->call(fn_name, args);
-                });
+                                  [hot_ref, fn_name](const std::vector<CellValue>& args) {
+                                      return hot_ref->get_instance()->call(fn_name, args);
+                                  });
         }
 
         hot_loaders_.push_back(std::move(entry));
@@ -196,8 +198,7 @@ int PluginManager::poll_reloads() {
     for (auto& entry : hot_loaders_) {
         if (entry.loader->check_and_reload()) {
             // Unregister old functions
-            for (const auto& name : entry.function_names)
-                (void)registry_.unregister_function(name);
+            for (const auto& name : entry.function_names) (void)registry_.unregister_function(name);
 
             // Re-describe functions from the new instance
             auto instance = entry.loader->get_instance();
@@ -209,9 +210,9 @@ int PluginManager::poll_reloads() {
                 auto hot_ref = entry.loader;
                 std::string fn_name = fd.name;
                 register_ifunc_bridge(registry_, fd.name, fd.min_args, fd.max_args,
-                    [hot_ref, fn_name](const std::vector<CellValue>& args) {
-                        return hot_ref->get_instance()->call(fn_name, args);
-                    });
+                                      [hot_ref, fn_name](const std::vector<CellValue>& args) {
+                                          return hot_ref->get_instance()->call(fn_name, args);
+                                      });
             }
 
             // Update loaded_ metadata to stay in sync
@@ -234,7 +235,8 @@ int PluginManager::poll_reloads() {
 
 bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) {
     try {
-        auto describe_fn = lib->resolve<const plugin_arch::PluginDescriptor* (*)()>("plugin_describe");
+        auto describe_fn =
+            lib->resolve<const plugin_arch::PluginDescriptor* (*)()>("plugin_describe");
         const auto* desc = describe_fn();
         if (!desc) return false;
 
@@ -248,38 +250,42 @@ bool PluginManager::load_cabi(std::shared_ptr<plugin_arch::DynamicLibrary> lib) 
             lp.function_names.push_back(sym_name);
 
             int nargs = count_args_from_signature(entry.signature);
-            auto raw = reinterpret_cast<void*>(lib->resolve<void(*)()>(sym_name));
+            auto raw = reinterpret_cast<void*>(lib->resolve<void (*)()>(sym_name));
             auto captured_lib = lib;
 
-            registry_.register_function(sym_name,
+            registry_.register_function(
+                sym_name,
                 [raw, nargs, captured_lib](const std::vector<CellValue>& args) -> CellValue {
                     int n = static_cast<int>(args.size());
                     if (n != nargs) return CellValue{CellError::VALUE};
                     // Arity-based dispatch limited to 0–4 args. For higher arities,
-            // libffi or a generic calling convention would be needed.
-            switch (nargs) {
-                    case 0: {
-                        auto fn = reinterpret_cast<double(*)()>(raw);
-                        return CellValue{fn()};
-                    }
-                    case 1: {
-                        auto fn = reinterpret_cast<double(*)(double)>(raw);
-                        return CellValue{fn(to_double(args[0]))};
-                    }
-                    case 2: {
-                        auto fn = reinterpret_cast<double(*)(double, double)>(raw);
-                        return CellValue{fn(to_double(args[0]), to_double(args[1]))};
-                    }
-                    case 3: {
-                        auto fn = reinterpret_cast<double(*)(double, double, double)>(raw);
-                        return CellValue{fn(to_double(args[0]), to_double(args[1]), to_double(args[2]))};
-                    }
-                    case 4: {
-                        auto fn = reinterpret_cast<double(*)(double, double, double, double)>(raw);
-                        return CellValue{fn(to_double(args[0]), to_double(args[1]), to_double(args[2]), to_double(args[3]))};
-                    }
-                    default:
-                        return CellValue{CellError::VALUE};
+                    // libffi or a generic calling convention would be needed.
+                    switch (nargs) {
+                        case 0: {
+                            auto fn = reinterpret_cast<double (*)()>(raw);
+                            return CellValue{fn()};
+                        }
+                        case 1: {
+                            auto fn = reinterpret_cast<double (*)(double)>(raw);
+                            return CellValue{fn(to_double(args[0]))};
+                        }
+                        case 2: {
+                            auto fn = reinterpret_cast<double (*)(double, double)>(raw);
+                            return CellValue{fn(to_double(args[0]), to_double(args[1]))};
+                        }
+                        case 3: {
+                            auto fn = reinterpret_cast<double (*)(double, double, double)>(raw);
+                            return CellValue{
+                                fn(to_double(args[0]), to_double(args[1]), to_double(args[2]))};
+                        }
+                        case 4: {
+                            auto fn =
+                                reinterpret_cast<double (*)(double, double, double, double)>(raw);
+                            return CellValue{fn(to_double(args[0]), to_double(args[1]),
+                                                to_double(args[2]), to_double(args[3]))};
+                        }
+                        default:
+                            return CellValue{CellError::VALUE};
                     }
                 });
         }
@@ -309,9 +315,9 @@ bool PluginManager::load_python(const std::string& path) {
             auto inst = instance;
             std::string fn_name = fd.name;
             register_ifunc_bridge(registry_, fd.name, fd.min_args, fd.max_args,
-                [inst, fn_name](const std::vector<CellValue>& args) {
-                    return inst->call(fn_name, args);
-                });
+                                  [inst, fn_name](const std::vector<CellValue>& args) {
+                                      return inst->call(fn_name, args);
+                                  });
         }
 
         py_plugins_.push_back(std::move(instance));
@@ -319,8 +325,8 @@ bool PluginManager::load_python(const std::string& path) {
         std::cout << "[PluginManager] Loaded Python plugin: " << loaded_.back().name << "\n";
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[PluginManager] Failed to load Python plugin: " << path
-                  << " — " << e.what() << "\n";
+        std::cerr << "[PluginManager] Failed to load Python plugin: " << path << " — " << e.what()
+                  << "\n";
         return false;
     }
 }

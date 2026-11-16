@@ -2,24 +2,26 @@
 // unit readable (issue #17). Same class, same behaviour, and no declaration in
 // MainWindow.hpp changed. Sheet tabs and status bar.
 
-#include "ui/MainWindow.hpp"
-#include "session/SessionState.hpp"
-#include "session/AutoSave.hpp"
-#include "core/ConditionalFormat.hpp"
-#include "core/FillPattern.hpp"
-#include "core/Workbook.hpp"
-#include "services/Clipboard.hpp"
-#include "formula/AsyncRecalcEngine.hpp"
-#include "io/CsvIO.hpp"
-#include "io/WorkbookIO.hpp"
-#include "util/Sha256.hpp"
-#include <nfd.hpp>
 #include <imgui.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <nfd.hpp>
+
+#include "core/ConditionalFormat.hpp"
+#include "core/FillPattern.hpp"
+#include "core/Workbook.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
+#include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
+#include "services/Clipboard.hpp"
+#include "session/AutoSave.hpp"
+#include "session/SessionState.hpp"
+#include "ui/MainWindow.hpp"
+#include "util/Sha256.hpp"
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -33,9 +35,8 @@ void MainWindow::render_sheet_tabs(SessionState& state) {
     if (ImGui::BeginTabBar("##sheets")) {
         for (int i = 0; i < state.workbook.sheet_count(); ++i) {
             bool selected = (i == state.workbook.active_index());
-            if (ImGui::BeginTabItem(state.workbook.sheet(i).name().c_str(),
-                                     nullptr,
-                                     selected ? ImGuiTabItemFlags_SetSelected : 0)) {
+            if (ImGui::BeginTabItem(state.workbook.sheet(i).name().c_str(), nullptr,
+                                    selected ? ImGuiTabItemFlags_SetSelected : 0)) {
                 if (!selected) state.workbook.set_active(i);
                 ImGui::EndTabItem();
             }
@@ -54,12 +55,23 @@ void MainWindow::render_status_bar(SessionState& state, Sheet& sheet) {
     auto fmt = as.format_map.get(grid_state_.selection.selected_cell);
     const char* fmt_name = "General";
     switch (fmt.type) {
-        case FormatType::NUMBER: fmt_name = "Number"; break;
-        case FormatType::PERCENTAGE: fmt_name = "%"; break;
-        case FormatType::CURRENCY: fmt_name = "$"; break;
-        case FormatType::SCIENTIFIC: fmt_name = "Sci"; break;
-        case FormatType::DATE: fmt_name = "Date"; break;
-        default: break;
+        case FormatType::NUMBER:
+            fmt_name = "Number";
+            break;
+        case FormatType::PERCENTAGE:
+            fmt_name = "%";
+            break;
+        case FormatType::CURRENCY:
+            fmt_name = "$";
+            break;
+        case FormatType::SCIENTIFIC:
+            fmt_name = "Sci";
+            break;
+        case FormatType::DATE:
+            fmt_name = "Date";
+            break;
+        default:
+            break;
     }
 
     if (grid_state_.selection.has_range) {
@@ -85,9 +97,10 @@ void MainWindow::render_status_bar(SessionState& state, Sheet& sheet) {
         cached_has_range_ = true;
         int zoom_pct = static_cast<int>(zoom_ * 100.0f + 0.5f);
         if (cached_count_ > 0) {
-            ImGui::Text("Cell: %s:%s  |  SUM: %.4g  AVG: %.4g  COUNT: %d  |  Format: %s  |  Zoom: %d%%",
-                        smin.to_a1().c_str(), smax.to_a1().c_str(),
-                        cached_sum_, cached_sum_ / cached_count_, cached_count_, fmt_name, zoom_pct);
+            ImGui::Text(
+                "Cell: %s:%s  |  SUM: %.4g  AVG: %.4g  COUNT: %d  |  Format: %s  |  Zoom: %d%%",
+                smin.to_a1().c_str(), smax.to_a1().c_str(), cached_sum_,
+                cached_sum_ / cached_count_, cached_count_, fmt_name, zoom_pct);
         } else {
             ImGui::Text("Cell: %s:%s  |  COUNT: 0  |  Format: %s  |  Zoom: %d%%",
                         smin.to_a1().c_str(), smax.to_a1().c_str(), fmt_name, zoom_pct);
@@ -96,11 +109,8 @@ void MainWindow::render_status_bar(SessionState& state, Sheet& sheet) {
         cached_has_range_ = false;
         int zoom_pct = static_cast<int>(zoom_ * 100.0f + 0.5f);
         ImGui::Text("Cell: %s  |  Format: %s  |  Sheets: %d  |  Rows: %d  |  Zoom: %d%%",
-                    grid_state_.selection.selected_cell.to_a1().c_str(),
-                    fmt_name,
-                    state.workbook.sheet_count(),
-                    sheet.row_count(),
-                    zoom_pct);
+                    grid_state_.selection.selected_cell.to_a1().c_str(), fmt_name,
+                    state.workbook.sheet_count(), sheet.row_count(), zoom_pct);
     }
 }
 

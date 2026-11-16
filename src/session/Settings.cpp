@@ -1,8 +1,10 @@
 #include "session/Settings.hpp"
-#include "util/ConfigDir.hpp"
+
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+
+#include "util/ConfigDir.hpp"
 
 namespace magic {
 
@@ -14,14 +16,12 @@ std::string Settings::settings_path() {
 
 void Settings::add_recent_file(const std::string& path) {
     // Remove if already present
-    recent_files_.erase(
-        std::remove(recent_files_.begin(), recent_files_.end(), path),
-        recent_files_.end());
+    recent_files_.erase(std::remove(recent_files_.begin(), recent_files_.end(), path),
+                        recent_files_.end());
     // Insert at front
     recent_files_.insert(recent_files_.begin(), path);
     // Keep max 10
-    if (recent_files_.size() > 10)
-        recent_files_.resize(10);
+    if (recent_files_.size() > 10) recent_files_.resize(10);
     save();
 }
 
@@ -33,10 +33,18 @@ static std::string escape_json(const std::string& s) {
     out += '"';
     for (char c : s) {
         switch (c) {
-            case '"': out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            default: out += c; break;
+            case '"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            default:
+                out += c;
+                break;
         }
     }
     out += '"';
@@ -133,14 +141,15 @@ bool Settings::load() {
                     for (size_t i = q1 + 1; i < q2; ++i) {
                         if (arr[i] == '\\' && i + 1 < q2) {
                             ++i;
-                            if (arr[i] == 'n') file += '\n';
-                            else file += arr[i];
+                            if (arr[i] == 'n')
+                                file += '\n';
+                            else
+                                file += arr[i];
                         } else {
                             file += arr[i];
                         }
                     }
-                    if (!file.empty())
-                        recent_files_.push_back(file);
+                    if (!file.empty()) recent_files_.push_back(file);
                 }
                 pos = q2 + 1;
             }

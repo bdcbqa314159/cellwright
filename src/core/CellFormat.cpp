@@ -1,8 +1,10 @@
 #include "core/CellFormat.hpp"
-#include "core/DateSerial.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+
+#include "core/DateSerial.hpp"
 
 namespace magic {
 
@@ -35,7 +37,8 @@ std::string format_value(const CellValue& val, const CellFormat& fmt) {
 
         case FormatType::CURRENCY: {
             char buf[256];
-            std::snprintf(buf, sizeof(buf), "%s%.*f", fmt.currency_symbol.c_str(), decimals, std::abs(d));
+            std::snprintf(buf, sizeof(buf), "%s%.*f", fmt.currency_symbol.c_str(), decimals,
+                          std::abs(d));
             if (d < 0) return std::string("-") + buf;
             return buf;
         }
@@ -68,13 +71,9 @@ CellFormat FormatMap::get(const CellAddress& addr) const {
     return {};
 }
 
-void FormatMap::clear(const CellAddress& addr) {
-    formats_.erase(addr);
-}
+void FormatMap::clear(const CellAddress& addr) { formats_.erase(addr); }
 
-bool FormatMap::has(const CellAddress& addr) const {
-    return formats_.contains(addr);
-}
+bool FormatMap::has(const CellAddress& addr) const { return formats_.contains(addr); }
 
 void FormatMap::shift_rows(int32_t at, int32_t delta) {
     std::unordered_map<CellAddress, CellFormat> shifted;

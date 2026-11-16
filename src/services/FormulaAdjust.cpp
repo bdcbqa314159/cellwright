@@ -1,7 +1,9 @@
 #include "services/FormulaAdjust.hpp"
+
+#include <sstream>
+
 #include "core/CellAddress.hpp"
 #include "formula/Tokenizer.hpp"
-#include <sstream>
 
 namespace magic {
 
@@ -11,9 +13,14 @@ static void parse_abs_markers(const std::string& text, bool& col_abs, bool& row_
     col_abs = false;
     row_abs = false;
     size_t i = 0;
-    if (i < text.size() && text[i] == '$') { col_abs = true; ++i; }
+    if (i < text.size() && text[i] == '$') {
+        col_abs = true;
+        ++i;
+    }
     while (i < text.size() && std::isalpha(static_cast<unsigned char>(text[i]))) ++i;
-    if (i < text.size() && text[i] == '$') { row_abs = true; }
+    if (i < text.size() && text[i] == '$') {
+        row_abs = true;
+    }
 }
 
 // Rebuild A1 reference preserving $ markers.
@@ -26,7 +33,8 @@ static std::string to_a1_with_abs(const CellAddress& addr, bool col_abs, bool ro
     return result;
 }
 
-static std::string adjust_refs_impl(const std::string& formula, bool is_row, int32_t at, int32_t delta) {
+static std::string adjust_refs_impl(const std::string& formula, bool is_row, int32_t at,
+                                    int32_t delta) {
     try {
         auto tokens = Tokenizer::tokenize(formula);
         std::ostringstream out;

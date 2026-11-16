@@ -1,7 +1,8 @@
 #pragma once
+#include <string>
+
 #include "session/SessionState.hpp"
 #include "ui/MainWindow.hpp"
-#include <string>
 
 struct GLFWwindow;
 

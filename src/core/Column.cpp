@@ -1,7 +1,9 @@
 #include "core/Column.hpp"
-#include "core/SimdOps.hpp"
+
 #include <cmath>
 #include <limits>
+
+#include "core/SimdOps.hpp"
 
 namespace magic {
 
@@ -34,8 +36,7 @@ void Column::set(int32_t row, const CellValue& val) {
         doubles_[row] = as_number(val);
     } else if (is_empty(val)) {
         non_numeric_.erase(row);
-        if (row < static_cast<int32_t>(doubles_.size()))
-            doubles_[row] = EMPTY_SENTINEL;
+        if (row < static_cast<int32_t>(doubles_.size())) doubles_[row] = EMPTY_SENTINEL;
     } else {
         ensure_row(row);
         doubles_[row] = EMPTY_SENTINEL;
@@ -46,13 +47,10 @@ void Column::set(int32_t row, const CellValue& val) {
 void Column::clear(int32_t row) {
     if (row < 0) return;
     non_numeric_.erase(row);
-    if (row < static_cast<int32_t>(doubles_.size()))
-        doubles_[row] = EMPTY_SENTINEL;
+    if (row < static_cast<int32_t>(doubles_.size())) doubles_[row] = EMPTY_SENTINEL;
 }
 
-int32_t Column::size() const {
-    return static_cast<int32_t>(doubles_.size());
-}
+int32_t Column::size() const { return static_cast<int32_t>(doubles_.size()); }
 
 void Column::insert_row(int32_t at) {
     if (at < 0) return;
@@ -76,8 +74,7 @@ void Column::insert_row(int32_t at) {
 void Column::delete_row(int32_t at) {
     if (at < 0) return;
     // Remove from doubles_
-    if (at < static_cast<int32_t>(doubles_.size()))
-        doubles_.erase(doubles_.begin() + at);
+    if (at < static_cast<int32_t>(doubles_.size())) doubles_.erase(doubles_.begin() + at);
 
     // Remove from non_numeric_ and shift keys > at
     non_numeric_.erase(at);

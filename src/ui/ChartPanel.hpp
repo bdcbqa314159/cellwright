@@ -1,8 +1,9 @@
 #pragma once
 
+#include <imgui.h>
+
 #include <string>
 #include <vector>
-#include <imgui.h>
 
 namespace magic {
 
@@ -25,7 +26,7 @@ private:
 
     bool visible_ = false;
     ChartType chart_type_ = ChartType::Line;
-    int x_col_ = -1;   // -1 = use row index
+    int x_col_ = -1;  // -1 = use row index
 
     std::vector<bool> y_col_selected_;  // one bool per column (multi-select)
 

@@ -1,5 +1,6 @@
-#include "app/App.hpp"
 #include <iostream>
+
+#include "app/App.hpp"
 
 int main(int argc, char** argv) {
     try {

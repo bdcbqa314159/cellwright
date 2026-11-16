@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/CellAddress.hpp"
 
 using namespace magic;

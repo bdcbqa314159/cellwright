@@ -1,15 +1,16 @@
 #pragma once
-#include "core/CellAddress.hpp"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include "core/CellAddress.hpp"
 
 namespace magic {
 
 // Result of recalc_order(): separated topological order and cycle cells.
 struct RecalcPlan {
-    std::vector<CellAddress> order;                   // valid topological recalc order
-    std::unordered_set<CellAddress> cycles;           // cells involved in circular deps
+    std::vector<CellAddress> order;          // valid topological recalc order
+    std::unordered_set<CellAddress> cycles;  // cells involved in circular deps
 };
 
 class DependencyGraph {

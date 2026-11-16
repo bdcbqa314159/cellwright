@@ -4,29 +4,29 @@
 namespace magic {
 
 enum class TokenType {
-    NUMBER,      // 3.14
-    STRING,      // "hello"
-    CELLREF,     // A1
-    SHEETREF,    // Sheet2!A1 (text = "Sheet2", followed by CELLREF)
-    RANGE,       // A1:B10 (represented as two CELLREFs with COLON between)
-    COLON,       // :
-    BANG,        // !
-    FUNC,        // SUM, IF, etc. (identifier followed by '(')
-    IDENT,       // TRUE, FALSE, or unknown identifier
-    LPAREN,      // (
-    RPAREN,      // )
-    COMMA,       // ,
-    PLUS,        // +
-    MINUS,       // -
-    STAR,        // *
-    SLASH,       // /
-    CARET,       // ^
-    EQ,          // =
-    NEQ,         // <>
-    LT,          // <
-    GT,          // >
-    LTE,         // <=
-    GTE,         // >=
+    NUMBER,    // 3.14
+    STRING,    // "hello"
+    CELLREF,   // A1
+    SHEETREF,  // Sheet2!A1 (text = "Sheet2", followed by CELLREF)
+    RANGE,     // A1:B10 (represented as two CELLREFs with COLON between)
+    COLON,     // :
+    BANG,      // !
+    FUNC,      // SUM, IF, etc. (identifier followed by '(')
+    IDENT,     // TRUE, FALSE, or unknown identifier
+    LPAREN,    // (
+    RPAREN,    // )
+    COMMA,     // ,
+    PLUS,      // +
+    MINUS,     // -
+    STAR,      // *
+    SLASH,     // /
+    CARET,     // ^
+    EQ,        // =
+    NEQ,       // <>
+    LT,        // <
+    GT,        // >
+    LTE,       // <=
+    GTE,       // >=
     END,
 };
 

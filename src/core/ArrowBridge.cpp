@@ -1,7 +1,4 @@
 #include "core/ArrowBridge.hpp"
-#include "core/CellAddress.hpp"
-#include "core/CellValue.hpp"
-#include "core/Sheet.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -9,6 +6,10 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+
+#include "core/CellAddress.hpp"
+#include "core/CellValue.hpp"
+#include "core/Sheet.hpp"
 
 #ifndef ARROW_FLAG_NULLABLE
 #define ARROW_FLAG_NULLABLE 2
@@ -18,17 +19,13 @@ namespace magic {
 
 // ── Validity bitmap helpers ─────────────────────────────────────
 
-static size_t bitmap_byte_count(int64_t n) {
-    return static_cast<size_t>((n + 7) / 8);
-}
+static size_t bitmap_byte_count(int64_t n) { return static_cast<size_t>((n + 7) / 8); }
 
 static void bitmap_set(uint8_t* bitmap, int64_t i) {
     bitmap[i / 8] |= static_cast<uint8_t>(1u << (i % 8));
 }
 
-static bool bitmap_get(const uint8_t* bitmap, int64_t i) {
-    return (bitmap[i / 8] >> (i % 8)) & 1;
-}
+static bool bitmap_get(const uint8_t* bitmap, int64_t i) { return (bitmap[i / 8] >> (i % 8)) & 1; }
 
 // ── Private data for release callbacks ──────────────────────────
 
@@ -186,11 +183,8 @@ void export_sheet_to_arrow(const Sheet& sheet, ArrowSchema* schema, ArrowArray* 
 
 // ── Import ──────────────────────────────────────────────────────
 
-Sheet import_sheet_from_arrow(
-    const ArrowSchema* schema,
-    const ArrowArray* array,
-    const std::string& sheet_name)
-{
+Sheet import_sheet_from_arrow(const ArrowSchema* schema, const ArrowArray* array,
+                              const std::string& sheet_name) {
     if (!schema || !array)
         throw std::invalid_argument("import_sheet_from_arrow: null schema or array");
     if (!schema->format || std::strcmp(schema->format, "+s") != 0)
@@ -219,11 +213,10 @@ Sheet import_sheet_from_arrow(
         }
 
         const auto* validity = (ca->n_buffers >= 1 && ca->buffers[0])
-            ? static_cast<const uint8_t*>(ca->buffers[0])
-            : nullptr;
-        const auto* values = (ca->n_buffers >= 2)
-            ? static_cast<const double*>(ca->buffers[1])
-            : nullptr;
+                                   ? static_cast<const uint8_t*>(ca->buffers[0])
+                                   : nullptr;
+        const auto* values =
+            (ca->n_buffers >= 2) ? static_cast<const double*>(ca->buffers[1]) : nullptr;
 
         if (!values) continue;
 
@@ -233,8 +226,7 @@ Sheet import_sheet_from_arrow(
             int64_t idx = r + offset;
             bool valid = !validity || bitmap_get(validity, idx);
             if (valid) {
-                sheet.set_value({c, r},
-                                CellValue{values[idx]});
+                sheet.set_value({c, r}, CellValue{values[idx]});
             }
             // Invalid (null) entries remain as empty (monostate)
         }

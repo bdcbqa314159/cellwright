@@ -1,5 +1,7 @@
 #include "ui/ToastManager.hpp"
+
 #include <imgui.h>
+
 #include <algorithm>
 
 namespace magic {
@@ -36,15 +38,12 @@ void ToastManager::render() {
 
         // Fade out during last 0.5s
         float alpha = 1.0f;
-        if (remaining < 0.5)
-            alpha = std::max(0.0f, static_cast<float>(remaining / 0.5));
+        if (remaining < 0.5) alpha = std::max(0.0f, static_cast<float>(remaining / 0.5));
 
         ImGui::SetNextWindowBgAlpha(0.85f * alpha);
-        ImGui::SetNextWindowPos(
-            ImVec2(vp->WorkPos.x + vp->WorkSize.x - padding,
-                   vp->WorkPos.y + vp->WorkSize.y - y_offset),
-            ImGuiCond_Always,
-            ImVec2(1.0f, 1.0f)  // anchor bottom-right
+        ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x - padding,
+                                       vp->WorkPos.y + vp->WorkSize.y - y_offset),
+                                ImGuiCond_Always, ImVec2(1.0f, 1.0f)  // anchor bottom-right
         );
 
         char label[32];
@@ -53,12 +52,9 @@ void ToastManager::render() {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 8));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, alpha));
         if (ImGui::Begin(label, nullptr,
-                         ImGuiWindowFlags_NoDecoration |
-                         ImGuiWindowFlags_AlwaysAutoResize |
-                         ImGuiWindowFlags_NoNav |
-                         ImGuiWindowFlags_NoFocusOnAppearing |
-                         ImGuiWindowFlags_NoSavedSettings |
-                         ImGuiWindowFlags_NoDocking)) {
+                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                             ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing |
+                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking)) {
             ImGui::TextUnformatted(t.message.c_str());
         }
         float win_h = ImGui::GetWindowSize().y;

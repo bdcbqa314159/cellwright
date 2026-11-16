@@ -1,5 +1,7 @@
 #include "plugin/DropHandler.hpp"
+
 #include <GLFW/glfw3.h>
+
 #include <filesystem>
 #include <iostream>
 
@@ -14,9 +16,7 @@ void DropHandler::install(GLFWwindow* window, LoadCallback callback) {
     glfwSetDropCallback(window, glfw_drop_callback);
 }
 
-void DropHandler::uninstall() {
-    callback_ = nullptr;
-}
+void DropHandler::uninstall() { callback_ = nullptr; }
 
 void DropHandler::glfw_drop_callback(GLFWwindow*, int count, const char** paths) {
     for (int i = 0; i < count; ++i) {

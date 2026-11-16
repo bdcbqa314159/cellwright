@@ -2,24 +2,26 @@
 // unit readable (issue #17). Same class, same behaviour, and no declaration in
 // MainWindow.hpp changed. Modal windows.
 
-#include "ui/MainWindow.hpp"
-#include "session/SessionState.hpp"
-#include "session/AutoSave.hpp"
-#include "core/ConditionalFormat.hpp"
-#include "core/FillPattern.hpp"
-#include "core/Workbook.hpp"
-#include "services/Clipboard.hpp"
-#include "formula/AsyncRecalcEngine.hpp"
-#include "io/CsvIO.hpp"
-#include "io/WorkbookIO.hpp"
-#include "util/Sha256.hpp"
-#include <nfd.hpp>
 #include <imgui.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <nfd.hpp>
+
+#include "core/ConditionalFormat.hpp"
+#include "core/FillPattern.hpp"
+#include "core/Workbook.hpp"
+#include "formula/AsyncRecalcEngine.hpp"
+#include "io/CsvIO.hpp"
+#include "io/WorkbookIO.hpp"
+#include "services/Clipboard.hpp"
+#include "session/AutoSave.hpp"
+#include "session/SessionState.hpp"
+#include "ui/MainWindow.hpp"
+#include "util/Sha256.hpp"
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -31,8 +33,7 @@ namespace magic {
 
 void MainWindow::render_modals(SessionState& state) {
     // Unsaved changes modal
-    if (show_dirty_new_modal_ || wants_close_)
-        ImGui::OpenPopup("Unsaved Changes");
+    if (show_dirty_new_modal_ || wants_close_) ImGui::OpenPopup("Unsaved Changes");
     if (ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("You have unsaved changes. Discard them?");
         ImGui::Spacing();
@@ -56,8 +57,7 @@ void MainWindow::render_modals(SessionState& state) {
     }
 
     // Paste Special modal (Ctrl+Shift+V)
-    if (show_paste_special_)
-        ImGui::OpenPopup("Paste Special");
+    if (show_paste_special_) ImGui::OpenPopup("Paste Special");
     if (ImGui::BeginPopupModal("Paste Special", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Choose paste mode:");
         ImGui::Spacing();
@@ -119,9 +119,9 @@ void MainWindow::render_modals(SessionState& state) {
     }
 
     // Recovery modal — shown on startup if a recovery file exists
-    if (state.show_recovery_modal)
-        ImGui::OpenPopup("Recover Unsaved Work?");
-    if (ImGui::BeginPopupModal("Recover Unsaved Work?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (state.show_recovery_modal) ImGui::OpenPopup("Recover Unsaved Work?");
+    if (ImGui::BeginPopupModal("Recover Unsaved Work?", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("A recovery file was found from a previous session.");
         ImGui::Text("Would you like to restore it?");
         ImGui::Spacing();
@@ -172,12 +172,10 @@ void MainWindow::render_cond_format_editor(SessionState& state) {
             std::snprintf(col_label, sizeof(col_label), "%s",
                           CellAddress::col_to_letters(rule.column).c_str());
         if (ImGui::BeginCombo("##col", col_label)) {
-            if (ImGui::Selectable("All", rule.column == -1))
-                rule.column = -1;
+            if (ImGui::Selectable("All", rule.column == -1)) rule.column = -1;
             for (int32_t c = 0; c < 26; ++c) {
                 auto lbl = CellAddress::col_to_letters(c);
-                if (ImGui::Selectable(lbl.c_str(), rule.column == c))
-                    rule.column = c;
+                if (ImGui::Selectable(lbl.c_str(), rule.column == c)) rule.column = c;
             }
             ImGui::EndCombo();
         }
@@ -185,33 +183,30 @@ void MainWindow::render_cond_format_editor(SessionState& state) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(50);
         int op_idx = static_cast<int>(rule.op);
-        if (ImGui::Combo("##op", &op_idx, op_names, 6))
-            rule.op = static_cast<ConditionOp>(op_idx);
+        if (ImGui::Combo("##op", &op_idx, op_names, 6)) rule.op = static_cast<ConditionOp>(op_idx);
 
         ImGui::SameLine();
         ImGui::SetNextItemWidth(80);
         ImGui::InputDouble("##val", &rule.threshold, 0, 0, "%.2f");
 
         ImGui::SameLine();
-        float color[4] = {rule.color.r / 255.0f, rule.color.g / 255.0f,
-                           rule.color.b / 255.0f, rule.color.a / 255.0f};
+        float color[4] = {rule.color.r / 255.0f, rule.color.g / 255.0f, rule.color.b / 255.0f,
+                          rule.color.a / 255.0f};
         ImGui::SetNextItemWidth(40);
-        if (ImGui::ColorEdit4("##clr", color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
-            rule.color = {static_cast<uint8_t>(color[0] * 255),
-                          static_cast<uint8_t>(color[1] * 255),
-                          static_cast<uint8_t>(color[2] * 255),
-                          static_cast<uint8_t>(color[3] * 255)};
+        if (ImGui::ColorEdit4("##clr", color,
+                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+            rule.color = {
+                static_cast<uint8_t>(color[0] * 255), static_cast<uint8_t>(color[1] * 255),
+                static_cast<uint8_t>(color[2] * 255), static_cast<uint8_t>(color[3] * 255)};
         }
 
         ImGui::SameLine();
-        if (ImGui::SmallButton("X"))
-            to_remove = static_cast<int>(i);
+        if (ImGui::SmallButton("X")) to_remove = static_cast<int>(i);
 
         ImGui::PopID();
     }
 
-    if (to_remove >= 0)
-        store.remove_rule(static_cast<std::size_t>(to_remove));
+    if (to_remove >= 0) store.remove_rule(static_cast<std::size_t>(to_remove));
 
     ImGui::Separator();
     if (ImGui::Button("Add Rule")) {

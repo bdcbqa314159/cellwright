@@ -1,14 +1,13 @@
 #include <gtest/gtest.h>
+
 #include "ui/FramebufferRect.hpp"
 
 using namespace magic;
 
 // Reproduces the pre-fix arithmetic so the regression is pinned by a test that
 // demonstrably distinguishes the two, rather than only asserting the new values.
-static int buggy_y(float win_y_from_top, float win_h, float viewport_h_logical,
-                   float scale_y) {
-    return static_cast<int>(
-        (viewport_h_logical / scale_y - win_y_from_top - win_h) * scale_y);
+static int buggy_y(float win_y_from_top, float win_h, float viewport_h_logical, float scale_y) {
+    return static_cast<int>((viewport_h_logical / scale_y - win_y_from_top - win_h) * scale_y);
 }
 
 TEST(FramebufferRect, UnscaledDisplayIsUnchanged) {

@@ -109,9 +109,10 @@ python3 -m venv .venv
 .venv/bin/clang-format -i $(git ls-files '*.hpp' '*.cpp' '*.h')
 ```
 
-The tree is **not** currently formatted to `.clang-format` — doing so touches 130
-files / 4127 lines, deferred as [OPEN.md](OPEN.md) #14. Editors pick the config up
-for new code regardless.
+The tree **is** formatted to `.clang-format`, so this should be a no-op. Use the pinned
+`clang-format` from `.venv` — versions disagree, and a different one will produce a
+spurious diff. `src/util/stb_image_write.h` is vendored and carries a
+`// clang-format off` guard; leave it byte-stable against upstream.
 
 ### Platform dependencies
 

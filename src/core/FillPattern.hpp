@@ -1,9 +1,10 @@
 #pragma once
-#include "core/CellValue.hpp"
-#include "core/CellAddress.hpp"
-#include "core/Sheet.hpp"
 #include <cmath>
 #include <vector>
+
+#include "core/CellAddress.hpp"
+#include "core/CellValue.hpp"
+#include "core/Sheet.hpp"
 
 namespace magic {
 
@@ -23,17 +24,16 @@ struct FillPattern {
 // the source cell. Examines up to `lookback` cells.
 // axis: true = vertical (filling rows), false = horizontal (filling columns).
 // Returns Arithmetic if a consistent numeric step is found, Repeat otherwise.
-inline FillPattern detect_pattern(const Sheet& sheet, const CellAddress& src,
-                                   bool vertical, int lookback = 3) {
+inline FillPattern detect_pattern(const Sheet& sheet, const CellAddress& src, bool vertical,
+                                  int lookback = 3) {
     FillPattern result;
     result.kind = FillPattern::Kind::Repeat;
 
     // Collect numeric values leading up to (and including) the source cell
     std::vector<double> values;
     for (int i = lookback; i >= 0; --i) {
-        CellAddress addr = vertical
-            ? CellAddress{src.col, src.row - i}
-            : CellAddress{src.col - i, src.row};
+        CellAddress addr =
+            vertical ? CellAddress{src.col, src.row - i} : CellAddress{src.col - i, src.row};
         if (addr.col < 0 || addr.row < 0) continue;
         CellValue val = sheet.get_value(addr);
         if (is_number(val))

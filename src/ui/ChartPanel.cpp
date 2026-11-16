@@ -1,7 +1,4 @@
 #include "ui/ChartPanel.hpp"
-#include "ui/FramebufferRect.hpp"
-#include "core/Sheet.hpp"
-#include "core/CellAddress.hpp"
 
 #include <imgui.h>
 #include <implot.h>
@@ -13,6 +10,10 @@
 #include <string>
 #include <vector>
 
+#include "core/CellAddress.hpp"
+#include "core/Sheet.hpp"
+#include "ui/FramebufferRect.hpp"
+
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else
@@ -22,17 +23,17 @@
 // stb_image_write.h is vendored third-party code: silence its diagnostics here
 // rather than dropping -Wall/-Wextra for our own sources (OPEN.md #11).
 #if defined(__clang__) || defined(__GNUC__)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #elif defined(_MSC_VER)
-#  pragma warning(push, 0)
+#pragma warning(push, 0)
 #endif
 #include "util/stb_image_write.h"
 #if defined(__clang__) || defined(__GNUC__)
-#  pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #elif defined(_MSC_VER)
-#  pragma warning(pop)
+#pragma warning(pop)
 #endif
 #include <nfd.hpp>
 
@@ -41,12 +42,8 @@ namespace magic {
 static constexpr int kColormapCount = 6;
 static const char* kColormapNames[] = {"Deep", "Dark", "Pastel", "Viridis", "Plasma", "Spectral"};
 static const ImPlotColormap kColormaps[] = {
-    ImPlotColormap_Deep,
-    ImPlotColormap_Dark,
-    ImPlotColormap_Pastel,
-    ImPlotColormap_Viridis,
-    ImPlotColormap_Plasma,
-    ImPlotColormap_Spectral,
+    ImPlotColormap_Deep,    ImPlotColormap_Dark,   ImPlotColormap_Pastel,
+    ImPlotColormap_Viridis, ImPlotColormap_Plasma, ImPlotColormap_Spectral,
 };
 
 void ChartPanel::render(Sheet& sheet) {
@@ -72,8 +69,7 @@ void ChartPanel::render(Sheet& sheet) {
     // swapped to the front buffer before glReadPixels captures it.
     if (export_countdown_ > 0) {
         --export_countdown_;
-        if (export_countdown_ == 0)
-            export_png();
+        if (export_countdown_ == 0) export_png();
     }
 
     ImGui::End();
@@ -97,12 +93,10 @@ void ChartPanel::render_controls(Sheet& sheet) {
         std::string x_preview = (x_col_ < 0) ? "Index" : CellAddress::col_to_letters(x_col_);
         ImGui::SetNextItemWidth(80);
         if (ImGui::BeginCombo("X", x_preview.c_str())) {
-            if (ImGui::Selectable("Index", x_col_ < 0))
-                x_col_ = -1;
+            if (ImGui::Selectable("Index", x_col_ < 0)) x_col_ = -1;
             for (int c = 0; c < num_cols; ++c) {
                 std::string label = CellAddress::col_to_letters(c);
-                if (ImGui::Selectable(label.c_str(), x_col_ == c))
-                    x_col_ = c;
+                if (ImGui::Selectable(label.c_str(), x_col_ == c)) x_col_ = c;
             }
             ImGui::EndCombo();
         }
@@ -115,7 +109,8 @@ void ChartPanel::render_controls(Sheet& sheet) {
     if (static_cast<int>(y_col_selected_.size()) > num_cols)
         y_col_selected_.resize(static_cast<size_t>(num_cols));
     y_col_selected_.resize(static_cast<size_t>(num_cols), false);
-    if (num_cols > 0 && std::none_of(y_col_selected_.begin(), y_col_selected_.end(), [](bool v){ return v; })) {
+    if (num_cols > 0 &&
+        std::none_of(y_col_selected_.begin(), y_col_selected_.end(), [](bool v) { return v; })) {
         y_col_selected_[0] = true;  // default: select first column
     }
 
@@ -149,8 +144,7 @@ void ChartPanel::render_style_controls() {
     ImGui::SameLine();
     ImGui::Checkbox("Min/Max annotations", &show_annotations_);
 
-    if (chart_type_ == ChartType::Bar)
-        ImGui::Checkbox("Stacked bars", &stacked_);
+    if (chart_type_ == ChartType::Bar) ImGui::Checkbox("Stacked bars", &stacked_);
     ImGui::Checkbox("Log scale (Y)", &log_scale_);
     ImGui::SameLine();
     ImGui::Checkbox("Grid lines", &show_grid_lines_);
@@ -170,8 +164,8 @@ void ChartPanel::render_plot(Sheet& sheet) {
     if (ImPlot::BeginPlot(plot_title, ImVec2(-1, -1))) {
         // Capture plot area for PNG export
         plot_min_ = ImPlot::GetPlotPos();
-        plot_max_ = ImVec2(plot_min_.x + ImPlot::GetPlotSize().x,
-                           plot_min_.y + ImPlot::GetPlotSize().y);
+        plot_max_ =
+            ImVec2(plot_min_.x + ImPlot::GetPlotSize().x, plot_min_.y + ImPlot::GetPlotSize().y);
         ImPlotAxisFlags x_flags = ImPlotAxisFlags_AutoFit;
         ImPlotAxisFlags y_flags = ImPlotAxisFlags_AutoFit;
         if (!show_grid_lines_) {
@@ -179,8 +173,7 @@ void ChartPanel::render_plot(Sheet& sheet) {
             y_flags |= ImPlotAxisFlags_NoGridLines;
         }
         ImPlot::SetupAxes(x_label_, y_label_, x_flags, y_flags);
-        if (log_scale_)
-            ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
+        if (log_scale_) ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
         ImPlot::SetupLegend(ImPlotLocation_NorthEast);
 
         ImPlotSpec spec;
@@ -196,7 +189,8 @@ void ChartPanel::render_plot(Sheet& sheet) {
             // Collect selected Y column indices
             std::vector<int> y_cols;
             for (int c = 0; c < sheet.col_count(); ++c) {
-                if (static_cast<size_t>(c) < y_col_selected_.size() && y_col_selected_[static_cast<size_t>(c)])
+                if (static_cast<size_t>(c) < y_col_selected_.size() &&
+                    y_col_selected_[static_cast<size_t>(c)])
                     y_cols.push_back(c);
             }
             if (!y_cols.empty()) {
@@ -209,7 +203,8 @@ void ChartPanel::render_plot(Sheet& sheet) {
                     label_strs.push_back(CellAddress::col_to_letters(c));
                     labels.push_back(label_strs.back().c_str());
                 }
-                // Build flat row-major data: [series0_group0, series0_group1, ..., series1_group0, ...]
+                // Build flat row-major data: [series0_group0, series0_group1, ..., series1_group0,
+                // ...]
                 std::vector<double> data(static_cast<size_t>(item_count * num_rows), 0.0);
                 for (int si = 0; si < item_count; ++si) {
                     const auto& col_data = sheet.column(y_cols[si]).doubles();
@@ -220,81 +215,82 @@ void ChartPanel::render_plot(Sheet& sheet) {
                 }
                 ImPlotSpec bar_spec;
                 bar_spec.Flags = ImPlotBarGroupsFlags_Stacked;
-                ImPlot::PlotBarGroups(labels.data(), data.data(), item_count, num_rows, 0.67, 0, bar_spec);
+                ImPlot::PlotBarGroups(labels.data(), data.data(), item_count, num_rows, 0.67, 0,
+                                      bar_spec);
             }
         } else {
+            for (int c = 0; c < sheet.col_count(); ++c) {
+                if (static_cast<size_t>(c) >= y_col_selected_.size() ||
+                    !y_col_selected_[static_cast<size_t>(c)])
+                    continue;
 
-        for (int c = 0; c < sheet.col_count(); ++c) {
-            if (static_cast<size_t>(c) >= y_col_selected_.size() || !y_col_selected_[static_cast<size_t>(c)])
-                continue;
+                const auto& y_doubles = sheet.column(c).doubles();
 
-            const auto& y_doubles = sheet.column(c).doubles();
-
-            // Build xs/ys, filtering out NaN entries
-            std::vector<double> xs, ys;
-            if (x_col_ >= 0 && x_col_ < sheet.col_count()) {
-                const auto& x_doubles = sheet.column(x_col_).doubles();
-                // Cast is safe: size is bounded by sheet dimensions (MAX_ROW)
-                int n = static_cast<int>(std::min(x_doubles.size(), y_doubles.size()));
-                for (int i = 0; i < n; ++i) {
-                    if (!std::isnan(x_doubles[i]) && !std::isnan(y_doubles[i])) {
-                        xs.push_back(x_doubles[i]);
-                        ys.push_back(y_doubles[i]);
+                // Build xs/ys, filtering out NaN entries
+                std::vector<double> xs, ys;
+                if (x_col_ >= 0 && x_col_ < sheet.col_count()) {
+                    const auto& x_doubles = sheet.column(x_col_).doubles();
+                    // Cast is safe: size is bounded by sheet dimensions (MAX_ROW)
+                    int n = static_cast<int>(std::min(x_doubles.size(), y_doubles.size()));
+                    for (int i = 0; i < n; ++i) {
+                        if (!std::isnan(x_doubles[i]) && !std::isnan(y_doubles[i])) {
+                            xs.push_back(x_doubles[i]);
+                            ys.push_back(y_doubles[i]);
+                        }
+                    }
+                } else {
+                    // Cast is safe: size is bounded by sheet dimensions (MAX_ROW)
+                    for (int i = 0; i < static_cast<int>(y_doubles.size()); ++i) {
+                        if (!std::isnan(y_doubles[i])) {
+                            xs.push_back(static_cast<double>(i));
+                            ys.push_back(y_doubles[i]);
+                        }
                     }
                 }
-            } else {
-                // Cast is safe: size is bounded by sheet dimensions (MAX_ROW)
-                for (int i = 0; i < static_cast<int>(y_doubles.size()); ++i) {
-                    if (!std::isnan(y_doubles[i])) {
-                        xs.push_back(static_cast<double>(i));
-                        ys.push_back(y_doubles[i]);
-                    }
+
+                if (xs.empty()) continue;
+
+                std::string label = CellAddress::col_to_letters(c);
+                int count = static_cast<int>(xs.size());
+
+                // Shade under first series
+                if (shade_under_ && is_first_series) {
+                    ImPlot::PlotShaded(label.c_str(), xs.data(), ys.data(), count, 0.0);
                 }
+
+                switch (chart_type_) {
+                    case ChartType::Line:
+                        ImPlot::PlotLine(label.c_str(), xs.data(), ys.data(), count, spec);
+                        break;
+                    case ChartType::Bar:
+                        ImPlot::PlotBars(label.c_str(), xs.data(), ys.data(), count, 0.67, spec);
+                        break;
+                    case ChartType::Scatter:
+                        ImPlot::PlotScatter(label.c_str(), xs.data(), ys.data(), count, spec);
+                        break;
+                    case ChartType::Histogram:
+                        ImPlot::PlotHistogram(label.c_str(), ys.data(), count);
+                        break;
+                }
+
+                // Min/Max annotations for first series
+                if (show_annotations_ && is_first_series) {
+                    auto min_it = std::min_element(ys.begin(), ys.end());
+                    auto max_it = std::max_element(ys.begin(), ys.end());
+                    int min_i = static_cast<int>(min_it - ys.begin());
+                    int max_i = static_cast<int>(max_it - ys.begin());
+
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "Min: %.2f", ys[min_i]);
+                    ImPlot::PlotText(buf, xs[min_i], ys[min_i], ImVec2(0, 10));
+
+                    std::snprintf(buf, sizeof(buf), "Max: %.2f", ys[max_i]);
+                    ImPlot::PlotText(buf, xs[max_i], ys[max_i], ImVec2(0, -10));
+                }
+
+                is_first_series = false;
             }
-
-            if (xs.empty()) continue;
-
-            std::string label = CellAddress::col_to_letters(c);
-            int count = static_cast<int>(xs.size());
-
-            // Shade under first series
-            if (shade_under_ && is_first_series) {
-                ImPlot::PlotShaded(label.c_str(), xs.data(), ys.data(), count, 0.0);
-            }
-
-            switch (chart_type_) {
-                case ChartType::Line:
-                    ImPlot::PlotLine(label.c_str(), xs.data(), ys.data(), count, spec);
-                    break;
-                case ChartType::Bar:
-                    ImPlot::PlotBars(label.c_str(), xs.data(), ys.data(), count, 0.67, spec);
-                    break;
-                case ChartType::Scatter:
-                    ImPlot::PlotScatter(label.c_str(), xs.data(), ys.data(), count, spec);
-                    break;
-                case ChartType::Histogram:
-                    ImPlot::PlotHistogram(label.c_str(), ys.data(), count);
-                    break;
-            }
-
-            // Min/Max annotations for first series
-            if (show_annotations_ && is_first_series) {
-                auto min_it = std::min_element(ys.begin(), ys.end());
-                auto max_it = std::max_element(ys.begin(), ys.end());
-                int min_i = static_cast<int>(min_it - ys.begin());
-                int max_i = static_cast<int>(max_it - ys.begin());
-
-                char buf[64];
-                std::snprintf(buf, sizeof(buf), "Min: %.2f", ys[min_i]);
-                ImPlot::PlotText(buf, xs[min_i], ys[min_i], ImVec2(0, 10));
-
-                std::snprintf(buf, sizeof(buf), "Max: %.2f", ys[max_i]);
-                ImPlot::PlotText(buf, xs[max_i], ys[max_i], ImVec2(0, -10));
-            }
-
-            is_first_series = false;
-        }
-        } // end non-stacked path
+        }  // end non-stacked path
 
         // Hover tooltip
         if (ImPlot::IsPlotHovered()) {
@@ -327,11 +323,10 @@ void ChartPanel::export_png() {
     const auto* vp = ImGui::GetMainViewport();
     const ImGuiIO& io = ImGui::GetIO();
 
-    const PixelRect r = framebuffer_rect(
-        static_cast<float>(x), static_cast<float>(y_from_top),
-        static_cast<float>(w), static_cast<float>(h),
-        vp->Size.y,
-        io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+    const PixelRect r =
+        framebuffer_rect(static_cast<float>(x), static_cast<float>(y_from_top),
+                         static_cast<float>(w), static_cast<float>(h), vp->Size.y,
+                         io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
     const int px = r.x, py = r.y, pw = r.w, ph = r.h;
 

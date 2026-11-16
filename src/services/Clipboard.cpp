@@ -1,9 +1,11 @@
 #include "services/Clipboard.hpp"
+
+#include <cctype>
+#include <sstream>
+
 #include "core/CellAddress.hpp"
 #include "core/Sheet.hpp"
 #include "formula/Tokenizer.hpp"
-#include <cctype>
-#include <sstream>
 
 namespace magic {
 
@@ -12,9 +14,14 @@ static void parse_abs_markers(const std::string& text, bool& col_abs, bool& row_
     col_abs = false;
     row_abs = false;
     size_t i = 0;
-    if (i < text.size() && text[i] == '$') { col_abs = true; ++i; }
+    if (i < text.size() && text[i] == '$') {
+        col_abs = true;
+        ++i;
+    }
     while (i < text.size() && std::isalpha(static_cast<unsigned char>(text[i]))) ++i;
-    if (i < text.size() && text[i] == '$') { row_abs = true; }
+    if (i < text.size() && text[i] == '$') {
+        row_abs = true;
+    }
 }
 
 static std::string to_a1_with_abs(const CellAddress& addr, bool col_abs, bool row_abs) {
@@ -34,8 +41,7 @@ void Clipboard::copy_single(const Sheet& sheet, const CellAddress& addr) {
     cc.rel_col = 0;
     cc.rel_row = 0;
     cc.value = sheet.get_value(addr);
-    if (sheet.has_formula(addr))
-        cc.formula = sheet.get_formula(addr);
+    if (sheet.has_formula(addr)) cc.formula = sheet.get_formula(addr);
     cells_.push_back(std::move(cc));
 }
 
@@ -56,15 +62,13 @@ void Clipboard::copy(const Sheet& sheet, const CellAddress& from, const CellAddr
             cc.rel_col = c - c1;
             cc.rel_row = r - r1;
             cc.value = sheet.get_value(addr);
-            if (sheet.has_formula(addr))
-                cc.formula = sheet.get_formula(addr);
+            if (sheet.has_formula(addr)) cc.formula = sheet.get_formula(addr);
             cells_.push_back(std::move(cc));
         }
     }
 }
 
-std::string Clipboard::adjust_references(const std::string& formula,
-                                           int32_t dcol, int32_t drow) {
+std::string Clipboard::adjust_references(const std::string& formula, int32_t dcol, int32_t drow) {
     if (dcol == 0 && drow == 0) return formula;
 
     try {

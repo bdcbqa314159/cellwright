@@ -1,7 +1,8 @@
 #pragma once
+#include <vector>
+
 #include "formula/ASTNode.hpp"
 #include "formula/Token.hpp"
-#include <vector>
 
 namespace magic {
 

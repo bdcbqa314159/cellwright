@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/DateSerial.hpp"
 
 using namespace magic;
@@ -135,45 +136,27 @@ TEST(DateSerial, TwoDigitYear2049) {
 
 // ── Invalid dates rejected ──────────────────────────────────────────────────
 
-TEST(DateSerial, InvalidFeb30) {
-    EXPECT_FALSE(parse_date("02/30/2024").has_value());
-}
+TEST(DateSerial, InvalidFeb30) { EXPECT_FALSE(parse_date("02/30/2024").has_value()); }
 
-TEST(DateSerial, InvalidMonth13) {
-    EXPECT_FALSE(parse_date("13/01/2024").has_value());
-}
+TEST(DateSerial, InvalidMonth13) { EXPECT_FALSE(parse_date("13/01/2024").has_value()); }
 
-TEST(DateSerial, InvalidDay32) {
-    EXPECT_FALSE(parse_date("01/32/2024").has_value());
-}
+TEST(DateSerial, InvalidDay32) { EXPECT_FALSE(parse_date("01/32/2024").has_value()); }
 
 // ── Non-dates rejected ──────────────────────────────────────────────────────
 
-TEST(DateSerial, PlainNumber) {
-    EXPECT_FALSE(parse_date("42").has_value());
-}
+TEST(DateSerial, PlainNumber) { EXPECT_FALSE(parse_date("42").has_value()); }
 
-TEST(DateSerial, PlainText) {
-    EXPECT_FALSE(parse_date("hello").has_value());
-}
+TEST(DateSerial, PlainText) { EXPECT_FALSE(parse_date("hello").has_value()); }
 
-TEST(DateSerial, EmptyString) {
-    EXPECT_FALSE(parse_date("").has_value());
-}
+TEST(DateSerial, EmptyString) { EXPECT_FALSE(parse_date("").has_value()); }
 
-TEST(DateSerial, PartialSlash) {
-    EXPECT_FALSE(parse_date("12/2024").has_value());
-}
+TEST(DateSerial, PartialSlash) { EXPECT_FALSE(parse_date("12/2024").has_value()); }
 
 // ── serial_to_iso roundtrip ─────────────────────────────────────────────────
 
-TEST(DateSerial, SerialToIsoEpoch) {
-    EXPECT_EQ(serial_to_iso(0.0), "1970-01-01");
-}
+TEST(DateSerial, SerialToIsoEpoch) { EXPECT_EQ(serial_to_iso(0.0), "1970-01-01"); }
 
-TEST(DateSerial, SerialToIsoNegative) {
-    EXPECT_EQ(serial_to_iso(-1.0), "1969-12-31");
-}
+TEST(DateSerial, SerialToIsoNegative) { EXPECT_EQ(serial_to_iso(-1.0), "1969-12-31"); }
 
 TEST(DateSerial, Roundtrip) {
     auto r = parse_date("2024-12-25");

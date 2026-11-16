@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/DuckDBEngine.hpp"
 #include "core/Sheet.hpp"
 

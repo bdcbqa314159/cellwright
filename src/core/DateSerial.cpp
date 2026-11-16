@@ -1,4 +1,5 @@
 #include "core/DateSerial.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -18,15 +19,14 @@ static int expand_year(int y) {
 
 static bool is_valid_date(int y, int m, int d) {
     using namespace std::chrono;
-    year_month_day ymd{year{y}, month{static_cast<unsigned>(m)},
-                       day{static_cast<unsigned>(d)}};
+    year_month_day ymd{year{y}, month{static_cast<unsigned>(m)}, day{static_cast<unsigned>(d)}};
     return ymd.ok();
 }
 
 static double to_serial(int y, int m, int d) {
     using namespace std::chrono;
-    sys_days sd = year_month_day{year{y}, month{static_cast<unsigned>(m)},
-                                 day{static_cast<unsigned>(d)}};
+    sys_days sd =
+        year_month_day{year{y}, month{static_cast<unsigned>(m)}, day{static_cast<unsigned>(d)}};
     return static_cast<double>(sd.time_since_epoch().count());
 }
 
@@ -36,9 +36,8 @@ static std::string to_iso(int y, int m, int d) {
     return buf;
 }
 
-static std::optional<DateParseResult> make_result(int y, int m, int d,
-                                                   const std::string& hint_fmt,
-                                                   const std::string& /*input*/) {
+static std::optional<DateParseResult> make_result(int y, int m, int d, const std::string& hint_fmt,
+                                                  const std::string& /*input*/) {
     y = expand_year(y);
     if (!is_valid_date(y, m, d)) return std::nullopt;
     std::string iso = to_iso(y, m, d);
@@ -51,22 +50,18 @@ static std::optional<DateParseResult> make_result(int y, int m, int d,
 
 // ── Month name lookup ────────────────────────────────────────────────────────
 
-static const char* month_names[] = {
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december"
-};
-static const char* month_abbrevs[] = {
-    "jan", "feb", "mar", "apr", "may", "jun",
-    "jul", "aug", "sep", "oct", "nov", "dec"
-};
+static const char* month_names[] = {"january",   "february", "march",    "april",
+                                    "may",       "june",     "july",     "august",
+                                    "september", "october",  "november", "december"};
+static const char* month_abbrevs[] = {"jan", "feb", "mar", "apr", "may", "jun",
+                                      "jul", "aug", "sep", "oct", "nov", "dec"};
 
 static int month_from_name(const std::string& s) {
     std::string lower = s;
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     for (int i = 0; i < 12; ++i) {
-        if (lower == month_names[i] || lower == month_abbrevs[i])
-            return i + 1;
+        if (lower == month_names[i] || lower == month_abbrevs[i]) return i + 1;
     }
     return 0;
 }
@@ -86,12 +81,10 @@ static const std::regex re_eu_dot(R"(^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$)");
 static const std::regex re_dash_us(R"(^(\d{1,2})-(\d{1,2})-(\d{2,4})$)");
 
 // Month name first: December 12, 2024 / Dec 12, 2024
-static const std::regex re_month_first(
-    R"(^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{2,4})$)");
+static const std::regex re_month_first(R"(^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{2,4})$)");
 
 // Day first: 12 December 2024 / 12 Dec 2024
-static const std::regex re_day_first(
-    R"(^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$)");
+static const std::regex re_day_first(R"(^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$)");
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -164,17 +157,14 @@ std::optional<DateParseResult> parse_date(const std::string& input) {
 
 std::string serial_to_iso(double serial) {
     using namespace std::chrono;
-    if (!std::isfinite(serial) || serial < -365243219162.0 || serial > 365241780471.0)
-        return "";
+    if (!std::isfinite(serial) || serial < -365243219162.0 || serial > 365241780471.0) return "";
     auto days_count = static_cast<int>(std::floor(serial));
     sys_days sd{days{days_count}};
     year_month_day ymd{sd};
     if (!ymd.ok()) return "";
     char buf[16];
-    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d",
-                  static_cast<int>(ymd.year()),
-                  static_cast<unsigned>(ymd.month()),
-                  static_cast<unsigned>(ymd.day()));
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", static_cast<int>(ymd.year()),
+                  static_cast<unsigned>(ymd.month()), static_cast<unsigned>(ymd.day()));
     return buf;
 }
 

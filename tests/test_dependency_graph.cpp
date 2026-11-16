@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "formula/DependencyGraph.hpp"
 
 using namespace magic;

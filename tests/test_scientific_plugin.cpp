@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
+
+#include <cmath>
+
 #include "../plugins/scientific/scientific.hpp"
 #include "core/CellValue.hpp"
-#include <cmath>
 
 using namespace magic;
 
@@ -129,27 +131,22 @@ TEST_F(ScientificTest, DopplerReceding) {
 TEST_F(ScientificTest, IdealGasSolveT) {
     // PV = nRT → T = PV/(nR)
     // P=101325, V=0.0224, n=1 → T = 101325*0.0224/(1*8.314462618) ≈ 272.96
-    auto r = plugin.call("ideal_gas", {
-        CellValue{101325.0}, CellValue{0.0224}, CellValue{1.0},
-        CellValue{std::string("T")}
-    });
+    auto r = plugin.call("ideal_gas", {CellValue{101325.0}, CellValue{0.0224}, CellValue{1.0},
+                                       CellValue{std::string("T")}});
     ASSERT_TRUE(is_number(r));
     EXPECT_NEAR(as_number(r), 101325.0 * 0.0224 / 8.314462618, 0.01);
 }
 
 TEST_F(ScientificTest, IdealGasInvalidTarget) {
-    auto r = plugin.call("ideal_gas", {
-        CellValue{1.0}, CellValue{1.0}, CellValue{1.0},
-        CellValue{std::string("X")}
-    });
+    auto r = plugin.call(
+        "ideal_gas", {CellValue{1.0}, CellValue{1.0}, CellValue{1.0}, CellValue{std::string("X")}});
     ASSERT_TRUE(is_error(r));
     EXPECT_EQ(std::get<CellError>(r), CellError::VALUE);
 }
 
 TEST_F(ScientificTest, IdealGasNotString) {
-    auto r = plugin.call("ideal_gas", {
-        CellValue{1.0}, CellValue{1.0}, CellValue{1.0}, CellValue{1.0}
-    });
+    auto r =
+        plugin.call("ideal_gas", {CellValue{1.0}, CellValue{1.0}, CellValue{1.0}, CellValue{1.0}});
     ASSERT_TRUE(is_error(r));
     EXPECT_EQ(std::get<CellError>(r), CellError::VALUE);
 }
@@ -173,10 +170,13 @@ TEST_F(ScientificTest, NormalizeDivByZero) {
 TEST_F(ScientificTest, PearsonPerfectCorrelation) {
     // pairs: (1,1),(2,2),(3,3) → r = 1.0
     auto r = plugin.call("pearson", {
-        CellValue{1.0}, CellValue{1.0},
-        CellValue{2.0}, CellValue{2.0},
-        CellValue{3.0}, CellValue{3.0},
-    });
+                                        CellValue{1.0},
+                                        CellValue{1.0},
+                                        CellValue{2.0},
+                                        CellValue{2.0},
+                                        CellValue{3.0},
+                                        CellValue{3.0},
+                                    });
     ASSERT_TRUE(is_number(r));
     EXPECT_NEAR(as_number(r), 1.0, 1e-12);
 }
@@ -184,19 +184,25 @@ TEST_F(ScientificTest, PearsonPerfectCorrelation) {
 TEST_F(ScientificTest, PearsonNegativeCorrelation) {
     // pairs: (1,3),(2,2),(3,1) → r = -1.0
     auto r = plugin.call("pearson", {
-        CellValue{1.0}, CellValue{3.0},
-        CellValue{2.0}, CellValue{2.0},
-        CellValue{3.0}, CellValue{1.0},
-    });
+                                        CellValue{1.0},
+                                        CellValue{3.0},
+                                        CellValue{2.0},
+                                        CellValue{2.0},
+                                        CellValue{3.0},
+                                        CellValue{1.0},
+                                    });
     ASSERT_TRUE(is_number(r));
     EXPECT_NEAR(as_number(r), -1.0, 1e-12);
 }
 
 TEST_F(ScientificTest, PearsonOddArgs) {
     auto r = plugin.call("pearson", {
-        CellValue{1.0}, CellValue{2.0}, CellValue{3.0},
-        CellValue{4.0}, CellValue{5.0},
-    });
+                                        CellValue{1.0},
+                                        CellValue{2.0},
+                                        CellValue{3.0},
+                                        CellValue{4.0},
+                                        CellValue{5.0},
+                                    });
     ASSERT_TRUE(is_error(r));
     EXPECT_EQ(std::get<CellError>(r), CellError::VALUE);
 }

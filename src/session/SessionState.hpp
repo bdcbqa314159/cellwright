@@ -1,16 +1,16 @@
 #pragma once
-#include "core/Workbook.hpp"
+#include "core/CellFormat.hpp"
 #include "core/Command.hpp"
 #include "core/ConditionalFormat.hpp"
-#include "core/RowFilter.hpp"
-#include "services/Clipboard.hpp"
-#include "core/CellFormat.hpp"
 #include "core/DuckDBEngine.hpp"
-#include "services/CellInputService.hpp"
-#include "formula/FunctionRegistry.hpp"
-#include "formula/DependencyGraph.hpp"
+#include "core/RowFilter.hpp"
+#include "core/Workbook.hpp"
 #include "formula/AsyncRecalcEngine.hpp"
+#include "formula/DependencyGraph.hpp"
+#include "formula/FunctionRegistry.hpp"
 #include "plugin/PluginManager.hpp"
+#include "services/CellInputService.hpp"
+#include "services/Clipboard.hpp"
 #include "session/AutoSave.hpp"
 #include "session/Settings.hpp"
 
@@ -36,7 +36,7 @@ struct SessionState {
     Clipboard clipboard;
     DuckDBEngine duckdb_engine;
     Settings settings;
-    std::string current_file;  // path to current .magic file (empty = untitled)
+    std::string current_file;         // path to current .magic file (empty = untitled)
     std::string pending_plugin_path;  // set by DropHandler when untrusted; cleared by modal
     AutoSave auto_save;
     bool show_recovery_modal = false;  // set on startup if recovery file found
@@ -90,8 +90,7 @@ struct SessionState {
     [[nodiscard]] bool is_dirty() const {
         if (sheet_states.size() != saved_generations_.size()) return true;
         for (size_t i = 0; i < sheet_states.size(); ++i) {
-            if (sheet_states[i].undo_manager.generation() != saved_generations_[i])
-                return true;
+            if (sheet_states[i].undo_manager.generation() != saved_generations_[i]) return true;
         }
         return false;
     }

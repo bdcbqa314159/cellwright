@@ -1,11 +1,13 @@
 #include "formula/DependencyGraph.hpp"
+
 #include <algorithm>
 #include <optional>
 #include <queue>
 
 namespace magic {
 
-void DependencyGraph::set_dependencies(const CellAddress& cell, const std::vector<CellAddress>& new_deps) {
+void DependencyGraph::set_dependencies(const CellAddress& cell,
+                                       const std::vector<CellAddress>& new_deps) {
     // Remove old reverse edges
     if (auto it = forward_deps_.find(cell); it != forward_deps_.end()) {
         for (const auto& old_dep : it->second) {
@@ -126,7 +128,8 @@ void DependencyGraph::clear() {
 }
 
 // Returns shifted address, or nullopt if the cell was at the deleted position
-static std::optional<CellAddress> shift_addr(const CellAddress& addr, bool is_row, int32_t at, int32_t delta) {
+static std::optional<CellAddress> shift_addr(const CellAddress& addr, bool is_row, int32_t at,
+                                             int32_t delta) {
     CellAddress result = addr;
     int32_t& coord = is_row ? result.row : result.col;
     if (delta < 0 && coord == at) return std::nullopt;  // deleted
@@ -134,11 +137,9 @@ static std::optional<CellAddress> shift_addr(const CellAddress& addr, bool is_ro
     return result;
 }
 
-static void shift_impl(
-    std::unordered_map<CellAddress, std::vector<CellAddress>>& forward,
-    std::unordered_map<CellAddress, std::unordered_set<CellAddress>>& reverse,
-    bool is_row, int32_t at, int32_t delta)
-{
+static void shift_impl(std::unordered_map<CellAddress, std::vector<CellAddress>>& forward,
+                       std::unordered_map<CellAddress, std::unordered_set<CellAddress>>& reverse,
+                       bool is_row, int32_t at, int32_t delta) {
     // Rebuild both maps with shifted addresses, dropping deleted entries
     std::unordered_map<CellAddress, std::vector<CellAddress>> new_forward;
     for (auto& [cell, deps] : forward) {

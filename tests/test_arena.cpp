@@ -1,10 +1,11 @@
 #include <gtest/gtest.h>
-#include "core/Arena.hpp"
-#include <string>
-#include <vector>
 
 #include <cstdint>
 #include <cstdlib>
+#include <string>
+#include <vector>
+
+#include "core/Arena.hpp"
 using namespace magic;
 
 TEST(Arena, BasicAllocate) {
@@ -156,8 +157,8 @@ TEST(Arena, OverAlignedAllocationIsActuallyAligned) {
 
 TEST(Arena, AlignmentHonouredWhenAllocationForcesGrowth) {
     Arena arena(64);
-    arena.allocate(60, 1);                       // nearly fill the block
-    void* p = arena.allocate(8, 64);             // must grow, and still be aligned
+    arena.allocate(60, 1);            // nearly fill the block
+    void* p = arena.allocate(8, 64);  // must grow, and still be aligned
     ASSERT_NE(p, nullptr);
     EXPECT_EQ(reinterpret_cast<uintptr_t>(p) % 64u, 0u);
 }
@@ -172,8 +173,8 @@ TEST(Arena, SuccessiveOverAlignedAllocationsStayAligned) {
 
 TEST(Arena, BytesUsedCountsAlignmentPadding) {
     Arena arena(4096);
-    arena.allocate(1, 1);          // offset 1
-    arena.allocate(8, 64);         // pads up to the next 64-boundary
+    arena.allocate(1, 1);   // offset 1
+    arena.allocate(8, 64);  // pads up to the next 64-boundary
     // Padding is consumed space, so it must be reflected rather than lost.
     EXPECT_GE(arena.bytes_used(), 9u);
     EXPECT_LE(arena.bytes_used(), 64u + 8u);

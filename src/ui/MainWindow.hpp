@@ -1,15 +1,17 @@
 #pragma once
-#include "ui/SpreadsheetGrid.hpp"
-#include "ui/FormulaBar.hpp"
-#include "ui/FindBar.hpp"
-#include "ui/ChartPanel.hpp"
-#include "ui/SqlPanel.hpp"
-#include "ui/ToastManager.hpp"
-#include "ui/StyleSetup.hpp"
-#include "services/Clipboard.hpp"
-#include "services/CellInputService.hpp"
 #include <imgui.h>
+
 #include <cstdint>
+
+#include "services/CellInputService.hpp"
+#include "services/Clipboard.hpp"
+#include "ui/ChartPanel.hpp"
+#include "ui/FindBar.hpp"
+#include "ui/FormulaBar.hpp"
+#include "ui/SpreadsheetGrid.hpp"
+#include "ui/SqlPanel.hpp"
+#include "ui/StyleSetup.hpp"
+#include "ui/ToastManager.hpp"
 
 namespace magic {
 
@@ -84,8 +86,8 @@ private:
 
     Theme theme_ = Theme::Dark;
     float zoom_ = 1.0f;
-    ImFont* mono_font_ = nullptr;        // owned by the ImGui atlas, set by App
-    bool font_rebuild_needed_ = false;   // set here, consumed and cleared by App
+    ImFont* mono_font_ = nullptr;       // owned by the ImGui atlas, set by App
+    bool font_rebuild_needed_ = false;  // set here, consumed and cleared by App
 
     // Cached selection stats (recomputed only when selection or data changes)
     CellAddress cached_sel_min_{-1, -1};
@@ -100,8 +102,8 @@ private:
     std::string trust_modal_hash_;
 
     bool show_dirty_new_modal_ = false;
-    bool show_cond_format_ = false;  // conditional formatting editor window
-    bool show_paste_special_ = false; // paste special modal
+    bool show_cond_format_ = false;    // conditional formatting editor window
+    bool show_paste_special_ = false;  // paste special modal
     bool wants_close_ = false;
     bool should_quit_ = false;
 

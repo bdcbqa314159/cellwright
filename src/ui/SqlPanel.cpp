@@ -1,6 +1,8 @@
 #include "ui/SqlPanel.hpp"
-#include "core/Sheet.hpp"
+
 #include <imgui.h>
+
+#include "core/Sheet.hpp"
 
 namespace magic {
 
@@ -14,14 +16,13 @@ void SqlPanel::render(DuckDBEngine& engine, Sheet& sheet) {
     }
 
     // Import button
-    if (ImGui::Button("Import Sheet"))
-        engine.import_sheet(sheet, "data");
+    if (ImGui::Button("Import Sheet")) engine.import_sheet(sheet, "data");
     ImGui::SameLine();
     ImGui::TextDisabled("(imports active sheet as 'data' table)");
 
     // SQL input
     ImGui::InputTextMultiline("##sql", sql_buf_, sizeof(sql_buf_),
-                               ImVec2(-1, ImGui::GetTextLineHeight() * 5));
+                              ImVec2(-1, ImGui::GetTextLineHeight() * 5));
 
     // Execute / Export buttons
     if (ImGui::Button("Execute")) {
@@ -45,10 +46,10 @@ void SqlPanel::render(DuckDBEngine& engine, Sheet& sheet) {
 
         int ncols = static_cast<int>(last_result_.col_count());
         if (ImGui::BeginTable("##sql_results", ncols,
-                               ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
-                               ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                               ImGuiTableFlags_Resizable,
-                               ImVec2(0, 0))) {
+                              ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY |
+                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                  ImGuiTableFlags_Resizable,
+                              ImVec2(0, 0))) {
             // Headers
             for (int c = 0; c < ncols; ++c)
                 ImGui::TableSetupColumn(last_result_.column_names[c].c_str());
