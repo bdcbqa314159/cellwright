@@ -17,6 +17,19 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     },
     {
+      "name": "gcc",
+      "displayName": "GCC (core + tests, no GUI)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc-16",
+        "CMAKE_CXX_COMPILER": "g++-16",
+        "CELLWRIGHT_BUILD_APP": "OFF",
+        "CMAKE_CXX_FLAGS": "-D_DARWIN_C_SOURCE"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "ASan+UBSan (Clang/GCC)",
       "generator": "Ninja",
@@ -32,7 +45,8 @@
   "buildPresets": [
     { "name": "release", "configurePreset": "release", "configuration": "Release" },
     { "name": "debug", "configurePreset": "debug", "configuration": "Debug" },
-    { "name": "asan", "configurePreset": "asan", "configuration": "Debug" }
+    { "name": "asan", "configurePreset": "asan", "configuration": "Debug" },
+    { "name": "gcc", "configurePreset": "gcc", "configuration": "Release" }
   ],
   "testPresets": [
     { "name": "release", "configurePreset": "release", "configuration": "Release",
@@ -40,6 +54,8 @@
     { "name": "debug", "configurePreset": "debug", "configuration": "Debug",
       "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } },
     { "name": "asan", "configurePreset": "asan", "configuration": "Debug",
+      "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } },
+    { "name": "gcc", "configurePreset": "gcc", "configuration": "Release",
       "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } }
   ]
 }

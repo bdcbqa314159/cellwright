@@ -44,4 +44,6 @@ conan/
 NOTES.md
 
 # Cache
-.cache/
+.cache/build/gcc/
+build/asan/
+build/debug/
