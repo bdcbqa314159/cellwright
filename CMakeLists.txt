@@ -55,6 +55,15 @@ function(cellwright_set_warnings target)
         target_compile_options(${target} PRIVATE /W4)
     else()
         target_compile_options(${target} PRIVATE -Wall -Wextra)
+        # -Wno-attributes, GCC only (Clang never emits it) — see OPEN.md #17.
+        # PyFunctionPlugin holds pybind11 types, which pybind11 marks hidden, so GCC
+        # flags the default-visibility/hidden-member mismatch. Marking the class hidden
+        # is viral: it cascades PyFunctionPlugin -> PluginManager -> SessionState -> App
+        # -> every ui/ signature. Suppressing one GCC diagnostic beats spreading a
+        # visibility attribute through the whole application.
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${target} PRIVATE -Wno-attributes)
+        endif()
     endif()
 endfunction()
 

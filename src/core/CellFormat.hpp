@@ -20,7 +20,11 @@ struct CellFormat {
     FormatType type = FormatType::GENERAL;
     int decimals = 2;
     std::string currency_symbol = "$";
-    std::string date_input_hint;  // Tooltip text for date cells
+    // Explicit `= {}` rather than a bare declaration: GCC's -Wmissing-field-initializers
+    // fires for a field with no *explicit* default member initializer, even when the
+    // type is default-constructible. Clang does not. Every other field here is
+    // explicitly defaulted, so this is also more consistent.
+    std::string date_input_hint = {};  // Tooltip text for date cells
 
     bool operator==(const CellFormat&) const = default;
 };

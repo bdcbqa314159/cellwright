@@ -31,7 +31,13 @@ static double to_serial(int y, int m, int d) {
 }
 
 static std::string to_iso(int y, int m, int d) {
-    char buf[16];
+    // Sized for the worst case the compiler can see: three ints formatted with no
+    // upper bound is 3 * 11 digits + 2 separators + NUL. Callers validate first, so
+    // the real output is always 10 bytes — but GCC cannot see the parser's regexes
+    // (every one caps the year at 4 digits) and warns -Wformat-truncation on a
+    // tighter buffer. Oversizing a stack array is cheaper than teaching the compiler
+    // an invariant, and removes the possibility of truncation regardless of caller.
+    char buf[36];
     std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", y, m, d);
     return buf;
 }
