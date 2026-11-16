@@ -29,6 +29,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 option(CELLWRIGHT_BUILD_PLUGINS "Build bundled plugins"  ON)
 option(CELLWRIGHT_BUILD_TESTS   "Build test suite"       ON)
+# OFF builds cellwright_core and the tests only, skipping the GUI executable and its
+# dependencies. That is what makes a GCC build possible on macOS: GLFW and the native
+# file-dialog library carry Objective-C sources that GCC cannot compile, while
+# cellwright_core and the whole test suite are GUI-free. See the `gcc` CMake preset.
+option(CELLWRIGHT_BUILD_APP     "Build the GUI application" ON)
 
 # ── Dependencies ─────────────────────────────────────────────────
 
@@ -117,62 +122,66 @@ target_link_libraries(cellwright_core PUBLIC
     duckdb
 )
 
-# ── Main executable ──────────────────────────────────────────────
+if(CELLWRIGHT_BUILD_APP)
 
-add_executable(cellwright
-    src/main.cpp
-    # app
-    src/app/App.cpp
-    # ui
-    src/ui/AutocompletePopup.cpp
-    src/ui/CellEditor.cpp
-    src/ui/ChartPanel.cpp
-    src/ui/FindBar.cpp
-    src/ui/FormulaBar.cpp
-    src/ui/MainWindow.cpp
-    src/ui/MainWindowActions.cpp
-    src/ui/MainWindowChrome.cpp
-    src/ui/MainWindowInput.cpp
-    src/ui/MainWindowMenu.cpp
-    src/ui/MainWindowModals.cpp
-    src/ui/SpreadsheetGrid.cpp
-    src/ui/ToastManager.cpp
-    src/ui/SqlPanel.cpp
-    src/ui/StyleSetup.cpp
-    # plugin (UI-facing)
-    src/plugin/DropHandler.cpp
-    # util
-    src/util/stb_image_write_impl.cpp
-)
+    # ── Main executable ──────────────────────────────────────────────
 
-target_compile_definitions(cellwright PRIVATE
-    IMGUI_FONT_DIR="${imgui_SOURCE_DIR}/misc/fonts"
-)
-
-cellwright_set_warnings(cellwright)
-
-if(APPLE)
-    # OpenGL is deprecated on macOS. Acknowledged, not fixed — see OPEN.md #9.
-    target_compile_definitions(cellwright PRIVATE GL_SILENCE_DEPRECATION)
-endif()
-
-target_link_libraries(cellwright PRIVATE
-    cellwright_core
-    implot_lib  # carries imgui_glfw_opengl3 PUBLIC
-    nfd
-)
-
-if(APPLE)
-    target_link_libraries(cellwright PRIVATE
-        "-framework OpenGL"
-        "-framework Cocoa"
-        "-framework IOKit"
-        "-framework CoreVideo"
+    add_executable(cellwright
+        src/main.cpp
+        # app
+        src/app/App.cpp
+        # ui
+        src/ui/AutocompletePopup.cpp
+        src/ui/CellEditor.cpp
+        src/ui/ChartPanel.cpp
+        src/ui/FindBar.cpp
+        src/ui/FormulaBar.cpp
+        src/ui/MainWindow.cpp
+        src/ui/MainWindowActions.cpp
+        src/ui/MainWindowChrome.cpp
+        src/ui/MainWindowInput.cpp
+        src/ui/MainWindowMenu.cpp
+        src/ui/MainWindowModals.cpp
+        src/ui/SpreadsheetGrid.cpp
+        src/ui/ToastManager.cpp
+        src/ui/SqlPanel.cpp
+        src/ui/StyleSetup.cpp
+        # plugin (UI-facing)
+        src/plugin/DropHandler.cpp
+        # util
+        src/util/stb_image_write_impl.cpp
     )
-elseif(UNIX AND NOT WIN32)
-    target_link_libraries(cellwright PRIVATE GL dl)
-elseif(WIN32)
-    target_link_libraries(cellwright PRIVATE opengl32)
+
+    target_compile_definitions(cellwright PRIVATE
+        IMGUI_FONT_DIR="${imgui_SOURCE_DIR}/misc/fonts"
+    )
+
+    cellwright_set_warnings(cellwright)
+
+    if(APPLE)
+        # OpenGL is deprecated on macOS. Acknowledged, not fixed — see OPEN.md #9.
+        target_compile_definitions(cellwright PRIVATE GL_SILENCE_DEPRECATION)
+    endif()
+
+    target_link_libraries(cellwright PRIVATE
+        cellwright_core
+        implot_lib  # carries imgui_glfw_opengl3 PUBLIC
+        nfd
+    )
+
+    if(APPLE)
+        target_link_libraries(cellwright PRIVATE
+            "-framework OpenGL"
+            "-framework Cocoa"
+            "-framework IOKit"
+            "-framework CoreVideo"
+        )
+    elseif(UNIX AND NOT WIN32)
+        target_link_libraries(cellwright PRIVATE GL dl)
+    elseif(WIN32)
+        target_link_libraries(cellwright PRIVATE opengl32)
+    endif()
+
 endif()
 
 # ── Plugins ──────────────────────────────────────────────────────

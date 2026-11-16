@@ -177,3 +177,12 @@ Invariant: `tools/check_layers.py` allowances − open layering rows below = 0. 
 | **What the allowlist already provides** | Explicit per-artifact human consent; automatic revocation on any byte change, which catches the realistic failure (a stale or overwritten build, not an adversary); identical behaviour on all three platforms; no secrets or CA infrastructure. |
 | **Future path, recorded not lost** | If a marketplace ever exists: detached Ed25519 signatures verified against a published key, with the allowlist retained for self-built plugins. Documented in `SECURITY.md`. |
 
+### #16 — GCC build is toolchain coverage only, not Linux coverage
+
+| | |
+|---|---|
+| **What** | The `gcc` CMake preset (GCC 16.2.0 / libstdc++) builds `cellwright_core` + the full test suite and passes **279/279**. It needs `CELLWRIGHT_BUILD_APP=OFF` because GLFW and the native file-dialog library carry Objective-C sources GCC cannot compile on macOS. |
+| **What it genuinely covers** | **libstdc++ instead of libc++** — the exact toolchain difference that produced the missing-includes bug (#7, fixed in PR #2), which only failed on Linux. Plus GCC-only diagnostics: it immediately found 7 warnings Clang reports zero of (issue #26). Covers all of `core`/`formula`/`services`/`session`/`io`/`plugin`. |
+| **What it does NOT cover** | `ui/` and `app/` (skipped entirely). And nothing Linux-*platform*: `dlopen` semantics, ELF plugin loading, GTK file dialogs, X11/Wayland, or the runner memory limits that required `--parallel 2`. **A green `gcc` preset is not evidence that Linux works** — issue #13 stays open. |
+| **macOS-only workaround inside it** | The preset sets `-D_DARWIN_C_SOURCE`. DuckDB's vendored mbedtls (`platform_util.cpp:14`) defines `_POSIX_C_SOURCE 200112L`, which on macOS hides `quick_exit`/`at_quick_exit` from `stdlib.h` while GCC's header wrapper expects them — 8 errors in a dependency, none of our code. Verified: the flag takes it to 0. **Not needed on real Linux**, where glibc provides those under `_POSIX_C_SOURCE`, so a failure here would be a false alarm about Linux. |
+| **Re-open trigger** | When a real Linux environment exists (#13), compare its findings against this preset's. If Linux finds things GCC-on-macOS did not, record what the gap was so the preset's claimed scope stays honest. |
