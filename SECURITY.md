@@ -41,17 +41,36 @@ for a fix before any public disclosure.
 
 Pre-1.0: only `main` is supported, and fixes land there. There are no backports.
 
+## The trust model, and why there is no signature check
+
+The gate is a **SHA-256 allowlist**: nothing is `dlopen`ed until a human explicitly trusts
+that exact artifact, and any byte change revokes that trust automatically. Trust is rooted
+in user consent rather than a certificate authority.
+
+That is a choice, not an omission:
+
+- **Code signing answers "who published this?"** — which matters for untrusted
+  distribution. CellWright has no marketplace; plugins are self-built or shared inside an
+  organisation. In the self-built case the author and the operator are the same person.
+- **There is no portable mechanism.** macOS has Mach-O signatures, Windows has
+  Authenticode, and **Linux has no OS-level code signing for shared libraries at all**. A
+  cross-platform publisher check would need detached signatures (e.g. Ed25519) verified
+  against a key we distribute — a different design, not an extension of `codesign`.
+- **A plain `codesign -v` check would have been theatre.** It accepts *ad-hoc* signatures,
+  which anyone can produce with `codesign -f -s -` in one command. It verifies integrity,
+  which the SHA-256 hash already does more directly, and establishes no provenance. A
+  `verify_codesign` helper with exactly that behaviour existed, was never called from the
+  load path, and was removed rather than wired in.
+
+**If a marketplace ever exists**, the mechanism would be detached signatures verified
+against a published key, with the allowlist retained for self-built plugins. That is a
+future design question, not a defect in the current model.
+
 ## Known gaps
 
 Current, deliberately-accepted weaknesses are tracked in [OPEN.md](OPEN.md) with a
-re-open trigger each. Two are relevant to anyone assessing this project:
+re-open trigger each. One is relevant to anyone assessing this project:
 
 - Only macOS is covered by CI (`OPEN.md` #8), so Linux and Windows builds — including
   the plugin loader's platform-specific paths — are verified manually rather than on
   every change.
-- **Code-signature verification is implemented but not enforced** (`OPEN.md` #15).
-  `PluginAllowlist::verify_codesign` exists and shells out to `/usr/bin/codesign -v`,
-  but nothing in the load path calls it — its only callers are in the test suite. The
-  SHA-256 allowlist is therefore the **sole** gate on every platform, including macOS.
-  A library whose bytes match an explicitly-trusted hash loads; signature state is
-  not consulted either way.

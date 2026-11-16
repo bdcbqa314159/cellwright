@@ -18,7 +18,6 @@ public:
     bool is_trusted(const std::string& path) const;
     void trust(const std::string& path);
     void revoke(const std::string& hash);
-    static bool verify_codesign(const std::string& path);
 
 private:
     void load();

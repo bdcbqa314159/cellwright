@@ -6,12 +6,6 @@
 #include "util/ConfigDir.hpp"
 #include "util/Sha256.hpp"
 
-#ifdef __APPLE__
-#include <spawn.h>
-#include <sys/wait.h>
-extern char** environ;
-#endif
-
 namespace magic {
 
 // ── Constructors ────────────────────────────────────────────────────────────
@@ -56,22 +50,6 @@ void PluginAllowlist::revoke(const std::string& hash) {
 }
 
 // ── Codesign verification (macOS) ───────────────────────────────────────────
-
-bool PluginAllowlist::verify_codesign(const std::string& path) {
-#ifdef __APPLE__
-    const char* argv[] = {"codesign", "-v", path.c_str(), nullptr};
-    pid_t pid;
-    int status;
-    if (posix_spawn(&pid, "/usr/bin/codesign", nullptr, nullptr, const_cast<char**>(argv),
-                    environ) != 0)
-        return false;
-    waitpid(pid, &status, 0);
-    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-#else
-    (void)path;
-    return false;
-#endif
-}
 
 // ── JSON persistence (hand-parsed, no nlohmann) ─────────────────────────────
 

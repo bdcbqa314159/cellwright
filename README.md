@@ -25,7 +25,7 @@ Cross-platform quantitative spreadsheet built with C++20 and Dear ImGui. Designe
 
 **Plugin System**
 - Three conventions: C++ (IFunction, hot-reloadable), C ABI (language-agnostic), Python (pybind11)
-- SHA-256 trust store gating every `dlopen` (codesign check implemented but not yet wired into the load path — see [OPEN.md](OPEN.md) #15)
+- SHA-256 trust store gating every `dlopen` — trust is explicit, per-artifact, and revoked by any byte change ([SECURITY.md](SECURITY.md))
 - Hot reload with mtime polling
 - Panel plugins (custom ImGui windows)
 
