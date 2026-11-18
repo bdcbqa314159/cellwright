@@ -13,6 +13,8 @@ Every artifact carries a status — `draft` · `ratified <date>` · `current` ·
 | 01 | [appstate-decomposition](01_appstate_decomposition.md) | **ratified 2026-10-30** — A1-A6 pass, A7 awaiting manual pass | Breaking the `ui/ ↔ app/` cycle (`OPEN.md` #2, closed) |
 | 02 | [sheet-formula-rewriting](02_sheet_formula_rewriting.md) | **ratified 2026-11-15** | Removing the last allowlist entry (`OPEN.md` #1, issue #12) |
 
+| 03 | [headless-ui-tests](03_headless_ui_tests.md) | **ratified 2026-11-18** | Automated coverage for `ui/`; shrinks spec 01's A7 |
+
 ## Conventions
 
 - Numbered by ratification order — the order is information.
