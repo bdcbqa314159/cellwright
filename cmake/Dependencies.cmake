@@ -16,9 +16,32 @@ else()
 endif()
 FetchContent_MakeAvailable(plugin_arch)
 
-# GUI-only dependencies. Skipped when CELLWRIGHT_BUILD_APP=OFF so a core+tests
-# build needs no windowing stack — notably GLFW's Objective-C sources, which
-# GCC cannot compile on macOS.
+# ── Dear ImGui core (docking branch) ─────────────────────────────────────────
+# Fetched and built UNCONDITIONALLY. ImGui's core is portable C++ with no platform
+# dependency: it needs a backend only to see a window and draw pixels. Keeping it
+# outside the CELLWRIGHT_BUILD_APP guard is what lets ui/ be compiled and tested
+# headlessly, including under the gcc preset (specs/03_headless_ui_tests.md).
+FetchContent_Declare(imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        docking
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(imgui)
+
+# imgui_demo.cpp is deliberately absent: nothing calls ShowDemoWindow and it is the
+# largest single translation unit in ImGui.
+add_library(imgui_core STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+)
+
+target_include_directories(imgui_core SYSTEM PUBLIC ${imgui_SOURCE_DIR})
+
+# GUI-only dependencies. Skipped when CELLWRIGHT_BUILD_APP=OFF so a core+tests build
+# needs no windowing stack — notably GLFW's Objective-C sources, which GCC cannot
+# compile on macOS.
 if(CELLWRIGHT_BUILD_APP)
 
     # ── GLFW ─────────────────────────────────────────────────────────────────────
@@ -34,38 +57,21 @@ if(CELLWRIGHT_BUILD_APP)
     )
     FetchContent_MakeAvailable(glfw)
 
-    # ── Dear ImGui (docking branch) ─────────────────────────────────────────────
-    FetchContent_Declare(imgui
-        GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG        docking
-        GIT_SHALLOW    TRUE
-    )
-    FetchContent_MakeAvailable(imgui)
-
-    # Build ImGui as a static library with GLFW + OpenGL3 backends
-    add_library(imgui_glfw_opengl3 STATIC
-        ${imgui_SOURCE_DIR}/imgui.cpp
-        ${imgui_SOURCE_DIR}/imgui_demo.cpp
-        ${imgui_SOURCE_DIR}/imgui_draw.cpp
-        ${imgui_SOURCE_DIR}/imgui_tables.cpp
-        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    # ── ImGui platform/renderer backends ────────────────────────────────────────
+    add_library(imgui_backends STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
     )
 
-    target_include_directories(imgui_glfw_opengl3 SYSTEM PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
-    )
-
-    target_link_libraries(imgui_glfw_opengl3 PUBLIC glfw)
+    target_include_directories(imgui_backends SYSTEM PUBLIC ${imgui_SOURCE_DIR}/backends)
+    target_link_libraries(imgui_backends PUBLIC imgui_core glfw)
 
     if(APPLE)
-        target_link_libraries(imgui_glfw_opengl3 PUBLIC "-framework OpenGL")
+        target_link_libraries(imgui_backends PUBLIC "-framework OpenGL")
     elseif(WIN32)
-        target_link_libraries(imgui_glfw_opengl3 PUBLIC opengl32)
+        target_link_libraries(imgui_backends PUBLIC opengl32)
     elseif(UNIX)
-        target_link_libraries(imgui_glfw_opengl3 PUBLIC GL)
+        target_link_libraries(imgui_backends PUBLIC GL)
     endif()
 
     # ── ImPlot ───────────────────────────────────────────────────────────────────
@@ -76,13 +82,14 @@ if(CELLWRIGHT_BUILD_APP)
     )
     FetchContent_MakeAvailable(implot)
 
+    # ImPlot needs only ImGui core; it draws through ImGui's draw lists.
     add_library(implot_lib STATIC
         ${implot_SOURCE_DIR}/implot.cpp
         ${implot_SOURCE_DIR}/implot_items.cpp
     )
 
     target_include_directories(implot_lib SYSTEM PUBLIC ${implot_SOURCE_DIR})
-    target_link_libraries(implot_lib PUBLIC imgui_glfw_opengl3)
+    target_link_libraries(implot_lib PUBLIC imgui_core)
 
 endif()
 

@@ -174,7 +174,8 @@ if(CELLWRIGHT_BUILD_APP)
 
     target_link_libraries(cellwright PRIVATE
         cellwright_core
-        implot_lib  # carries imgui_glfw_opengl3 PUBLIC
+        imgui_backends  # platform + renderer glue; carries imgui_core and glfw
+        implot_lib      # charts; carries imgui_core
         nfd
     )
 
