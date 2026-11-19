@@ -133,13 +133,14 @@ target_link_libraries(cellwright_core PUBLIC
 
 if(CELLWRIGHT_BUILD_APP)
 
-    # ── Main executable ──────────────────────────────────────────────
-
-    add_executable(cellwright
-        src/main.cpp
-        # app
-        src/app/App.cpp
-        # ui
+    # ── UI library ───────────────────────────────────────────────────
+    # ui/ lives in a library, not just the executable, so the test target can link it
+    # (specs/03_headless_ui_tests.md). imgui_core and ImPlot are both portable, so the
+    # only thing still keeping this inside the CELLWRIGHT_BUILD_APP guard is nfd:
+    # MainWindowActions and ChartPanel call it directly. The next slice injects that
+    # as a port, after which this target moves out of the guard and becomes reachable
+    # from the gcc preset.
+    add_library(cellwright_ui STATIC
         src/ui/AutocompletePopup.cpp
         src/ui/CellEditor.cpp
         src/ui/ChartPanel.cpp
@@ -152,9 +153,27 @@ if(CELLWRIGHT_BUILD_APP)
         src/ui/MainWindowMenu.cpp
         src/ui/MainWindowModals.cpp
         src/ui/SpreadsheetGrid.cpp
-        src/ui/ToastManager.cpp
         src/ui/SqlPanel.cpp
         src/ui/StyleSetup.cpp
+        src/ui/ToastManager.cpp
+    )
+
+    target_link_libraries(cellwright_ui PUBLIC cellwright_core imgui_core implot_lib nfd)
+    cellwright_set_warnings(cellwright_ui)
+
+    if(APPLE)
+        # OpenGL is deprecated on macOS. Acknowledged, not fixed — see OPEN.md #9.
+        target_compile_definitions(cellwright_ui PRIVATE GL_SILENCE_DEPRECATION)
+    endif()
+
+
+    # ── Main executable ──────────────────────────────────────────────
+
+    add_executable(cellwright
+        src/main.cpp
+        # app
+        src/app/App.cpp
+        # ui
         # plugin (UI-facing)
         src/plugin/DropHandler.cpp
         # util
@@ -173,9 +192,8 @@ if(CELLWRIGHT_BUILD_APP)
     endif()
 
     target_link_libraries(cellwright PRIVATE
-        cellwright_core
-        imgui_backends  # platform + renderer glue; carries imgui_core and glfw
-        implot_lib      # charts; carries imgui_core
+        cellwright_ui   # carries cellwright_core, imgui_core and implot_lib
+        imgui_backends  # platform + renderer glue; carries glfw
         nfd
     )
 
