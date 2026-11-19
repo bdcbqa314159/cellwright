@@ -43,10 +43,12 @@ caveat. This slice closes that gap. It is not a rescue.
 3. Per-TU include preambles trimmed so each `MainWindow*.cpp` includes only what it uses.
 4. A headless harness fixture: context creation, `DisplaySize`, default font atlas with a
    fake texture id, frame pump, and mouse/key injection helpers.
-5. A **`FileDialogs` port injected into `ui/`** — two operations, `open` and `save`, each
-   returning an optional path. The concrete nfd-backed implementation lives in the
-   application shell, so `cellwright_ui` carries **no platform library at all**. Same
-   injection idiom as spec 02's `FormulaRewriter`.
+5. **Two injected platform ports**, both implemented in the application shell so
+   `cellwright_ui` carries no platform library at all — same idiom as spec 02's
+   `FormulaRewriter`:
+   - **`FileDialogs`** — `open` and `save`, each returning an optional path (5 call sites).
+   - **`FramebufferReader`** — one operation, read a pixel rect (1 call site:
+     `ChartPanel::export_png`'s `glReadPixels`).
 6. `cellwright_ui` links neither nfd nor ImPlot, and therefore builds under the `gcc`
    preset.
 7. At least four **behavioural** tests, each asserting an observable outcome rather than
@@ -56,9 +58,9 @@ caveat. This slice closes that gap. It is not a rescue.
 
 ## NOT-NOW — real, but deferred
 
-- **`ChartPanel`** stays out of `cellwright_ui`. Its dialog call uses the new port, but its
-  body is ImPlot *rendering* — genuinely visual, and the thing a headless harness cannot
-  judge. It remains in the application shell, untested, by choice.
+- **Testing `ChartPanel`'s output.** It now lives in `cellwright_ui` (see Drift #1) and
+  therefore compiles headlessly, but no test asserts what a chart *looks* like. Its export
+  path is covered only to the extent that the injected ports are called correctly.
 - **Verifying anything is drawn correctly.** Deferred indefinitely: see C7 and `NEVER`.
   Headless tests assert state and dispatch, never appearance.
 - **Decomposing `MainWindow` into collaborators** (issue #17 follow-on). This slice is its
@@ -73,16 +75,23 @@ caveat. This slice closes that gap. It is not a rescue.
 - Dear ImGui Test Engine as a dependency. The spike shows the needed capability is ~30
   lines of fixture; a third-party engine is not yet earned (rule of two).
 
+## Drift
+
+| # | Spec claimed | Reality | Change |
+|---|---|---|---|
+| 1 | `ChartPanel` stays out of `cellwright_ui`, since its body is ImPlot rendering | **`MainWindow` holds `ChartPanel chart_panel_` by value.** Excluding ChartPanel excludes MainWindow — the primary test target — so the exclusion defeated the slice. Measurement also showed it was unneeded: ChartPanel's entire platform surface is **1 GL call and 3 nfd calls, all inside `export_png`**, and ImPlot itself is platform-free (`<immintrin.h>`, `<stdlib.h>` only) | `ChartPanel` **joins** `cellwright_ui`. A second port, `FramebufferReader`, injects the one `glReadPixels`. ImPlot moves out of the `CELLWRIGHT_BUILD_APP` guard alongside `imgui_core`, being portable. What stays deferred is asserting what a chart *looks* like — the genuinely visual part |
+
 ## Acceptance
 
 | ID | Criterion | Oracle | Rung |
 |----|-----------|--------|------|
 | C1 | The UI test target builds **and its tests run** under `cmake --preset gcc` | `ctest --preset gcc` includes the new UI tests and passes | mechanical |
-| C1b | `cellwright_ui` depends on no platform library | `grep -rn 'nfd\|implot\|GLFW' src/ui/` → empty; and C1 passing proves it by construction | mechanical |
+| C1b | `cellwright_ui` depends on no platform library | `grep -rn 'nfd\|GLFW\|OpenGL/gl\|GL/gl' src/ui/` → empty (ImPlot is allowed: it is portable). C1 passing proves it by construction | mechanical |
 | C2 | WHEN the Insert Row context action is dispatched THE undo stack SHALL contain one `InsertRowCommand` | new test; assert on `UndoManager` depth and `description()` | 3 |
 | C3 | WHEN the plugin-trust modal is triggered THE modal flag SHALL be set, and cleared on dismiss | new test; assert the observable flag across frames | 3 |
 | C4 | WHEN a click is injected at a known cell rect THE grid SHALL report that cell selected | new test; assert `GridState::selection` | 3 |
 | C4b | WHEN `do_open` runs with a fake dialog returning a known path THE session SHALL load that file | new test injecting a stub `FileDialogs` | 3 |
+| C4c | WHEN chart export runs with stub ports THE readback and save ports SHALL each be called once with the computed rect | new test injecting stub `FramebufferReader` + `FileDialogs`; reuses `framebuffer_rect` from PR #3 | 3 |
 | C5 | No `src/ui/*.cpp` includes a header it does not use | per-TU: strip each candidate include, recompile, confirm failure ⇒ it was needed | mechanical |
 | C6 | Existing suites unaffected | `tools/verify.sh` green; no existing test edited | 3 |
 | C7 | A7's manual pass is reduced, not eliminated | **UNCHECKABLE** — headless tests cannot show the app *draws* correctly. Partial evidence accepted: C2-C4 cover dispatch/state; the residual manual check shrinks to "does it visibly render", recorded in spec 01 | — |
@@ -117,6 +126,7 @@ caveat. This slice closes that gap. It is not a rescue.
 | C3 | todo | | |
 | C4 | todo | | |
 | C4b | todo | | |
+| C4c | todo | | |
 | C5 | todo | | |
 | C6 | todo | | |
 | C7 | todo | | residual manual check, see spec 01 A7 |

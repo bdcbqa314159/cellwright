@@ -39,6 +39,25 @@ add_library(imgui_core STATIC
 
 target_include_directories(imgui_core SYSTEM PUBLIC ${imgui_SOURCE_DIR})
 
+# ImPlot is portable C++ — it draws through ImGui's draw lists and includes only
+# <immintrin.h> and <stdlib.h> (verified). Built unconditionally alongside imgui_core
+# so ChartPanel can live in cellwright_ui and compile headlessly.
+# ── ImPlot ───────────────────────────────────────────────────────────────────
+FetchContent_Declare(implot
+    GIT_REPOSITORY https://github.com/epezent/implot.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(implot)
+
+# ImPlot needs only ImGui core; it draws through ImGui's draw lists.
+add_library(implot_lib STATIC
+    ${implot_SOURCE_DIR}/implot.cpp
+    ${implot_SOURCE_DIR}/implot_items.cpp
+)
+
+target_include_directories(implot_lib SYSTEM PUBLIC ${implot_SOURCE_DIR})
+target_link_libraries(implot_lib PUBLIC imgui_core)
 # GUI-only dependencies. Skipped when CELLWRIGHT_BUILD_APP=OFF so a core+tests build
 # needs no windowing stack — notably GLFW's Objective-C sources, which GCC cannot
 # compile on macOS.
@@ -73,23 +92,6 @@ if(CELLWRIGHT_BUILD_APP)
     elseif(UNIX)
         target_link_libraries(imgui_backends PUBLIC GL)
     endif()
-
-    # ── ImPlot ───────────────────────────────────────────────────────────────────
-    FetchContent_Declare(implot
-        GIT_REPOSITORY https://github.com/epezent/implot.git
-        GIT_TAG        master
-        GIT_SHALLOW    TRUE
-    )
-    FetchContent_MakeAvailable(implot)
-
-    # ImPlot needs only ImGui core; it draws through ImGui's draw lists.
-    add_library(implot_lib STATIC
-        ${implot_SOURCE_DIR}/implot.cpp
-        ${implot_SOURCE_DIR}/implot_items.cpp
-    )
-
-    target_include_directories(implot_lib SYSTEM PUBLIC ${implot_SOURCE_DIR})
-    target_link_libraries(implot_lib PUBLIC imgui_core)
 
 endif()
 
